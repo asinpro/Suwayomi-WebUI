@@ -17,6 +17,7 @@ import BookmarkAdd from '@mui/icons-material/BookmarkAdd';
 import DoneAll from '@mui/icons-material/DoneAll';
 import Translate from '@mui/icons-material/Translate';
 import { ComponentProps, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { SelectableCollectionReturnType } from '@/features/collection/hooks/useSelectableCollection.ts';
 import { Chapters } from '@/features/chapter/services/Chapters.ts';
 import { MenuItem } from '@/base/components/menu/MenuItem.tsx';
@@ -43,7 +44,6 @@ import {
 } from '@/features/chapter/Chapter.types.ts';
 import { IconWebView } from '@/assets/icons/IconWebView.tsx';
 import { IconBrowser } from '@/assets/icons/IconBrowser.tsx';
-import { useNavigate } from 'react-router-dom';
 import { AppRoutes } from '@/base/AppRoute.constants.ts';
 
 type BaseProps = { onClose: () => void; selectable?: boolean };

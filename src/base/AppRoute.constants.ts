@@ -197,8 +197,11 @@ export const AppRoutes = {
     },
     reader: {
         match: '/manga/:mangaId/chapter/:chapterSourceOrder/*',
-        path: (mangaId: MangaIdInfo['id'], chapterSourceOrder: ChapterSourceOrderInfo['sourceOrder'], query?: Record<string, any>) =>
-            addQueryParams(`/manga/${mangaId}/chapter/${chapterSourceOrder}`, query),
+        path: (
+            mangaId: MangaIdInfo['id'],
+            chapterSourceOrder: ChapterSourceOrderInfo['sourceOrder'],
+            query?: Record<string, any>,
+        ) => addQueryParams(`/manga/${mangaId}/chapter/${chapterSourceOrder}`, query),
     },
     more: {
         match: '/more',

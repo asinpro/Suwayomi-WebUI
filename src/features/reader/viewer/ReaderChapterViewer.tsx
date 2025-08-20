@@ -44,7 +44,7 @@ import { LoadingPlaceholder } from '@/base/components/feedback/LoadingPlaceholde
 import { ReaderInfiniteScrollUpdateChapter } from '@/features/reader/infinite-scroll/ReaderInfiniteScrollUpdateChapter.tsx';
 import { useResizeObserver } from '@/base/hooks/useResizeObserver.tsx';
 import { ChapterIdInfo } from '@/features/chapter/Chapter.types.ts';
-//import { useLocation } from 'react-router-dom';
+// import { useLocation } from 'react-router-dom';
 
 const BaseReaderChapterViewer = ({
     currentPageIndex,
@@ -137,11 +137,11 @@ const BaseReaderChapterViewer = ({
     }) => {
     const { t } = useTranslation();
     const { direction: themeDirection } = useTheme();
-    /*const location = useLocation();
+    /* const location = useLocation();
     const searchParams = new URLSearchParams(location.search);
     const forceTranslatedRaw = searchParams.get('forceTranslated');
     const forceTranslated =
-        forceTranslatedRaw === '1';*/
+        forceTranslatedRaw === '1'; */
 
     const [fetchPages, pagesResponse] = requestManager.useGetChapterPagesFetch(chapterId ?? -1, forceTranslated);
 

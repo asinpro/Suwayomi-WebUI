@@ -44,7 +44,7 @@ import { LoadingPlaceholder } from '@/base/components/feedback/LoadingPlaceholde
 import { ReaderInfiniteScrollUpdateChapter } from '@/features/reader/infinite-scroll/ReaderInfiniteScrollUpdateChapter.tsx';
 import { useResizeObserver } from '@/base/hooks/useResizeObserver.tsx';
 import { ChapterIdInfo } from '@/features/chapter/Chapter.types.ts';
-// import { useLocation } from 'react-router-dom';
+import { userReaderStatePagesContext } from '@/features/reader/contexts/state/ReaderStatePagesContext.tsx';
 
 const BaseReaderChapterViewer = ({
     currentPageIndex,

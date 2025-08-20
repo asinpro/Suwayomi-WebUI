@@ -7,7 +7,7 @@
  */
 
 import { memo, useCallback } from 'react';
-import { SpinnerImage, SpinnerImageProps } from '@/base/components/SpinnerImage.tsx';
+import { ReaderPageImage } from '@/features/reader/viewer/components/ReaderPageImage';
 import {
     IReaderSettings,
     ReaderCustomFilter,
@@ -22,6 +22,8 @@ import {
 import { applyStyles } from '@/base/utils/ApplyStyles.ts';
 import { MediaQuery } from '@/base/utils/MediaQuery.tsx';
 import { NavbarContextType } from '@/features/navigation-bar/NavigationBar.types.ts';
+import { SpinnerImageProps } from '@/base/components/SpinnerImage.tsx';
+import { ReaderStatePages } from '@/features/reader/overlay/progress-bar/ReaderProgressBar.types.ts';
 
 const getCustomFilterString = (customFilter: ReaderCustomFilter): string =>
     Object.keys(customFilter)
@@ -74,7 +76,7 @@ const BaseReaderPage = ({
     readerNavBarWidth,
     isLoaded,
     ...props
-}: Omit<SpinnerImageProps, 'spinnerStyle' | 'imgStyle' | 'onLoad' | 'onError'> &
+}: Omit<SpinnerImageProps, 'spinnerStyle' | 'imgStyle' | 'onLoad' | 'onError' | 'src'> &
     Pick<IReaderSettings, 'readingMode' | 'customFilter' | 'pageScaleMode' | 'shouldStretchPage' | 'readerWidth'> &
     Pick<TReaderScrollbarContext, 'scrollbarXSize' | 'scrollbarYSize'> &
     Pick<NavbarContextType, 'readerNavBarWidth'> & {
@@ -89,16 +91,18 @@ const BaseReaderPage = ({
         onError: ReaderPagerProps['onError'];
         setRef?: (pagesIndex: number, ref: HTMLElement | null) => void;
         isLoaded?: boolean;
+        page: ReaderStatePages['pages'][number];
     }) => {
-    const { src } = props;
+    const { page } = props;
+    const { url: originalUrl, translatedUrl } = page?.primary || {};
 
     const isTabletWidth = MediaQuery.useIsTabletWidth();
 
     const handleLoad = useCallback(
-        () => onLoad?.(pagesIndex, src, isPrimaryPage),
-        [onLoad, pagesIndex, src, isPrimaryPage],
+        () => onLoad?.(pagesIndex, originalUrl, isPrimaryPage),
+        [onLoad, pagesIndex, originalUrl, isPrimaryPage],
     );
-    const handleError = useCallback(() => onError?.(pageIndex, src), [onError, pageIndex, src]);
+    const handleError = useCallback(() => onError?.(pageIndex, originalUrl), [onError, pageIndex, originalUrl]);
     const updateRef = useCallback((element: HTMLElement | null) => setRef?.(pagesIndex, element), [pagesIndex, setRef]);
 
     if (!display && !shouldLoad) {
@@ -106,8 +110,10 @@ const BaseReaderPage = ({
     }
 
     return (
-        <SpinnerImage
+        <ReaderPageImage
             {...props}
+            originalSrc={originalUrl}
+            translatedSrc={translatedUrl}
             onLoad={handleLoad}
             onError={handleError}
             shouldLoad={shouldLoad}

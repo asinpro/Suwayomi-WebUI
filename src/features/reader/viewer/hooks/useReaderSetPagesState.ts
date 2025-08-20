@@ -47,14 +47,15 @@ export const useReaderSetPagesState = (
             return;
         }
 
-        const { pages: pagesFromResponse } = pagesPayload;
+        const { pages: pagesFromResponse, translation } = pagesPayload;
         const newPages = pagesFromResponse.length ? pagesFromResponse : [''];
+        const translatedPages = translation?.imageUrls ?? [];
         const initialReaderPageIndex = getInitialReaderPageIndex(resumeMode, lastPageRead ?? 0, newPages.length - 1);
 
         const didPagesChange = previousPageData.current !== pagesPayload?.pages;
         if (didPagesChange) {
             previousPageData.current = pagesPayload.pages;
-            const newPageData = createPagesData(newPages);
+            const newPageData = createPagesData(newPages, translatedPages);
 
             setArePagesFetched(true);
             setPages(newPageData);

@@ -243,18 +243,28 @@ export const getImageMarginStyling = (doublePage: boolean, objectFitPosition?: '
     }),
 });
 
-export const createSinglePageData = (url: string, index: number): ReaderStatePages['pages'][number]['primary'] => ({
+export const createSinglePageData = (
+    url: string,
+    index: number,
+    translatedUrl?: string,
+): ReaderStatePages['pages'][number]['primary'] => ({
     index,
     alt: `Page #${index + 1}`,
     url: `${requestManager.getBaseUrl()}${url}`,
+    translatedUrl: translatedUrl ? `${requestManager.getBaseUrl()}${translatedUrl}` : undefined,
 });
 
-export const createPageData = (url: string, index: number): ReaderStatePages['pages'][number] => ({
+export const createPageData = (
+    url: string,
+    index: number,
+    translatedUrl?: string,
+): ReaderStatePages['pages'][number] => ({
     name: `${index + 1}`,
-    primary: createSinglePageData(url, index),
+    primary: createSinglePageData(url, index, translatedUrl),
 });
 
-export const createPagesData = (pageUrls: string[]): ReaderStatePages['pages'] => pageUrls.map(createPageData);
+export const createPagesData = (pageUrls: string[], translatedUrls?: string[]): ReaderStatePages['pages'] =>
+    pageUrls.map((url, idx) => createPageData(url, idx, translatedUrls?.[idx]));
 
 const getPageDownloadPriority = (
     currentPageIndex: number,
@@ -279,7 +289,7 @@ const getPageDownloadPriority = (
 };
 
 export const createReaderPage = (
-    { primary: { index, alt, url } }: ReaderStatePages['pages'][number],
+    pageData: ReaderStatePages['pages'][number],
     pagesIndex: number,
     isPrimaryPage: boolean,
     isLoaded: boolean,
@@ -303,35 +313,41 @@ export const createReaderPage = (
     isDoublePage?: boolean,
     marginTop?: number,
     setRef?: (pagesIndex: number, ref: HTMLElement | null) => void,
-): ReactNode => (
-    <ReaderPage
-        setRef={setRef}
-        pageIndex={index}
-        pagesIndex={pagesIndex}
-        isPrimaryPage={isPrimaryPage}
-        key={url}
-        src={url}
-        alt={alt}
-        display={display}
-        priority={getPageDownloadPriority(currentPageIndex, index, totalPages, shouldLoad, isPreloadMode)}
-        position={position}
-        onLoad={onLoad}
-        onError={onError}
-        doublePage={isDoublePage}
-        shouldLoad={shouldLoad}
-        retryKeyPrefix={retryKeyPrefix}
-        marginTop={marginTop}
-        isLoaded={isLoaded}
-        readingMode={readingMode}
-        customFilter={customFilter}
-        pageScaleMode={pageScaleMode}
-        shouldStretchPage={shouldStretchPage}
-        readerWidth={readerWidth}
-        scrollbarXSize={scrollbarXSize}
-        scrollbarYSize={scrollbarYSize}
-        readerNavBarWidth={readerNavBarWidth}
-    />
-);
+): ReactNode => {
+    const {
+        primary: { index, alt },
+    } = pageData;
+
+    return (
+        <ReaderPage
+            setRef={setRef}
+            pageIndex={index}
+            pagesIndex={pagesIndex}
+            isPrimaryPage={isPrimaryPage}
+            key={alt}
+            page={pageData}
+            alt={alt}
+            display={display}
+            priority={getPageDownloadPriority(currentPageIndex, index, totalPages, shouldLoad, isPreloadMode)}
+            position={position}
+            onLoad={onLoad}
+            onError={onError}
+            doublePage={isDoublePage}
+            shouldLoad={shouldLoad}
+            retryKeyPrefix={retryKeyPrefix}
+            marginTop={marginTop}
+            isLoaded={isLoaded}
+            readingMode={readingMode}
+            customFilter={customFilter}
+            pageScaleMode={pageScaleMode}
+            shouldStretchPage={shouldStretchPage}
+            readerWidth={readerWidth}
+            scrollbarXSize={scrollbarXSize}
+            scrollbarYSize={scrollbarYSize}
+            readerNavBarWidth={readerNavBarWidth}
+        />
+    );
+};
 
 type InViewportThresholds = {
     top?: number;
@@ -431,6 +447,7 @@ export const getDoublePageModePages = (
     pagesToSpreadState: ReaderPageSpreadState[],
     shouldOffsetDoubleSpreads: IReaderSettings['shouldOffsetDoubleSpreads'],
     direction: ReadingDirection,
+    translatedUrls: string[],
 ): ReaderStatePages['pages'] => {
     const doublePageModePages: ReaderStatePages['pages'] = [];
 
@@ -497,7 +514,7 @@ export const getDoublePageModePages = (
 
             doublePageModePages[doublePageModePages.length - 1] = {
                 ...doublePageModePage,
-                secondary: createSinglePageData(url, index),
+                secondary: createSinglePageData(url, index, translatedUrls[index]),
             };
             return;
         }
@@ -507,7 +524,7 @@ export const getDoublePageModePages = (
 
         doublePageModePages.push({
             name: direction === ReadingDirection.LTR ? pageName : reverseString(pageName, SEPARATOR),
-            primary: createSinglePageData(url, index),
+            primary: createSinglePageData(url, index, translatedUrls[index]),
         });
     });
 

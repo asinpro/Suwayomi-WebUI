@@ -7,6 +7,7 @@
  */
 
 import BookmarkIcon from '@mui/icons-material/Bookmark';
+import TranslateIcon from '@mui/icons-material/Translate';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import CardActionArea from '@mui/material/CardActionArea';
 import Checkbox from '@mui/material/Checkbox';
@@ -48,7 +49,7 @@ type TChapter = ChapterIdInfo &
     ChapterBookmarkInfo &
     ChapterNumberInfo &
     ChapterScanlatorInfo &
-    Pick<ChapterType, 'name' | 'sourceOrder' | 'uploadDate'>;
+    Pick<ChapterType, 'name' | 'sourceOrder' | 'uploadDate' | 'isTranslated'>;
 
 interface IProps {
     mode?: 'manga.page' | 'reader';
@@ -142,11 +143,22 @@ export const ChapterCard = memo((props: IProps) => {
                                     secondaryText={chapter.scanlator}
                                     ternaryText={`${getDateString(Number(chapter.uploadDate ?? 0), true)}${isDownloaded ? ` • ${t('chapter.status.label.downloaded')}` : ''}`}
                                     infoIcons={
-                                        chapter.isBookmarked && (
-                                            <BookmarkIcon
-                                                color={mode === 'reader' && isActiveChapter ? 'secondary' : 'primary'}
-                                            />
-                                        )
+                                        <>
+                                            {chapter.isBookmarked && (
+                                                <BookmarkIcon
+                                                    color={
+                                                        mode === 'reader' && isActiveChapter ? 'secondary' : 'primary'
+                                                    }
+                                                />
+                                            )}
+                                            {chapter.isTranslated && (
+                                                <CustomTooltip
+                                                    title={t('chapter.status.label.translated', 'Translated')}
+                                                >
+                                                    <TranslateIcon color="primary" sx={{ ml: 0.5 }} />
+                                                </CustomTooltip>
+                                            )}
+                                        </>
                                     }
                                     slotProps={{
                                         title: {

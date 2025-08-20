@@ -159,7 +159,8 @@
     },
     "status": {
       "label": {
-        "downloaded": "Downloaded"
+        "downloaded": "Downloaded",
+        "translated": "Translated"
       }
     },
     "title_one": "Chapter",
@@ -881,7 +882,9 @@
       "open_menu": "Open menu",
       "previous_chapter": "Previous chapter",
       "previous_page": "Previous page",
-      "retry_load_pages": "Retry errored pages"
+      "retry_load_pages": "Retry errored pages",
+      "show_translation": "Show Translation",
+      "hide_translation": "Hide Translation"
     },
     "chapter_transition": {
       "warning": {

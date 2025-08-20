@@ -75,6 +75,7 @@ export const SpinnerImage = forwardRef(
 
         const updateImageState = (loading: boolean, error: boolean = false, aborted: boolean = false) => {
             setIsLoading(loading);
+            // setIsVisible(loading);
             setHasError(error);
 
             if (error && !loading && !aborted) {
@@ -162,7 +163,7 @@ export const SpinnerImage = forwardRef(
                 ) : (
                     <Box
                         component="img"
-                        key={`${src}_${imgLoadRetryKey}_${retryKeyPrefix}`}
+                        key={`${alt}_${imgLoadRetryKey}_${retryKeyPrefix}`}
                         sx={[
                             ...(Array.isArray(imgStyle) ? (imgStyle ?? []) : [imgStyle]),
                             applyStyles(!imageSourceUrl || isLoading || hasError, {

@@ -32,6 +32,9 @@ export const GET_CHAPTER_PAGES_FETCH = gql`
                 pageCount
             }
             pages
+            translation {
+                imageUrls
+            }
         }
     }
 `;

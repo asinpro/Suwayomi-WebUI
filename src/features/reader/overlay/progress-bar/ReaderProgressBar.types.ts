@@ -14,6 +14,7 @@ interface SinglePageData {
     index: number;
     alt: string;
     url: string;
+    translatedUrl?: string;
 }
 
 interface PageData {
@@ -39,6 +40,8 @@ export interface ReaderStatePages {
     setTransitionPageMode: React.Dispatch<React.SetStateAction<ReaderTransitionPageMode>>;
     retryFailedPagesKeyPrefix: string;
     setRetryFailedPagesKeyPrefix: React.Dispatch<React.SetStateAction<string>>;
+    showTranslation: boolean;
+    setShowTranslation: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export interface ReaderProgressBarProps

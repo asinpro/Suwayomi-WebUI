@@ -160,6 +160,11 @@ const BaseReader = ({
         setManga(mangaResponse.data?.manga);
     }, [mangaResponse.data?.manga]);
 
+    const { setShowTranslation } = userReaderStatePagesContext();
+    useEffect(() => {
+        setShowTranslation(true);
+    }, []);
+
     useReaderResetStates(
         setManga,
         setReaderStateChapters,

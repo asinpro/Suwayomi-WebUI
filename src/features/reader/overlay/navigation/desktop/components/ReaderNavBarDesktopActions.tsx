@@ -13,6 +13,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import ReplayIcon from '@mui/icons-material/Replay';
 import { memo, useMemo, useRef } from 'react';
 import DeleteIcon from '@mui/icons-material/Delete';
+import TranslateIcon from '@mui/icons-material/Translate';
 import { CustomTooltip } from '@/base/components/CustomTooltip.tsx';
 import { Chapters } from '@/features/chapter/services/Chapters.ts';
 import { ReaderStateChapters } from '@/features/reader/Reader.types.ts';
@@ -66,8 +67,17 @@ const BaseReaderNavBarDesktopActions = memo(
         pageLoadStates,
         setPageLoadStates,
         setRetryFailedPagesKeyPrefix,
+        showTranslation,
+        setShowTranslation,
     }: Required<Pick<ReaderStateChapters, 'currentChapter'>> &
-        Pick<ReaderStatePages, 'pageLoadStates' | 'setPageLoadStates' | 'setRetryFailedPagesKeyPrefix'>) => {
+        Pick<
+            ReaderStatePages,
+            | 'pageLoadStates'
+            | 'setPageLoadStates'
+            | 'setRetryFailedPagesKeyPrefix'
+            | 'showTranslation'
+            | 'setShowTranslation'
+        >) => {
         const { id, isBookmarked, realUrl } = currentChapter ?? FALLBACK_CHAPTER;
 
         const { t } = useTranslation();
@@ -78,6 +88,10 @@ const BaseReaderNavBarDesktopActions = memo(
             () => pageLoadStates.some((pageLoadState) => pageLoadState.error),
             [pageLoadStates],
         );
+
+        const handleShowTranslation = () => {
+            setShowTranslation(!showTranslation);
+        };
 
         return (
             <Stack sx={{ flexDirection: 'row', justifyContent: 'center', gap: 1 }}>
@@ -102,6 +116,18 @@ const BaseReaderNavBarDesktopActions = memo(
                     </IconButton>
                 </CustomTooltip>
                 <DownloadButton currentChapter={currentChapter} />
+                <CustomTooltip
+                    title={t(showTranslation ? 'reader.button.hide_translation' : 'reader.button.show_translation')}
+                    disabled={!currentChapter?.isTranslated}
+                >
+                    <IconButton
+                        onClick={handleShowTranslation}
+                        color={showTranslation ? 'primary' : 'inherit'}
+                        disabled={!currentChapter?.isTranslated}
+                    >
+                        <TranslateIcon />
+                    </IconButton>
+                </CustomTooltip>
                 <CustomTooltip title={t('global.button.open_browser')} disabled={!realUrl}>
                     <IconButton
                         disabled={!realUrl}
@@ -132,5 +158,12 @@ const BaseReaderNavBarDesktopActions = memo(
 export const ReaderNavBarDesktopActions = withPropsFrom(
     BaseReaderNavBarDesktopActions,
     [useReaderStateChaptersContext, userReaderStatePagesContext],
-    ['currentChapter', 'pageLoadStates', 'setPageLoadStates', 'setRetryFailedPagesKeyPrefix'],
+    [
+        'currentChapter',
+        'pageLoadStates',
+        'setPageLoadStates',
+        'setRetryFailedPagesKeyPrefix',
+        'showTranslation',
+        'setShowTranslation',
+    ],
 );

@@ -157,6 +157,8 @@ const BaseReaderChapterViewer = ({
     const imageRefs = useRef<(HTMLElement | null)[]>(pages.map(() => null));
     const pagerRef = useRef<HTMLDivElement>(null);
 
+    const translatedUrls = pagesResponse.data?.fetchChapterPages?.translation?.imageUrls ?? [];
+
     const actualPages = useMemo(() => {
         const arePagesLoaded = !!totalPages;
         if (!arePagesLoaded) {
@@ -169,7 +171,13 @@ const BaseReaderChapterViewer = ({
         }
 
         if (readingMode === ReadingMode.DOUBLE_PAGE) {
-            return getDoublePageModePages(pageUrls, pagesToSpreadState, shouldOffsetDoubleSpreads, readingDirection);
+            return getDoublePageModePages(
+                pageUrls,
+                pagesToSpreadState,
+                shouldOffsetDoubleSpreads,
+                readingDirection,
+                translatedUrls,
+            );
         }
 
         return pages;
@@ -301,6 +309,7 @@ const BaseReaderChapterViewer = ({
         (value) => updateState(value, setPagesToSpreadState, noOp, true),
         (value) => updateState(value, noOp, updateCurrentPageIndex),
         readingMode,
+        translatedUrls,
     );
 
     // for non-continuous reading modes, only the current, previous and next chapter are relevant

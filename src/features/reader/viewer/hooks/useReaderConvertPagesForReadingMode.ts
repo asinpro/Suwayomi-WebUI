@@ -21,6 +21,7 @@ export const useReaderConvertPagesForReadingMode = (
     setPagesToSpreadState: (states: ReaderPageSpreadState[]) => void,
     updateCurrentPageIndex: ReturnType<typeof ReaderControls.useUpdateCurrentPageIndex>,
     readingMode: ReadingMode,
+    translatedUrls: string[],
 ) => {
     const [wasDoublePageMode, setWasDoublePageMode] = useState(readingMode === ReadingMode.DOUBLE_PAGE);
 
@@ -29,7 +30,7 @@ export const useReaderConvertPagesForReadingMode = (
         if (convertPagesToNormalPageMode) {
             setWasDoublePageMode(false);
 
-            const newPageData = createPagesData(pageUrls);
+            const newPageData = createPagesData(pageUrls, translatedUrls);
             setPages(newPageData);
             setPagesToSpreadState(newPageData.map(({ primary: { url } }) => ({ url, isSpread: false })));
             return;

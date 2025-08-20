@@ -240,7 +240,7 @@ const BaseReaderChapterViewer = ({
 
     useEffect(() => {
         doFetchPages();
-    }, [chapterId]);
+    }, [doFetchPages]);
 
     useResizeObserver(
         ref,

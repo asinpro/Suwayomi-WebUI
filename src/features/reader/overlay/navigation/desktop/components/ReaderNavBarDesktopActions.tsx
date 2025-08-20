@@ -67,8 +67,17 @@ const BaseReaderNavBarDesktopActions = memo(
         pageLoadStates,
         setPageLoadStates,
         setRetryFailedPagesKeyPrefix,
+        forceTranslated,
+        setForceTranslated,
     }: Required<Pick<ReaderStateChapters, 'currentChapter'>> &
-        Pick<ReaderStatePages, 'pageLoadStates' | 'setPageLoadStates' | 'setRetryFailedPagesKeyPrefix'>) => {
+        Pick<
+            ReaderStatePages,
+            | 'pageLoadStates'
+            | 'setPageLoadStates'
+            | 'setRetryFailedPagesKeyPrefix'
+            | 'forceTranslated'
+            | 'setForceTranslated'
+        >) => {
         const { id, isBookmarked, realUrl } = currentChapter ?? FALLBACK_CHAPTER;
 
         const { t } = useTranslation();
@@ -79,6 +88,10 @@ const BaseReaderNavBarDesktopActions = memo(
             () => pageLoadStates.some((pageLoadState) => pageLoadState.error),
             [pageLoadStates],
         );
+
+        const handleShowTranslation = () => {
+            setForceTranslated(!forceTranslated);
+        };
 
         return (
             <Stack sx={{ flexDirection: 'row', justifyContent: 'center', gap: 1 }}>
@@ -104,7 +117,7 @@ const BaseReaderNavBarDesktopActions = memo(
                 </CustomTooltip>
                 <DownloadButton currentChapter={currentChapter} />
                 <CustomTooltip title={t('reader.button.show_translation')}>
-                    <IconButton color="inherit">
+                    <IconButton onClick={handleShowTranslation} color={forceTranslated ? 'primary' : 'inherit'}>
                         <TranslateIcon />
                     </IconButton>
                 </CustomTooltip>
@@ -138,5 +151,12 @@ const BaseReaderNavBarDesktopActions = memo(
 export const ReaderNavBarDesktopActions = withPropsFrom(
     BaseReaderNavBarDesktopActions,
     [useReaderStateChaptersContext, userReaderStatePagesContext],
-    ['currentChapter', 'pageLoadStates', 'setPageLoadStates', 'setRetryFailedPagesKeyPrefix'],
+    [
+        'currentChapter',
+        'pageLoadStates',
+        'setPageLoadStates',
+        'setRetryFailedPagesKeyPrefix',
+        'forceTranslated',
+        'setForceTranslated',
+    ],
 );

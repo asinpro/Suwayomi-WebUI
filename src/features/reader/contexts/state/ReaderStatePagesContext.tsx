@@ -28,6 +28,8 @@ export const ReaderStatePagesContext = createContext<ReaderStatePages>({
     setTransitionPageMode: () => undefined,
     retryFailedPagesKeyPrefix: '',
     setRetryFailedPagesKeyPrefix: () => undefined,
+    forceTranslated: false,
+    setForceTranslated: () => undefined,
 });
 
 export const userReaderStatePagesContext = () => useContext(ReaderStatePagesContext);
@@ -53,6 +55,9 @@ export const ReaderStatePagesContextProvider = ({ children }: { children: ReactN
     const [retryFailedPagesKeyPrefix, setRetryFailedPagesKeyPrefix] = useState<
         ReaderStatePages['retryFailedPagesKeyPrefix']
     >(READER_STATE_PAGES_DEFAULTS.retryFailedPagesKeyPrefix);
+    const [forceTranslated, setForceTranslated] = useState<ReaderStatePages['forceTranslated']>(
+        READER_STATE_PAGES_DEFAULTS.forceTranslated,
+    );
 
     const value = useMemo(
         () => ({
@@ -72,6 +77,8 @@ export const ReaderStatePagesContextProvider = ({ children }: { children: ReactN
             setTransitionPageMode,
             retryFailedPagesKeyPrefix,
             setRetryFailedPagesKeyPrefix,
+            forceTranslated,
+            setForceTranslated,
         }),
         [
             totalPages,
@@ -82,6 +89,7 @@ export const ReaderStatePagesContextProvider = ({ children }: { children: ReactN
             pageLoadStates,
             transitionPageMode,
             retryFailedPagesKeyPrefix,
+            forceTranslated,
         ],
     );
 

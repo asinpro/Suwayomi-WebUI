@@ -39,6 +39,8 @@ export interface ReaderStatePages {
     setTransitionPageMode: React.Dispatch<React.SetStateAction<ReaderTransitionPageMode>>;
     retryFailedPagesKeyPrefix: string;
     setRetryFailedPagesKeyPrefix: React.Dispatch<React.SetStateAction<string>>;
+    forceTranslated: boolean;
+    setForceTranslated: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export interface ReaderProgressBarProps

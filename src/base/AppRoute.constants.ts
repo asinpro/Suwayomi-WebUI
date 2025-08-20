@@ -33,7 +33,7 @@ const addParams = (path: string, ...params: string[]) => {
 const addQueryParams = (path: string, params?: Record<string, any>) => {
     if (!params) return path;
     const query = Object.entries(params)
-        .filter(([_, v]) => v !== undefined && v !== null)
+        .filter(([, v]) => v !== undefined && v !== null)
         .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
         .join('&');
     return query ? `${path}?${query}` : path;

@@ -137,11 +137,8 @@ const BaseReaderChapterViewer = ({
     }) => {
     const { t } = useTranslation();
     const { direction: themeDirection } = useTheme();
-    /* const location = useLocation();
-    const searchParams = new URLSearchParams(location.search);
-    const forceTranslatedRaw = searchParams.get('forceTranslated');
-    const forceTranslated =
-        forceTranslatedRaw === '1'; */
+
+    const { forceTranslated } = userReaderStatePagesContext();
 
     const [fetchPages, pagesResponse] = requestManager.useGetChapterPagesFetch(chapterId ?? -1, forceTranslated);
 
@@ -210,7 +207,7 @@ const BaseReaderChapterViewer = ({
         fetchPages({ variables: { input: { chapterId, forceTranslated } } }).catch(
             defaultPromiseErrorHandler(`ReaderChapterViewer(${chapterId})::fetchPages`),
         );
-    }, [fetchPages, chapterId]);
+    }, [fetchPages, chapterId, forceTranslated]);
 
     const onLoad = useMemo(
         () =>

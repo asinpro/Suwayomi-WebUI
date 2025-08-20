@@ -27,4 +27,6 @@ export const READER_STATE_PAGES_DEFAULTS: ReaderStatePages = {
     setTransitionPageMode: () => undefined,
     retryFailedPagesKeyPrefix: '',
     setRetryFailedPagesKeyPrefix: () => undefined,
+    forceTranslated: false,
+    setForceTranslated: () => undefined,
 };

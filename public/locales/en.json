@@ -873,15 +873,16 @@
   },
   "reader": {
     "button": {
-      "chapter_list": "Chapter list",
-      "close_menu": "Close menu",
-      "exit": "Exit reader",
-      "next_chapter": "Next chapter",
-      "next_page": "Next page",
-      "open_menu": "Open menu",
-      "previous_chapter": "Previous chapter",
-      "previous_page": "Previous page",
-      "retry_load_pages": "Retry errored pages"
+    "chapter_list": "Chapter list",
+    "close_menu": "Close menu",
+    "exit": "Exit reader",
+    "next_chapter": "Next chapter",
+    "next_page": "Next page",
+    "open_menu": "Open menu",
+    "previous_chapter": "Previous chapter",
+    "previous_page": "Previous page",
+    "retry_load_pages": "Retry errored pages",
+    "show_translation": "Show Translation"
     },
     "chapter_transition": {
       "warning": {

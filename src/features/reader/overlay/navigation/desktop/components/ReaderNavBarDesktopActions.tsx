@@ -13,6 +13,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import ReplayIcon from '@mui/icons-material/Replay';
 import { memo, useMemo, useRef } from 'react';
 import DeleteIcon from '@mui/icons-material/Delete';
+import TranslateIcon from '@mui/icons-material/Translate';
 import { CustomTooltip } from '@/base/components/CustomTooltip.tsx';
 import { Chapters } from '@/features/chapter/services/Chapters.ts';
 import { ReaderStateChapters } from '@/features/reader/Reader.types.ts';
@@ -102,6 +103,11 @@ const BaseReaderNavBarDesktopActions = memo(
                     </IconButton>
                 </CustomTooltip>
                 <DownloadButton currentChapter={currentChapter} />
+                <CustomTooltip title={t('reader.button.show_translation')}>
+                    <IconButton color="inherit">
+                        <TranslateIcon />
+                    </IconButton>
+                </CustomTooltip>
                 <CustomTooltip title={t('global.button.open_browser')} disabled={!realUrl}>
                     <IconButton
                         disabled={!realUrl}

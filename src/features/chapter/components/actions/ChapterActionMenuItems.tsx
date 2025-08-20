@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import BookmarkRemove from '@mui/icons-material/BookmarkRemove';
 import BookmarkAdd from '@mui/icons-material/BookmarkAdd';
 import DoneAll from '@mui/icons-material/DoneAll';
+import Translate from '@mui/icons-material/Translate';
 import { ComponentProps, useMemo } from 'react';
 import { SelectableCollectionReturnType } from '@/features/collection/hooks/useSelectableCollection.ts';
 import { Chapters } from '@/features/chapter/services/Chapters.ts';
@@ -42,6 +43,8 @@ import {
 } from '@/features/chapter/Chapter.types.ts';
 import { IconWebView } from '@/assets/icons/IconWebView.tsx';
 import { IconBrowser } from '@/assets/icons/IconBrowser.tsx';
+import { useNavigate } from 'react-router-dom';
+import { AppRoutes } from '@/base/AppRoute.constants.ts';
 
 type BaseProps = { onClose: () => void; selectable?: boolean };
 
@@ -75,6 +78,7 @@ export const ChapterActionMenuItems = ({
     selectable = true,
 }: Props) => {
     const { t } = useTranslation();
+    const navigate = useNavigate();
 
     const isSingleMode = !!chapter;
     const { isDownloaded, isRead, isBookmarked } = chapter ?? {};
@@ -256,6 +260,19 @@ export const ChapterActionMenuItems = ({
                     onClick={() => performAction('mark_prev_as_read', [])}
                     Icon={DoneAll}
                     title={t('chapter.action.mark_as_read.add.label.action.previous')}
+                />
+            )}
+            {isSingleMode && (
+                <MenuItem
+                    onClick={() => {
+                        // Redirect to reader with forceTranslated param using router config
+                        navigate(AppRoutes.reader.path(chapter.mangaId, chapter.sourceOrder, { forceTranslated: 1 }), {
+                            replace: false,
+                        });
+                        onClose();
+                    }}
+                    Icon={Translate}
+                    title={t('chapter.action.label.read_translation', 'Read Translation')}
                 />
             )}
         </>

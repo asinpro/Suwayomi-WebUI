@@ -2279,13 +2279,14 @@ export class RequestManager {
 
     public useGetChapterPagesFetch(
         chapterId: string | number,
+        forceTranslated: boolean = false,
         options?: MutationHookOptions<GetChapterPagesFetchMutation, GetChapterPagesFetchMutationVariables>,
     ): AbortableApolloUseMutationResponse<GetChapterPagesFetchMutation, GetChapterPagesFetchMutationVariables> {
         return this.doRequest(
             GQLMethod.USE_MUTATION,
             GET_CHAPTER_PAGES_FETCH,
             {
-                input: { chapterId: Number(chapterId) },
+                input: { chapterId: Number(chapterId), forceTranslated },
             },
             options,
         );

@@ -287,6 +287,7 @@ export type CheckBoxPreference = {
   __typename?: 'CheckBoxPreference';
   currentValue?: Maybe<Scalars['Boolean']['output']>;
   default: Scalars['Boolean']['output'];
+  enabled: Scalars['Boolean']['output'];
   key: Scalars['String']['output'];
   summary?: Maybe<Scalars['String']['output']>;
   title?: Maybe<Scalars['String']['output']>;
@@ -323,6 +324,12 @@ export type ClearDownloaderPayload = {
   __typename?: 'ClearDownloaderPayload';
   clientMutationId?: Maybe<Scalars['String']['output']>;
   downloadStatus: DownloadStatus;
+};
+
+export type ConnectKoSyncAccountInput = {
+  clientMutationId?: InputMaybe<Scalars['String']['input']>;
+  password: Scalars['String']['input'];
+  username: Scalars['String']['input'];
 };
 
 export type CreateBackupInput = {
@@ -576,6 +583,7 @@ export type EditTextPreference = {
   default?: Maybe<Scalars['String']['output']>;
   dialogMessage?: Maybe<Scalars['String']['output']>;
   dialogTitle?: Maybe<Scalars['String']['output']>;
+  enabled: Scalars['Boolean']['output'];
   key: Scalars['String']['output'];
   summary?: Maybe<Scalars['String']['output']>;
   text?: Maybe<Scalars['String']['output']>;
@@ -683,6 +691,7 @@ export type ExtensionType = {
 export type FetchChapterPagesInput = {
   chapterId: Scalars['Int']['input'];
   clientMutationId?: InputMaybe<Scalars['String']['input']>;
+  forceTranslated?: InputMaybe<Scalars['Boolean']['input']>;
   format?: InputMaybe<Scalars['String']['input']>;
 };
 
@@ -691,6 +700,7 @@ export type FetchChapterPagesPayload = {
   chapter: ChapterType;
   clientMutationId?: Maybe<Scalars['String']['output']>;
   pages: Array<Scalars['String']['output']>;
+  syncConflict?: Maybe<SyncConflictInfoType>;
 };
 
 export type FetchChaptersInput = {
@@ -853,6 +863,34 @@ export type IntFilterInput = {
   notIn?: InputMaybe<Array<Scalars['Int']['input']>>;
 };
 
+export type KoSyncConnectPayload = {
+  __typename?: 'KoSyncConnectPayload';
+  clientMutationId?: Maybe<Scalars['String']['output']>;
+  message?: Maybe<Scalars['String']['output']>;
+  settings: SettingsType;
+  success: Scalars['Boolean']['output'];
+  username?: Maybe<Scalars['String']['output']>;
+};
+
+export type KoSyncStatusPayload = {
+  __typename?: 'KoSyncStatusPayload';
+  isLoggedIn: Scalars['Boolean']['output'];
+  username?: Maybe<Scalars['String']['output']>;
+};
+
+export enum KoreaderSyncChecksumMethod {
+  Binary = 'BINARY',
+  Filename = 'FILENAME'
+}
+
+export enum KoreaderSyncStrategy {
+  Disabled = 'DISABLED',
+  Prompt = 'PROMPT',
+  Receive = 'RECEIVE',
+  Send = 'SEND',
+  Silent = 'SILENT'
+}
+
 export type LastUpdateTimestampPayload = {
   __typename?: 'LastUpdateTimestampPayload';
   timestamp: Scalars['LongString']['output'];
@@ -874,6 +912,7 @@ export type ListPreference = {
   __typename?: 'ListPreference';
   currentValue?: Maybe<Scalars['String']['output']>;
   default?: Maybe<Scalars['String']['output']>;
+  enabled: Scalars['Boolean']['output'];
   entries: Array<Scalars['String']['output']>;
   entryValues: Array<Scalars['String']['output']>;
   key: Scalars['String']['output'];
@@ -907,6 +946,17 @@ export type LoginTrackerOAuthPayload = {
   clientMutationId?: Maybe<Scalars['String']['output']>;
   isLoggedIn: Scalars['Boolean']['output'];
   tracker: TrackerType;
+};
+
+export type LogoutKoSyncAccountInput = {
+  clientMutationId?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type LogoutKoSyncAccountPayload = {
+  __typename?: 'LogoutKoSyncAccountPayload';
+  clientMutationId?: Maybe<Scalars['String']['output']>;
+  settings: SettingsType;
+  success: Scalars['Boolean']['output'];
 };
 
 export type LogoutTrackerInput = {
@@ -1143,6 +1193,7 @@ export type MultiSelectListPreference = {
   default?: Maybe<Array<Scalars['String']['output']>>;
   dialogMessage?: Maybe<Scalars['String']['output']>;
   dialogTitle?: Maybe<Scalars['String']['output']>;
+  enabled: Scalars['Boolean']['output'];
   entries: Array<Scalars['String']['output']>;
   entryValues: Array<Scalars['String']['output']>;
   key: Scalars['String']['output'];
@@ -1156,6 +1207,7 @@ export type Mutation = {
   bindTrack: BindTrackPayload;
   clearCachedImages: ClearCachedImagesPayload;
   clearDownloader?: Maybe<ClearDownloaderPayload>;
+  connectKoSyncAccount: KoSyncConnectPayload;
   createBackup: CreateBackupPayload;
   createCategory?: Maybe<CreateCategoryPayload>;
   deleteCategory?: Maybe<DeleteCategoryPayload>;
@@ -1179,6 +1231,7 @@ export type Mutation = {
   installExternalExtension?: Maybe<InstallExternalExtensionPayload>;
   loginTrackerCredentials: LoginTrackerCredentialsPayload;
   loginTrackerOAuth: LoginTrackerOAuthPayload;
+  logoutKoSyncAccount: LogoutKoSyncAccountPayload;
   logoutTracker: LogoutTrackerPayload;
   reorderChapterDownload?: Maybe<ReorderChapterDownloadPayload>;
   resetSettings: ResetSettingsPayload;
@@ -1227,6 +1280,11 @@ export type MutationClearCachedImagesArgs = {
 
 export type MutationClearDownloaderArgs = {
   input: ClearDownloaderInput;
+};
+
+
+export type MutationConnectKoSyncAccountArgs = {
+  input: ConnectKoSyncAccountInput;
 };
 
 
@@ -1342,6 +1400,11 @@ export type MutationLoginTrackerCredentialsArgs = {
 
 export type MutationLoginTrackerOAuthArgs = {
   input: LoginTrackerOAuthInput;
+};
+
+
+export type MutationLogoutKoSyncAccountArgs = {
+  input: LogoutKoSyncAccountInput;
 };
 
 
@@ -1570,6 +1633,13 @@ export type PartialSettingsType = Settings & {
   gqlDebugLogsEnabled?: Maybe<Scalars['Boolean']['output']>;
   initialOpenInBrowserEnabled?: Maybe<Scalars['Boolean']['output']>;
   ip?: Maybe<Scalars['String']['output']>;
+  koreaderSyncChecksumMethod?: Maybe<KoreaderSyncChecksumMethod>;
+  koreaderSyncDeviceId?: Maybe<Scalars['String']['output']>;
+  koreaderSyncPercentageTolerance?: Maybe<Scalars['Float']['output']>;
+  koreaderSyncServerUrl?: Maybe<Scalars['String']['output']>;
+  koreaderSyncStrategy?: Maybe<KoreaderSyncStrategy>;
+  koreaderSyncUserkey?: Maybe<Scalars['String']['output']>;
+  koreaderSyncUsername?: Maybe<Scalars['String']['output']>;
   localSourcePath?: Maybe<Scalars['String']['output']>;
   maxLogFileSize?: Maybe<Scalars['String']['output']>;
   maxLogFiles?: Maybe<Scalars['Int']['output']>;
@@ -1627,6 +1697,13 @@ export type PartialSettingsTypeInput = {
   globalUpdateInterval?: InputMaybe<Scalars['Float']['input']>;
   initialOpenInBrowserEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   ip?: InputMaybe<Scalars['String']['input']>;
+  koreaderSyncChecksumMethod?: InputMaybe<KoreaderSyncChecksumMethod>;
+  koreaderSyncDeviceId?: InputMaybe<Scalars['String']['input']>;
+  koreaderSyncPercentageTolerance?: InputMaybe<Scalars['Float']['input']>;
+  koreaderSyncServerUrl?: InputMaybe<Scalars['String']['input']>;
+  koreaderSyncStrategy?: InputMaybe<KoreaderSyncStrategy>;
+  koreaderSyncUserkey?: InputMaybe<Scalars['String']['input']>;
+  koreaderSyncUsername?: InputMaybe<Scalars['String']['input']>;
   localSourcePath?: InputMaybe<Scalars['String']['input']>;
   maxLogFileSize?: InputMaybe<Scalars['String']['input']>;
   maxLogFiles?: InputMaybe<Scalars['Int']['input']>;
@@ -1670,6 +1747,7 @@ export type Query = {
   extension: ExtensionType;
   extensions: ExtensionNodeList;
   getWebUIUpdateStatus: WebUiUpdateStatus;
+  koSyncStatus: KoSyncStatusPayload;
   lastUpdateTimestamp: LastUpdateTimestampPayload;
   libraryUpdateStatus: LibraryUpdateStatus;
   manga: MangaType;
@@ -2018,6 +2096,13 @@ export type Settings = {
   gqlDebugLogsEnabled?: Maybe<Scalars['Boolean']['output']>;
   initialOpenInBrowserEnabled?: Maybe<Scalars['Boolean']['output']>;
   ip?: Maybe<Scalars['String']['output']>;
+  koreaderSyncChecksumMethod?: Maybe<KoreaderSyncChecksumMethod>;
+  koreaderSyncDeviceId?: Maybe<Scalars['String']['output']>;
+  koreaderSyncPercentageTolerance?: Maybe<Scalars['Float']['output']>;
+  koreaderSyncServerUrl?: Maybe<Scalars['String']['output']>;
+  koreaderSyncStrategy?: Maybe<KoreaderSyncStrategy>;
+  koreaderSyncUserkey?: Maybe<Scalars['String']['output']>;
+  koreaderSyncUsername?: Maybe<Scalars['String']['output']>;
   localSourcePath?: Maybe<Scalars['String']['output']>;
   maxLogFileSize?: Maybe<Scalars['String']['output']>;
   maxLogFiles?: Maybe<Scalars['Int']['output']>;
@@ -2105,6 +2190,13 @@ export type SettingsType = Settings & {
   gqlDebugLogsEnabled: Scalars['Boolean']['output'];
   initialOpenInBrowserEnabled: Scalars['Boolean']['output'];
   ip: Scalars['String']['output'];
+  koreaderSyncChecksumMethod: KoreaderSyncChecksumMethod;
+  koreaderSyncDeviceId: Scalars['String']['output'];
+  koreaderSyncPercentageTolerance: Scalars['Float']['output'];
+  koreaderSyncServerUrl: Scalars['String']['output'];
+  koreaderSyncStrategy: KoreaderSyncStrategy;
+  koreaderSyncUserkey: Scalars['String']['output'];
+  koreaderSyncUsername: Scalars['String']['output'];
   localSourcePath: Scalars['String']['output'];
   maxLogFileSize: Scalars['String']['output'];
   maxLogFiles: Scalars['Int']['output'];
@@ -2226,6 +2318,7 @@ export type SourcePreferenceChangeInput = {
 
 export type SourceType = {
   __typename?: 'SourceType';
+  baseUrl?: Maybe<Scalars['String']['output']>;
   displayName: Scalars['String']['output'];
   extension: ExtensionType;
   filters: Array<Filter>;
@@ -2362,10 +2455,17 @@ export type SwitchPreference = {
   __typename?: 'SwitchPreference';
   currentValue?: Maybe<Scalars['Boolean']['output']>;
   default: Scalars['Boolean']['output'];
+  enabled: Scalars['Boolean']['output'];
   key: Scalars['String']['output'];
   summary?: Maybe<Scalars['String']['output']>;
   title?: Maybe<Scalars['String']['output']>;
   visible: Scalars['Boolean']['output'];
+};
+
+export type SyncConflictInfoType = {
+  __typename?: 'SyncConflictInfoType';
+  deviceName: Scalars['String']['output'];
+  remotePage: Scalars['Int']['output'];
 };
 
 export type TextFilter = {

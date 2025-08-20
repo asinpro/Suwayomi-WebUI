@@ -30,6 +30,15 @@ const addParams = (path: string, ...params: string[]) => {
     return `${path}${joinedParams ? `?${joinedParams}` : ''}`;
 };
 
+const addQueryParams = (path: string, params?: Record<string, any>) => {
+    if (!params) return path;
+    const query = Object.entries(params)
+        .filter(([_, v]) => v !== undefined && v !== null)
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+        .join('&');
+    return query ? `${path}?${query}` : path;
+};
+
 export const AppRoutes = {
     root: {
         match: '/',
@@ -188,8 +197,8 @@ export const AppRoutes = {
     },
     reader: {
         match: '/manga/:mangaId/chapter/:chapterSourceOrder/*',
-        path: (mangaId: MangaIdInfo['id'], chapterSourceOrder: ChapterSourceOrderInfo['sourceOrder']) =>
-            `/manga/${mangaId}/chapter/${chapterSourceOrder}`,
+        path: (mangaId: MangaIdInfo['id'], chapterSourceOrder: ChapterSourceOrderInfo['sourceOrder'], query?: Record<string, any>) =>
+            addQueryParams(`/manga/${mangaId}/chapter/${chapterSourceOrder}`, query),
     },
     more: {
         match: '/more',

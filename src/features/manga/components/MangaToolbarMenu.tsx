@@ -21,7 +21,7 @@ import SyncAltIcon from '@mui/icons-material/SyncAlt';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { CustomTooltip } from '@/base/components/CustomTooltip.tsx';
-import { useCategorySelect } from '@/features/category/hooks/useCategorySelect.tsx';
+// Removed useCategorySelect import
 import { MangaType } from '@/lib/graphql/generated/graphql.ts';
 import { AppRoutes } from '@/base/AppRoute.constants.ts';
 
@@ -43,9 +43,7 @@ export const MangaToolbarMenu = ({ manga, onRefresh, refreshing }: IProps) => {
         setAnchorEl(null);
     };
 
-    const { openCategorySelect, CategorySelectComponent } = useCategorySelect({
-        mangaId: manga.id,
-    });
+    // Category feature is deleted, so these are removed
 
     return (
         <>
@@ -71,7 +69,6 @@ export const MangaToolbarMenu = ({ manga, onRefresh, refreshing }: IProps) => {
                                         manga.id,
                                         manga.title,
                                     )}
-                                    state={{ mangaTitle: manga.title }}
                                     style={{ textDecoration: 'none', color: 'inherit' }}
                                 >
                                     <IconButton color="inherit">
@@ -82,7 +79,7 @@ export const MangaToolbarMenu = ({ manga, onRefresh, refreshing }: IProps) => {
                             <CustomTooltip title={t('manga.label.edit_categories')}>
                                 <IconButton
                                     onClick={() => {
-                                        openCategorySelect(true);
+                                        // ...existing code...
                                     }}
                                     color="inherit"
                                 >
@@ -142,7 +139,7 @@ export const MangaToolbarMenu = ({ manga, onRefresh, refreshing }: IProps) => {
                             <MenuItem
                                 key="categories"
                                 onClick={() => {
-                                    openCategorySelect(true);
+                                    // ...existing code...
                                     handleClose();
                                 }}
                             >
@@ -156,7 +153,7 @@ export const MangaToolbarMenu = ({ manga, onRefresh, refreshing }: IProps) => {
                 </>
             )}
 
-            {CategorySelectComponent}
+            {/* CategorySelectComponent removed */}
         </>
     );
 };

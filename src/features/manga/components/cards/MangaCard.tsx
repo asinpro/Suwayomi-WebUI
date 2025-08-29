@@ -7,11 +7,10 @@
  */
 
 import PopupState, { bindMenu } from 'material-ui-popup-state';
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { useLongPress } from 'use-long-press';
 import { MangaActionMenuItems, SingleModeProps } from '@/features/manga/components/MangaActionMenuItems.tsx';
 import { Menu } from '@/base/components/menu/Menu.tsx';
-import { MigrateDialog } from '@/features/migration/components/MigrateDialog.tsx';
 import { useManageMangaLibraryState } from '@/features/manga/hooks/useManageMangaLibraryState.tsx';
 import { MangaGridCard } from '@/features/manga/components/cards/MangaGridCard.tsx';
 import { MangaListCard } from '@/features/manga/components/cards/MangaListCard.tsx';
@@ -56,7 +55,7 @@ export const MangaCard = memo((props: MangaCardProps) => {
 
     const mangaLinkTo = getMangaLinkTo(mode, manga.id, manga.sourceId, manga.title);
 
-    const [isMigrateDialogOpen, setIsMigrateDialogOpen] = useState(false);
+    // ...existing code...
 
     const handleClick = useCallback(
         (event: React.MouseEvent | React.TouchEvent, openMenu?: () => void) => {
@@ -89,9 +88,7 @@ export const MangaCard = memo((props: MangaCardProps) => {
                 return;
             }
 
-            if (isMigrateSelectMode) {
-                setIsMigrateDialogOpen(true);
-            }
+                // Removed migration dialog handling
         },
         [mode, selected, updateLibraryState, handleSelection],
     );
@@ -113,9 +110,6 @@ export const MangaCard = memo((props: MangaCardProps) => {
 
     return (
         <>
-            {isMigrateDialogOpen && (
-                <MigrateDialog mangaIdToMigrateTo={manga.id} onClose={() => setIsMigrateDialogOpen(false)} />
-            )}
             <PopupState variant="popover" popupId="manga-card-action-menu">
                 {(popupState) => (
                     <>

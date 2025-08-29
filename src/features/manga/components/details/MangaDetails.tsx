@@ -46,7 +46,7 @@ import {
 } from '@/features/manga/Manga.types.ts';
 import { applyStyles } from '@/base/utils/ApplyStyles.ts';
 import { CustomButtonIcon } from '@/base/components/buttons/CustomButtonIcon.tsx';
-import { Sources } from '@/features/source/services/Sources.ts';
+// Removed Sources import as the source feature is deleted
 import { SourceIdInfo } from '@/features/source/Source.types.ts';
 import { Thumbnail } from '@/features/manga/components/details/Thumbnail.tsx';
 import { DescriptionGenre } from '@/features/manga/components/details/DescriptionGenre.tsx';
@@ -175,9 +175,7 @@ function getSourceName(source?: Pick<SourceType, 'id' | 'displayName'> | null): 
         return translate('global.label.unknown');
     }
 
-    if (Sources.isLocalSource(source)) {
-        return translate('source.local_source.title');
-    }
+        return source.displayName ?? source.id;
 
     return source.displayName ?? source.id;
 }
@@ -273,7 +271,7 @@ export const MangaDetails = ({
                                 title={t('manga.label.status')}
                                 value={t(MANGA_STATUS_TO_TRANSLATION[manga.status])}
                             />
-                            <Metadata title={t('source.title_one')} value={getSourceName(manga.source)} />
+                            <Metadata title={t('manga.label.source')} value={translate('global.label.unknown')} />
                         </MetadataContainer>
                     </ThumbnailMetadataWrapper>
                     <MangaButtonsContainer>

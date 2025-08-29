@@ -6,8 +6,6 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { DEFAULT_DEVICE } from '@/features/device/services/Device.ts';
-import { DEFAULT_SORT_SETTINGS } from '@/features/migration/Migration.constants.ts';
 import { GlobalUpdateSkipEntriesSettings, MetadataServerSettings } from '@/features/settings/Settings.types.ts';
 import { GridLayout, TranslationKey } from '@/base/Base.types.ts';
 import { getDefaultLanguages } from '@/base/utils/Languages.ts';
@@ -40,14 +38,14 @@ export const SERVER_SETTINGS_METADATA_DEFAULT: MetadataServerSettings = {
     gridLayout: GridLayout.Compact,
 
     // client
-    devices: [DEFAULT_DEVICE],
+    devices: [],
 
     // migration
     migrateChapters: true,
     migrateCategories: true,
     migrateTracking: true,
     deleteChapters: true,
-    migrateSortSettings: DEFAULT_SORT_SETTINGS,
+    migrateSortSettings: [],
 
     // browse
     hideLibraryEntries: false,

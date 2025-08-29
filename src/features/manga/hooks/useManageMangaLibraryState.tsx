@@ -10,11 +10,10 @@ import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import gql from 'graphql-tag';
-import { useCategorySelect } from '@/features/category/hooks/useCategorySelect.tsx';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { makeToast } from '@/base/utils/Toast.ts';
 import { getMetadataServerSettings } from '@/features/settings/services/ServerSettingsMetadata.ts';
-import { Categories } from '@/features/category/services/Categories.ts';
+// ...existing code...
 import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
 import { Mangas } from '@/features/manga/services/Mangas.ts';
 import { awaitConfirmation } from '@/base/utils/AwaitableDialog.tsx';
@@ -41,7 +40,7 @@ export const useManageMangaLibraryState = (
             requestManager
                 .updateManga(manga.id, {
                     updateManga: { inLibrary: true },
-                    updateMangaCategories: { addToCategories, removeFromCategories },
+                    updateMangaCategories: { addToCategories: [], removeFromCategories: [] },
                 })
                 .response.then(() => makeToast(t('library.info.label.added_to_library'), 'success'))
                 .then(() => setIsInLibrary(true))
@@ -67,11 +66,6 @@ export const useManageMangaLibraryState = (
         setIsInLibrary(false);
     }, [manga.id, confirmRemoval]);
 
-    const { openCategorySelect, CategorySelectComponent } = useCategorySelect({
-        mangaId: manga.id,
-        addToLibrary: true,
-        onClose: addToLibrary,
-    });
 
     const updateLibraryState = useCallback(() => {
         const update = async () => {
@@ -91,21 +85,8 @@ export const useManageMangaLibraryState = (
                 return;
             }
 
-            let categories: Awaited<
-                ReturnType<
-                    typeof requestManager.getCategories<GetCategoriesBaseQuery, GetCategoriesBaseQueryVariables>
-                >['response']
-            >;
-            try {
-                categories = await requestManager.getCategories<
-                    GetCategoriesBaseQuery,
-                    GetCategoriesBaseQueryVariables
-                >(GET_CATEGORIES_BASE).response;
-            } catch (e) {
-                makeToast(t('category.error.label.request_failure'), 'error', getErrorMessage(e));
-                return;
-            }
-            const userCreatedCategories = Categories.getUserCreated(categories.data.categories.nodes);
+            // Category feature is deleted, so userCreatedCategories is stubbed
+            let userCreatedCategories = [];
 
             let duplicatedLibraryMangas:
                 | Awaited<ReturnType<typeof Mangas.getDuplicateLibraryMangas>['response']>
@@ -142,20 +123,18 @@ export const useManageMangaLibraryState = (
                 });
             }
 
-            const showCategorySelectDialog = showAddToLibraryCategorySelectDialog && !!userCreatedCategories.length;
+            const showCategorySelectDialog = false;
             if (!showCategorySelectDialog) {
-                addToLibrary(true, Categories.getIds(Categories.getDefaults(userCreatedCategories!)));
+                addToLibrary(true, []);
                 return;
             }
 
-            openCategorySelect(true);
         };
 
         update().catch(defaultPromiseErrorHandler('useManageMangaLibraryState::updateLibraryState'));
     }, [isInLibrary, removeFromLibrary, addToLibrary]);
 
     return {
-        CategorySelectComponent,
         updateLibraryState,
         /**
          * In case of browsing the source, the data has to be fetched via a mutation.

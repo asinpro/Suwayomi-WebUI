@@ -12,7 +12,6 @@ import { BrowserRouter as Router } from 'react-router-dom';
 import { QueryParamProvider } from 'use-query-params';
 import { ReactRouter6Adapter } from 'use-query-params/adapters/react-router-6';
 import { SnackbarProvider } from 'notistack';
-import { ActiveDeviceContextProvider } from '@/features/device/DeviceContext.tsx';
 import { ReaderContextProvider } from '@/features/reader/contexts/ReaderContextProvider.tsx';
 import { AppHotkeysProvider } from '@/features/hotkeys/AppHotkeysProvider.tsx';
 import { SnackbarWithDescription } from '@/base/components/feedback/SnackbarWithDescription.tsx';
@@ -31,21 +30,19 @@ export const AppContext: React.FC<Props> = ({ children }) => (
                 <QueryParamProvider adapter={ReactRouter6Adapter}>
                     <NavBarContextProvider>
                         <AppPageHistoryContextProvider>
-                            <ActiveDeviceContextProvider>
-                                <SnackbarProvider
-                                    Components={{
-                                        default: SnackbarWithDescription,
-                                        info: SnackbarWithDescription,
-                                        success: SnackbarWithDescription,
-                                        warning: SnackbarWithDescription,
-                                        error: SnackbarWithDescription,
-                                    }}
-                                >
-                                    <ReaderContextProvider>
-                                        <AppHotkeysProvider>{children}</AppHotkeysProvider>
-                                    </ReaderContextProvider>
-                                </SnackbarProvider>
-                            </ActiveDeviceContextProvider>
+                            <SnackbarProvider
+                                Components={{
+                                    default: SnackbarWithDescription,
+                                    info: SnackbarWithDescription,
+                                    success: SnackbarWithDescription,
+                                    warning: SnackbarWithDescription,
+                                    error: SnackbarWithDescription,
+                                }}
+                            >
+                                <ReaderContextProvider>
+                                    <AppHotkeysProvider>{children}</AppHotkeysProvider>
+                                </ReaderContextProvider>
+                            </SnackbarProvider>
                         </AppPageHistoryContextProvider>
                     </NavBarContextProvider>
                 </QueryParamProvider>

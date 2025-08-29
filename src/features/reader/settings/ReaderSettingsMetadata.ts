@@ -30,7 +30,6 @@ import {
     DEFAULT_READER_SETTINGS,
     GLOBAL_READER_SETTING_KEYS,
 } from '@/features/reader/settings/ReaderSettings.constants.tsx';
-import { DEFAULT_DEVICE, getActiveDevice } from '@/features/device/services/Device.ts';
 import { APP_METADATA_KEY_PREFIX } from '@/features/metadata/Metadata.constants.ts';
 import { extractOriginalKey } from '@/features/metadata/Metadata.utils.ts';
 
@@ -47,8 +46,8 @@ const convertToSettingsWithDefaultFlag = (
     settings: IReaderSettings,
     metadataHolder: MetadataHolder,
 ): IReaderSettingsWithDefaultFlag => {
-    const activeDevice = getActiveDevice();
-    const istDefaultDevice = activeDevice === DEFAULT_DEVICE;
+    const activeDevice = 'default';
+    const istDefaultDevice = activeDevice === 'default';
     const existingSettings = Object.keys(metadataHolder.meta ?? {})
         // settings that are not for the active device need to be filtered out, otherwise, they mess up the "isDefault" flag
         .filter((metaKey) => {

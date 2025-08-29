@@ -8,7 +8,6 @@
 
 import { APP_METADATA_KEY_PREFIX, GLOBAL_METADATA_KEYS } from '@/features/metadata/Metadata.constants.ts';
 import { AppMetadataKeys, Metadata } from '@/features/metadata/Metadata.types.ts';
-import { getActiveDevice } from '@/features/device/services/Device.ts';
 
 export const extractOriginalKey = (key: string) => key.split('_').slice(-1)[0];
 
@@ -30,7 +29,7 @@ export const getMetadataKey = (key: string, prefixes: string[] = [], appPrefix: 
     const isGlobalMetadataKey = GLOBAL_METADATA_KEYS.includes(key as AppMetadataKeys);
     const addActiveDevicePrefix = !isGlobalMetadataKey;
 
-    const finalPrefix = [appPrefix, ...(addActiveDevicePrefix ? [getActiveDevice()] : []), ...prefixes].filter(
+    const finalPrefix = [appPrefix, ...(addActiveDevicePrefix ? ['default'] : []), ...prefixes].filter(
         (prefix) => prefix.toLowerCase() !== 'default',
     );
 

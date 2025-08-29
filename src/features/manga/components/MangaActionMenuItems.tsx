@@ -28,8 +28,6 @@ import {
     createShouldShowMenuItem,
 } from '@/base/components/menu/Menu.utils.ts';
 import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
-import { TrackManga } from '@/features/tracker/components/TrackManga.tsx';
-import { useCategorySelect } from '@/features/category/hooks/useCategorySelect.tsx';
 import { ChaptersDownloadActionMenuItems } from '@/features/chapter/components/actions/ChaptersDownloadActionMenuItems.tsx';
 import { NestedMenuItem } from '@/base/components/menu/NestedMenuItem.tsx';
 import { MangaChapterStatFieldsFragment, MangaType } from '@/lib/graphql/generated/graphql.ts';
@@ -76,13 +74,6 @@ export const MangaActionMenuItems = ({
     const hasDownloadedChapters = !!manga?.downloadCount;
     const hasUnreadChapters = !!manga?.unreadCount;
     const hasReadChapters = !!manga && manga.unreadCount !== manga.chapters.totalCount;
-
-    const { openCategorySelect, CategorySelectComponent } = useCategorySelect({
-        mangaId: manga?.id,
-        mangaIds: passedSelectedMangas ? Mangas.getIds(selectedMangas) : undefined,
-        onClose: () => onClose(true),
-        addToLibrary: false,
-    });
 
     const handleSelect = () => {
         handleSelection?.(manga.id, true);
@@ -175,19 +166,10 @@ export const MangaActionMenuItems = ({
                 />
             )}
             <MenuItem
-                onClick={() => {
-                    openCategorySelect(true);
-                    setHideMenu(true);
-                }}
-                Icon={Label}
-                title={getMenuItemTitle('change_categories', selectedMangas.length)}
-            />
-            <MenuItem
                 onClick={() => performAction('remove_from_library', selectedMangas)}
                 Icon={FavoriteBorderIcon}
                 title={getMenuItemTitle('remove_from_library', selectedMangas.length)}
             />
-            {CategorySelectComponent}
             {isTrackDialogOpen && (
                 <Dialog
                     open
@@ -199,7 +181,7 @@ export const MangaActionMenuItems = ({
                         onClose(true);
                     }}
                 >
-                    <TrackManga manga={manga!} />
+                    {/* <TrackManga manga={manga!} /> */}
                 </Dialog>
             )}
         </>

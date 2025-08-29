@@ -26,13 +26,8 @@ import {
     SCROLL_AMOUNT,
 } from '@/features/reader/settings/ReaderSettings.constants.tsx';
 import { coerceIn, jsonSaveParse } from '@/lib/HelperFunctions.ts';
-import { DOWNLOAD_AHEAD } from '@/features/downloads/Downloads.constants.ts';
 import { MANGA_GRID_WIDTH } from '@/features/settings/Settings.constants.ts';
-import { SortSettings } from '@/features/migration/Migration.types.ts';
-import { ISourceMetadata } from '@/features/source/Source.types.ts';
 import { LibraryOptions } from '@/features/library/Library.types.ts';
-import { MetadataThemeSettings } from '@/features/theme/AppTheme.types.ts';
-import { TapZoneInvertMode } from '@/features/reader/tap-zones/TapZoneLayout.types.ts';
 
 export const APP_METADATA_KEY_PREFIX = 'webUI';
 
@@ -87,7 +82,7 @@ export const APP_METADATA: Record<
                 return value;
             }
 
-            return coerceIn(value, DOWNLOAD_AHEAD.min, DOWNLOAD_AHEAD.max);
+            return coerceIn(value, 0, 100);
         },
     },
     showAddToLibraryCategorySelectDialog: {
@@ -118,7 +113,7 @@ export const APP_METADATA: Record<
         convert: convertToBoolean,
     },
     migrateSortSettings: {
-        convert: convertToObject<SortSettings>,
+        convert: convertToObject<any>,
     },
     hideLibraryEntries: {
         convert: convertToBoolean,
@@ -139,7 +134,7 @@ export const APP_METADATA: Record<
         convert: convertToObject<IReaderSettings['readerWidth']>,
     },
     savedSearches: {
-        convert: convertToObject<ISourceMetadata['savedSearches']>,
+        convert: convertToObject<any>,
     },
     showContinueReadingButton: {
         convert: convertToBoolean,
@@ -181,7 +176,7 @@ export const APP_METADATA: Record<
         convert: convertToObject<LibraryOptions['hasStatus']>,
     },
     customThemes: {
-        convert: convertToObject<MetadataThemeSettings['customThemes']>,
+        convert: convertToObject<any>,
     },
     mangaThumbnailBackdrop: {
         convert: convertToBoolean,
@@ -193,7 +188,7 @@ export const APP_METADATA: Record<
         convert: convertToNumber, // TapZoneLayouts (enum)
     },
     tapZoneInvertMode: {
-        convert: convertToObject<TapZoneInvertMode>, // TapZoneInvertMode (object)
+        convert: convertToObject<any>, // TapZoneInvertMode (object)
     },
     readingDirection: {
         convert: convertToNumber, // ReadingDirection (enum)

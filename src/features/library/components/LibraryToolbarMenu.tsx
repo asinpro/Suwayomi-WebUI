@@ -12,7 +12,6 @@ import { ComponentProps, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CustomTooltip } from '@/base/components/CustomTooltip.tsx';
 import { LibraryOptionsPanel } from '@/features/library/components/LibraryOptionsPanel.tsx';
-import { getCategoryMetadata } from '@/features/category/services/CategoryMetadata.ts';
 
 export const LibraryToolbarMenu = ({
     category,
@@ -22,15 +21,7 @@ export const LibraryToolbarMenu = ({
     const { t } = useTranslation();
 
     const [open, setOpen] = useState(false);
-    const options = getCategoryMetadata(category);
-    const active =
-        options.hasDownloadedChapters != null ||
-        options.hasUnreadChapters != null ||
-        options.hasReadChapters != null ||
-        options.hasBookmarkedChapters != null ||
-        options.hasDuplicateChapters != null ||
-        Object.values(options.hasStatus).some((hasStatus) => hasStatus != null) ||
-        Object.values(options.hasTrackerBinding).some((trackerFilterStatus) => trackerFilterStatus != null);
+    const active = false;
 
     return (
         <>

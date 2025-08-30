@@ -44,52 +44,52 @@ export const MangaActionMenuItems = ({
     handleSelection,
     selectedMangas: passedSelectedMangas,
     onClose,
-    setHideMenu,
+    // setHideMenu,
 }: Props) => {
     const { t } = useTranslation();
 
-    const [isTrackDialogOpen, setIsTrackDialogOpen] = useState(false);
+    // const [isTrackDialogOpen, setIsTrackDialogOpen] = useState(false);
 
     const isSingleMode = !!manga;
     const selectedMangas = passedSelectedMangas ?? [];
 
-    const getMenuItemTitle = createGetMenuItemTitle(isSingleMode, MANGA_ACTION_TO_TRANSLATION);
+    // const getMenuItemTitle = createGetMenuItemTitle(isSingleMode, MANGA_ACTION_TO_TRANSLATION);
     const shouldShowMenuItem = createShouldShowMenuItem(isSingleMode);
-    const isMenuItemDisabled = createIsMenuItemDisabled(isSingleMode);
+    // const isMenuItemDisabled = createIsMenuItemDisabled(isSingleMode);
 
-    const isFullyDownloaded = !!manga && manga.downloadCount === manga.chapters.totalCount;
-    const hasDownloadedChapters = !!manga?.downloadCount;
-    const hasUnreadChapters = !!manga?.unreadCount;
-    const hasReadChapters = !!manga && manga.unreadCount !== manga.chapters.totalCount;
+    // const isFullyDownloaded = !!manga && manga.downloadCount === manga.chapters.totalCount;
+    // const hasDownloadedChapters = !!manga?.downloadCount;
+    // const hasUnreadChapters = !!manga?.unreadCount;
+    // const hasReadChapters = !!manga && manga.unreadCount !== manga.chapters.totalCount;
 
     const handleSelect = () => {
         handleSelection?.(manga.id, true);
         onClose(true);
     };
 
-    const performAction = (action: MangaAction, mangas: MangaIdInfo[]) => {
-        Mangas.performAction(action, manga ? [manga.id] : Mangas.getIds(mangas), {
-            wasManuallyMarkedAsRead: true,
-        }).catch(defaultPromiseErrorHandler(`MangaActionMenuItems:performAction(${action})`));
+    // const performAction = (action: MangaAction, mangas: MangaIdInfo[]) => {
+    //     Mangas.performAction(action, manga ? [manga.id] : Mangas.getIds(mangas), {
+    //         wasManuallyMarkedAsRead: true,
+    //     }).catch(defaultPromiseErrorHandler(`MangaActionMenuItems:performAction(${action})`));
+    // 
+    //     onClose(!ACTION_DISABLES_SELECTION_MODE.includes(action));
+    // };
 
-        onClose(!ACTION_DISABLES_SELECTION_MODE.includes(action));
-    };
-
-    const { downloadableMangas, downloadedMangas, unreadMangas, readMangas } = useMemo(
-        () => ({
-            downloadableMangas: [
-                ...Mangas.getNotDownloaded(selectedMangas),
-                ...Mangas.getPartiallyDownloaded(selectedMangas),
-            ],
-            downloadedMangas: [
-                ...Mangas.getPartiallyDownloaded(selectedMangas),
-                ...Mangas.getFullyDownloaded(selectedMangas),
-            ],
-            unreadMangas: [...Mangas.getUnread(selectedMangas), ...Mangas.getPartiallyRead(selectedMangas)],
-            readMangas: [...Mangas.getPartiallyRead(selectedMangas), ...Mangas.getFullyRead(selectedMangas)],
-        }),
-        [selectedMangas],
-    );
+    // const { downloadableMangas, downloadedMangas, unreadMangas, readMangas } = useMemo(
+    //     () => ({
+    //         downloadableMangas: [
+    //             ...Mangas.getNotDownloaded(selectedMangas),
+    //             ...Mangas.getPartiallyDownloaded(selectedMangas),
+    //         ],
+    //         downloadedMangas: [
+    //             ...Mangas.getPartiallyDownloaded(selectedMangas),
+    //             ...Mangas.getFullyDownloaded(selectedMangas),
+    //         ],
+    //         unreadMangas: [...Mangas.getUnread(selectedMangas), ...Mangas.getPartiallyRead(selectedMangas)],
+    //         readMangas: [...Mangas.getPartiallyRead(selectedMangas), ...Mangas.getFullyRead(selectedMangas)],
+    //     }),
+    //     [selectedMangas],
+    // );
 
     return (
         <>

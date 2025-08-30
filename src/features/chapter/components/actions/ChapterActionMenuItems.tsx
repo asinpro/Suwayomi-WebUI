@@ -69,7 +69,7 @@ type Props =
 export const ChapterActionMenuItems = ({
     chapter,
     handleSelection,
-    canBeDownloaded = false,
+    // canBeDownloaded = false,
     selectedChapters = [],
     onClose,
     selectable = true,
@@ -77,7 +77,7 @@ export const ChapterActionMenuItems = ({
     const { t } = useTranslation();
 
     const isSingleMode = !!chapter;
-    const { isDownloaded, isRead, isBookmarked } = chapter ?? {};
+    // const { isDownloaded, isRead, isBookmarked } = chapter ?? {};
 
     const mangaChaptersResponse = requestManager.useGetMangaChapters<GetChaptersMangaQuery>(
         GET_CHAPTERS_MANGA,
@@ -93,9 +93,9 @@ export const ChapterActionMenuItems = ({
         settings: { deleteChaptersWithBookmark },
     } = useMetadataServerSettings();
 
-    const getMenuItemTitle = createGetMenuItemTitle(isSingleMode, CHAPTER_ACTION_TO_TRANSLATION);
-    const shouldShowMenuItem = createShouldShowMenuItem(isSingleMode);
-    const isMenuItemDisabled = createIsMenuItemDisabled(isSingleMode);
+    // const getMenuItemTitle = createGetMenuItemTitle(isSingleMode, CHAPTER_ACTION_TO_TRANSLATION);
+    // const shouldShowMenuItem = createShouldShowMenuItem(isSingleMode);
+    // const isMenuItemDisabled = createIsMenuItemDisabled(isSingleMode);
 
     const {
         downloadableChapters,

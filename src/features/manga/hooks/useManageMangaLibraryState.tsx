@@ -17,8 +17,7 @@ import { getMetadataServerSettings } from '@/features/settings/services/ServerSe
 import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
 import { Mangas } from '@/features/manga/services/Mangas.ts';
 import { awaitConfirmation } from '@/base/utils/AwaitableDialog.tsx';
-import { GetCategoriesBaseQuery, GetCategoriesBaseQueryVariables, MangaType } from '@/lib/graphql/generated/graphql.ts';
-import { GET_CATEGORIES_BASE } from '@/lib/graphql/queries/CategoryQuery.ts';
+import { MangaType } from '@/lib/graphql/generated/graphql.ts';
 import { AppRoutes } from '@/base/AppRoute.constants.ts';
 import { getErrorMessage } from '@/lib/HelperFunctions.ts';
 
@@ -66,7 +65,6 @@ export const useManageMangaLibraryState = (
         setIsInLibrary(false);
     }, [manga.id, confirmRemoval]);
 
-
     const updateLibraryState = useCallback(() => {
         const update = async () => {
             if (isInLibrary) {
@@ -86,7 +84,7 @@ export const useManageMangaLibraryState = (
             }
 
             // Category feature is deleted, so userCreatedCategories is stubbed
-            let userCreatedCategories = [];
+            const userCreatedCategories = [];
 
             let duplicatedLibraryMangas:
                 | Awaited<ReturnType<typeof Mangas.getDuplicateLibraryMangas>['response']>
@@ -126,9 +124,7 @@ export const useManageMangaLibraryState = (
             const showCategorySelectDialog = false;
             if (!showCategorySelectDialog) {
                 addToLibrary(true, []);
-                return;
             }
-
         };
 
         update().catch(defaultPromiseErrorHandler('useManageMangaLibraryState::updateLibraryState'));

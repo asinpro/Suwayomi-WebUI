@@ -36,10 +36,6 @@ export const MANGA_ACTION_TO_CONFIRMATION_REQUIRED: Record<
     { always: boolean; bulkAction: boolean; bulkActionCountForce?: number }
 > = {
     ...CHAPTER_ACTION_TO_CONFIRMATION_REQUIRED,
-    remove_from_library: { always: true, bulkAction: true },
-    change_categories: { always: false, bulkAction: false },
-    migrate: { always: false, bulkAction: false },
-    track: { always: false, bulkAction: false },
 };
 
 export const MANGA_ACTION_TO_TRANSLATION: {
@@ -54,40 +50,6 @@ export const MANGA_ACTION_TO_TRANSLATION: {
     };
 } = {
     ...CHAPTER_ACTION_TO_TRANSLATION,
-    remove_from_library: {
-        action: {
-            single: 'manga.action.library.remove.label.action',
-            selected: 'manga.action.library.remove.button.selected',
-        },
-        confirmation: 'manga.action.library.remove.label.confirmation',
-        success: 'manga.action.library.remove.label.success',
-        error: 'manga.action.library.remove.label.error',
-    },
-    change_categories: {
-        action: {
-            single: 'manga.action.category.label.action',
-            selected: 'manga.action.category.button.selected',
-        },
-        confirmation: 'manga.action.category.label.confirmation',
-        success: 'manga.action.category.label.success',
-        error: 'manga.action.category.label.error',
-    },
-    migrate: {
-        action: {
-            single: 'global.button.migrate',
-            selected: 'global.button.migrate', // not supported
-        },
-        success: 'manga.action.migrate.label.success',
-        error: 'manga.action.migrate.label.error',
-    },
-    track: {
-        action: {
-            single: 'manga.action.track.add.label.action',
-            selected: 'manga.action.track.add.label.action', // not supported
-        },
-        success: 'manga.action.track.add.label.success',
-        error: 'manga.action.track.add.label.error',
-    },
 };
 
 // source: https://github.com/jobobby04/TachiyomiSY/blob/e0f40fad8c25459980ead51382c238462416f8d2/app/src/main/java/exh/util/MangaType.kt#L93

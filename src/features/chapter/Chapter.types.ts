@@ -26,7 +26,7 @@ export interface ChapterListOptions {
 
 export type TChapterReader = ChapterReaderFieldsFragment;
 
-export type ChapterAction = 'download' | 'delete' | 'bookmark' | 'unbookmark' | 'mark_as_read' | 'mark_as_unread';
+export type ChapterAction = never;
 
 export type ChapterDownloadStatus = DownloadStatusFieldsFragment['queue'][number];
 

@@ -85,10 +85,9 @@ export const MangaCard = memo((props: MangaCardProps) => {
 
             if (isDefaultMode) {
                 openMenu?.();
-                return;
             }
 
-                // Removed migration dialog handling
+            // Removed migration dialog handling
         },
         [mode, selected, updateLibraryState, handleSelection],
     );
@@ -109,52 +108,50 @@ export const MangaCard = memo((props: MangaCardProps) => {
     );
 
     return (
-        <>
-            <PopupState variant="popover" popupId="manga-card-action-menu">
-                {(popupState) => (
-                    <>
-                        <MangaCardComponent
-                            {...props}
-                            longPressBind={longPressBind}
-                            popupState={popupState}
-                            handleClick={handleClick}
-                            mangaLinkTo={mangaLinkTo}
-                            isInLibrary={isInLibrary}
-                            inLibraryIndicator={inLibraryIndicator}
-                            continueReadingButton={
-                                <ContinueReadingButton
-                                    showContinueReadingButton={showContinueReadingButton && mode === 'default'}
-                                    chapter={firstUnreadChapter}
-                                    mangaLinkTo={mangaLinkTo}
+        <PopupState variant="popover" popupId="manga-card-action-menu">
+            {(popupState) => (
+                <>
+                    <MangaCardComponent
+                        {...props}
+                        longPressBind={longPressBind}
+                        popupState={popupState}
+                        handleClick={handleClick}
+                        mangaLinkTo={mangaLinkTo}
+                        isInLibrary={isInLibrary}
+                        inLibraryIndicator={inLibraryIndicator}
+                        continueReadingButton={
+                            <ContinueReadingButton
+                                showContinueReadingButton={showContinueReadingButton && mode === 'default'}
+                                chapter={firstUnreadChapter}
+                                mangaLinkTo={mangaLinkTo}
+                            />
+                        }
+                        mangaBadges={
+                            <MangaBadges
+                                inLibraryIndicator={inLibraryIndicator}
+                                isInLibrary={isInLibrary}
+                                unread={unreadCount}
+                                downloadCount={downloadCount}
+                                updateLibraryState={updateLibraryState}
+                                mode={mode}
+                            />
+                        }
+                    />
+                    {!!handleSelection && popupState.isOpen && (
+                        <Menu {...bindMenu(popupState)}>
+                            {(onClose, setHideMenu) => (
+                                <MangaActionMenuItems
+                                    manga={manga as SingleModeProps['manga']}
+                                    handleSelection={handleSelection}
+                                    onClose={onClose}
+                                    setHideMenu={setHideMenu}
                                 />
-                            }
-                            mangaBadges={
-                                <MangaBadges
-                                    inLibraryIndicator={inLibraryIndicator}
-                                    isInLibrary={isInLibrary}
-                                    unread={unreadCount}
-                                    downloadCount={downloadCount}
-                                    updateLibraryState={updateLibraryState}
-                                    mode={mode}
-                                />
-                            }
-                        />
-                        {!!handleSelection && popupState.isOpen && (
-                            <Menu {...bindMenu(popupState)}>
-                                {(onClose, setHideMenu) => (
-                                    <MangaActionMenuItems
-                                        manga={manga as SingleModeProps['manga']}
-                                        handleSelection={handleSelection}
-                                        onClose={onClose}
-                                        setHideMenu={setHideMenu}
-                                    />
-                                )}
-                            </Menu>
-                        )}
-                        {CategorySelectComponent}
-                    </>
-                )}
-            </PopupState>
-        </>
+                            )}
+                        </Menu>
+                    )}
+                    {CategorySelectComponent}
+                </>
+            )}
+        </PopupState>
     );
 });

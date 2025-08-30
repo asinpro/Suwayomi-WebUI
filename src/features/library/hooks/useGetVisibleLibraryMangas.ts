@@ -87,11 +87,7 @@ const statusFilter = (statusFilters: LibraryOptions['hasStatus'], manga: MangaSt
 
 type TMangaFilterOptions = Pick<
     LibraryOptions,
-    | 'hasUnreadChapters'
-    | 'hasReadChapters'
-    | 'hasBookmarkedChapters'
-    | 'hasDuplicateChapters'
-    | 'hasStatus'
+    'hasUnreadChapters' | 'hasReadChapters' | 'hasBookmarkedChapters' | 'hasDuplicateChapters' | 'hasStatus'
 >;
 type TMangaFilter = Pick<MangaType, 'bookmarkCount' | 'hasDuplicateChapters'> &
     TMangaTrackerFilter &
@@ -101,13 +97,7 @@ type TMangaFilter = Pick<MangaType, 'bookmarkCount' | 'hasDuplicateChapters'> &
     MangaUnreadInfo;
 const filterManga = (
     manga: TMangaFilter,
-    {
-        hasUnreadChapters,
-        hasReadChapters,
-        hasBookmarkedChapters,
-        hasDuplicateChapters,
-        hasStatus,
-    }: TMangaFilterOptions,
+    { hasUnreadChapters, hasReadChapters, hasBookmarkedChapters, hasDuplicateChapters, hasStatus }: TMangaFilterOptions,
 ): boolean =>
     triStateFilterNumber(hasUnreadChapters, manga.unreadCount) &&
     triStateFilterNumber(hasReadChapters, manga.chapters.totalCount - manga.unreadCount) &&
@@ -208,12 +198,7 @@ export const useGetVisibleLibraryMangas = <Manga extends MangaIdInfo & TMangasFi
             UNKNOWN: null,
         },
     };
-    const {
-        hasUnreadChapters,
-        hasReadChapters,
-        hasBookmarkedChapters,
-        hasDuplicateChapters,
-    } = options;
+    const { hasUnreadChapters, hasReadChapters, hasBookmarkedChapters, hasDuplicateChapters } = options;
     const { settings } = useMetadataServerSettings();
 
     const filteredMangas = useMemo(

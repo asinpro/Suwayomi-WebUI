@@ -175,7 +175,7 @@ function getSourceName(source?: Pick<SourceType, 'id' | 'displayName'> | null): 
         return translate('global.label.unknown');
     }
 
-        return source.displayName ?? source.id;
+    return source.displayName ?? source.id;
 
     return source.displayName ?? source.id;
 }

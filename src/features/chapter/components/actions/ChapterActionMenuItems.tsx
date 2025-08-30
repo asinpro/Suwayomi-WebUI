@@ -175,7 +175,7 @@ export const ChapterActionMenuItems = ({
             {isSingleMode && selectable && (
                 <MenuItem onClick={handleSelect} Icon={CheckBoxOutlineBlank} title={t('chapter.action.label.select')} />
             )}
-            {isSingleMode && (
+            {false && (
                 <>
                     <MenuItem
                         Icon={IconBrowser}
@@ -201,7 +201,7 @@ export const ChapterActionMenuItems = ({
                     />
                 </>
             )}
-            {shouldShowMenuItem(canBeDownloaded) && (
+            {false && (
                 <MenuItem
                     Icon={Download}
                     disabled={isMenuItemDisabled(!downloadableChapters.length)}
@@ -209,7 +209,7 @@ export const ChapterActionMenuItems = ({
                     title={getMenuItemTitle('download', downloadableChapters.length)}
                 />
             )}
-            {shouldShowMenuItem(isDownloaded) && (
+            {false && (
                 <MenuItem
                     Icon={Delete}
                     disabled={isMenuItemDisabled(!downloadedChapters.length)}
@@ -219,7 +219,7 @@ export const ChapterActionMenuItems = ({
                     title={getMenuItemTitle('delete', downloadedChapters.length)}
                 />
             )}
-            {shouldShowMenuItem(!isBookmarked) && (
+            {false && (
                 <MenuItem
                     Icon={BookmarkAdd}
                     disabled={isMenuItemDisabled(!unbookmarkedChapters.length)}
@@ -227,7 +227,7 @@ export const ChapterActionMenuItems = ({
                     title={getMenuItemTitle('bookmark', unbookmarkedChapters.length)}
                 />
             )}
-            {shouldShowMenuItem(isBookmarked) && (
+            {false && (
                 <MenuItem
                     Icon={BookmarkRemove}
                     disabled={isMenuItemDisabled(!bookmarkedChapters.length)}
@@ -235,7 +235,7 @@ export const ChapterActionMenuItems = ({
                     title={getMenuItemTitle('unbookmark', bookmarkedChapters.length)}
                 />
             )}
-            {shouldShowMenuItem(!isRead) && (
+            {false && (
                 <MenuItem
                     Icon={Done}
                     disabled={isMenuItemDisabled(!unreadChapters.length)}
@@ -243,7 +243,7 @@ export const ChapterActionMenuItems = ({
                     title={getMenuItemTitle('mark_as_read', unreadChapters.length)}
                 />
             )}
-            {shouldShowMenuItem(isRead) && (
+            {false && (
                 <MenuItem
                     Icon={RemoveDone}
                     disabled={isMenuItemDisabled(!readChapters.length)}
@@ -251,7 +251,7 @@ export const ChapterActionMenuItems = ({
                     title={getMenuItemTitle('mark_as_unread', readChapters.length)}
                 />
             )}
-            {isSingleMode && (
+            {false && (
                 <MenuItem
                     onClick={() => performAction('mark_prev_as_read', [])}
                     Icon={DoneAll}

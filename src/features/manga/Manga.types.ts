@@ -78,15 +78,7 @@ export type MangaMetadata = ChapterListOptions;
 
 export type MangaMetadataKeys = keyof MangaMetadata;
 
-export type MangaAction =
-    | 'download'
-    | 'delete'
-    | 'mark_as_read'
-    | 'mark_as_unread'
-    | 'remove_from_library'
-    | 'change_categories'
-    | 'migrate'
-    | 'track';
+export type MangaAction = never;
 
 export type TMangaReader = MangaReaderFieldsFragment;
 

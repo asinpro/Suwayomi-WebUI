@@ -6,23 +6,22 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
+import { useLingui } from '@lingui/react/macro';
 import { useDefaultReaderSettingsWithDefaultFlag } from '@/features/reader/settings/ReaderSettingsMetadata.ts';
 import { LoadingPlaceholder } from '@/base/components/feedback/LoadingPlaceholder.tsx';
 import { EmptyViewAbsoluteCentered } from '@/base/components/feedback/EmptyViewAbsoluteCentered.tsx';
 import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
-import { IReaderSettings, ReadingMode } from '@/features/reader/Reader.types.ts';
+import type { IReaderSettings, ReadingMode } from '@/features/reader/Reader.types.ts';
 import { ReaderService } from '@/features/reader/services/ReaderService.ts';
 import { ReaderSettingsTabs } from '@/features/reader/settings/components/ReaderSettingsTabs.tsx';
 import { getErrorMessage } from '@/lib/HelperFunctions.ts';
-import { GLOBAL_READER_SETTINGS_MANGA } from '@/features/manga/Manga.constants.ts';
 import { useAppTitle } from '@/features/navigation-bar/hooks/useAppTitle.ts';
 
 export const GlobalReaderSettings = () => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
-    useAppTitle(t('reader.settings.title.reader'));
+    useAppTitle(t`Reader`);
 
     const [activeTab, setActiveTab] = useState(0);
 
@@ -37,7 +36,7 @@ export const GlobalReaderSettings = () => {
         commit?: boolean,
         profile?: ReadingMode,
     ) => {
-        ReaderService.updateSetting(GLOBAL_READER_SETTINGS_MANGA, key, value, commit, true, profile);
+        ReaderService.updateSetting(key, value, commit, true, profile);
     };
 
     if (loading) {
@@ -47,7 +46,7 @@ export const GlobalReaderSettings = () => {
     if (error) {
         return (
             <EmptyViewAbsoluteCentered
-                message={t('global.error.label.failed_to_load_data')}
+                message={t`Unable to load data`}
                 messageExtra={getErrorMessage(error)}
                 retry={() => refetch().catch(defaultPromiseErrorHandler('DefaultReaderSettings::refetch'))}
             />
@@ -61,7 +60,7 @@ export const GlobalReaderSettings = () => {
             areDefaultSettings
             settings={settings}
             updateSetting={(setting, value, commit, _, profile) => updateSetting(setting, value, commit, profile)}
-            deleteSetting={(setting) => ReaderService.deleteSetting(GLOBAL_READER_SETTINGS_MANGA, setting, true)}
+            deleteSetting={(setting) => ReaderService.deleteSetting(setting, true)}
         />
     );
 };

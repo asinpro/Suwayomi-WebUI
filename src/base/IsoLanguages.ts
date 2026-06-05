@@ -6,7 +6,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { I18nResourceCode } from '@/i18n';
+import type { I18nResourceCode } from '@/i18n';
 
 export type ISOLanguage = {
     name: string;
@@ -35,11 +35,11 @@ export const IsoLanguages: { [languageCode in I18nResourceCode]: ISOLanguage } &
     },
     'pt-br': PT_BR,
     'pt-BR': PT_BR,
-    zh_Hans: {
+    'zh-Hans': {
         name: 'Chinese (Simplified)',
         nativeName: '中文 (HANS)',
     },
-    zh_Hant: {
+    'zh-Hant': {
         name: 'Chinese (Traditional)',
         nativeName: '中文 (HANT)',
     },

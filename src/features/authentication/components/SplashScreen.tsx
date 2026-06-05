@@ -7,40 +7,59 @@
  */
 
 import { useTheme } from '@mui/material/styles';
+import type { StackProps } from '@mui/material/Stack';
 import Stack from '@mui/material/Stack';
+import type { ComponentProps } from 'react';
 import { SuwayomiLogo } from '@/assets/SuwayomiLogo.tsx';
 import { ServerAddressSetting } from '@/features/settings/components/ServerAddressSetting.tsx';
 
-export const SplashScreen = () => {
+export const SplashScreen = ({
+    slots,
+}: {
+    slots?: {
+        stackProps?: StackProps;
+        logoProps?: ComponentProps<typeof SuwayomiLogo>;
+        serverAddressProps?: StackProps;
+    };
+}) => {
     const theme = useTheme();
 
     return (
         <Stack
+            {...slots?.stackProps}
             sx={{
+                position: 'relative',
                 minWidth: '100vw',
                 minHeight: '100vh',
                 justifyContent: 'center',
                 alignItems: 'center',
-                backgroundColor: 'primary.light',
-                ...theme.applyStyles('dark', {
-                    backgroundColor: 'primary.dark',
-                }),
+                backgroundColor: 'background.paper',
+                ...slots?.stackProps?.sx,
             }}
         >
             <SuwayomiLogo
+                circleRingColor={theme.palette.primary.light}
+                circleFillColor={theme.palette.primary.dark}
+                {...slots?.logoProps}
                 sx={{
                     fontSize: 250,
                     [theme.breakpoints.up('lg')]: {
                         fontSize: 350,
                     },
+                    ...slots?.logoProps?.sx,
                 }}
-                circleRingColor={theme.palette.primary.light}
             />
-            {import.meta.env.DEV && (
-                <Stack sx={{ height: 'auto', mt: 5 }}>
-                    <ServerAddressSetting />
-                </Stack>
-            )}
+            <Stack
+                {...slots?.serverAddressProps}
+                sx={{
+                    position: 'absolute',
+                    left: 0,
+                    bottom: 0,
+                    ...slots?.serverAddressProps?.sx,
+                }}
+            >
+                <ServerAddressSetting />
+            </Stack>
         </Stack>
     );
 };

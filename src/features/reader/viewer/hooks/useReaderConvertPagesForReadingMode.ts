@@ -7,11 +7,11 @@
  */
 
 import { useLayoutEffect, useState } from 'react';
-import { ReaderPageSpreadState, ReadingMode } from '@/features/reader/Reader.types.ts';
-import { getNextIndexFromPage, getPage } from '@/features/reader/overlay/progress-bar/ReaderProgressBar.utils.tsx';
+import type { ReaderPageSpreadState, ReaderStatePages } from '@/features/reader/Reader.types.ts';
+import { ReadingMode } from '@/features/reader/Reader.types.ts';
+import { getIndexOfPage, getPage } from '@/features/reader/overlay/progress-bar/ReaderProgressBar.utils.tsx';
 import { createPagesData } from '@/features/reader/viewer/pager/ReaderPager.utils.tsx';
-import { ReaderStatePages } from '@/features/reader/overlay/progress-bar/ReaderProgressBar.types.ts';
-import { ReaderControls } from '@/features/reader/services/ReaderControls.ts';
+import type { ReaderControls } from '@/features/reader/services/ReaderControls.ts';
 
 export const useReaderConvertPagesForReadingMode = (
     currentPageIndex: number,
@@ -38,7 +38,7 @@ export const useReaderConvertPagesForReadingMode = (
         const convertPagesToDoublePageMode = readingMode === ReadingMode.DOUBLE_PAGE;
         if (convertPagesToDoublePageMode) {
             if (!wasDoublePageMode) {
-                updateCurrentPageIndex(getNextIndexFromPage(getPage(currentPageIndex, actualPages)));
+                updateCurrentPageIndex(getIndexOfPage(getPage(currentPageIndex, actualPages)));
             }
             setPages(actualPages);
             setWasDoublePageMode(readingMode === ReadingMode.DOUBLE_PAGE);

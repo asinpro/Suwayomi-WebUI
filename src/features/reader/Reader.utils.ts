@@ -6,18 +6,13 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import {
-    ReaderPageSpreadState,
-    ReaderResumeMode,
-    ReaderStateChapters,
-    ReadingMode,
-} from '@/features/reader/Reader.types.ts';
-import { UpdateChapterPatchInput } from '@/lib/graphql/generated/graphql.ts';
-import { ChapterIdInfo, TChapterReader } from '@/features/chapter/Chapter.types.ts';
+import type { ReaderPageSpreadState, ReaderStateChapters, ReaderStatePages } from '@/features/reader/Reader.types.ts';
+import { ReaderResumeMode, ReadingMode } from '@/features/reader/Reader.types.ts';
+import type { UpdateChapterPatchInput } from '@/lib/graphql/generated/graphql-base.types.ts';
+import type { ChapterIdInfo, TChapterReader } from '@/features/chapter/Chapter.types.ts';
 import { Chapters } from '@/features/chapter/services/Chapters.ts';
-import { CHAPTER_READER_FIELDS } from '@/lib/graphql/fragments/ChapterFragments.ts';
+import { CHAPTER_READER_FIELDS } from '@/lib/graphql/chapter/ChapterFragments.ts';
 import { isPageOfOutdatedPageLoadStates, isSpreadPage } from '@/features/reader/viewer/pager/ReaderPager.utils.tsx';
-import { ReaderStatePages } from '@/features/reader/overlay/progress-bar/ReaderProgressBar.types.ts';
 import { coerceIn } from '@/lib/HelperFunctions.ts';
 
 import { DirectionOffset } from '@/base/Base.types.ts';

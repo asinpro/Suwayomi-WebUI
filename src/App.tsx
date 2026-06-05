@@ -7,13 +7,14 @@
  */
 
 import CssBaseline from '@mui/material/CssBaseline';
-import React, { useEffect, useLayoutEffect } from 'react';
-import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
+import type { PropsWithChildren } from 'react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
+import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { loadErrorMessages, loadDevMessages } from '@apollo/client/dev';
 import { loadable } from 'react-lazily/loadable';
 import Box from '@mui/material/Box';
+import { AwaitableComponent } from 'awaitable-component';
 import { AppContext } from '@/base/contexts/AppContext.tsx';
-import '@/i18n';
 import { DefaultNavBar } from '@/features/navigation-bar/components/DefaultNavBar.tsx';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { WebUIUpdateChecker } from '@/features/app-updates/components/WebUIUpdateChecker.tsx';
@@ -21,23 +22,31 @@ import { ServerUpdateChecker } from '@/features/app-updates/components/ServerUpd
 import { lazyLoadFallback } from '@/base/utils/LazyLoad.tsx';
 import { ErrorBoundary } from '@/base/components/feedback/ErrorBoundary.tsx';
 import { useNavBarContext } from '@/features/navigation-bar/NavbarContext.tsx';
-
 import { AppRoutes } from '@/base/AppRoute.constants.ts';
-
 import { useMetadataServerSettings } from '@/features/settings/services/ServerSettingsMetadata.ts';
 import { MediaQuery } from '@/base/utils/MediaQuery.tsx';
 import { BrowseTab } from '@/features/browse/Browse.types.ts';
-import { useSessionContext } from '@/features/authentication/SessionContext.tsx';
 import { LoginPage } from '@/features/authentication/screens/LoginPage.tsx';
 import { AuthGuard } from '@/features/authentication/components/AuthGuard.tsx';
 import { SearchParam } from '@/base/Base.types.ts';
 import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
+import { ReactRouter } from '@/lib/react-router/ReactRouter.ts';
+import { AuthManager } from '@/features/authentication/AuthManager.ts';
+import { ImageProcessingType } from '@/features/settings/Settings.types.ts';
+import { MigrationFABIndicator } from '@/features/migration/components/MigrationFABIndicator.tsx';
+import { MigrationManager } from '@/features/migration/MigrationManager.ts';
+import { SplashScreen } from '@/features/authentication/components/SplashScreen.tsx';
+import { d } from 'koration';
 
 const { Browse } = loadable(() => import('@/features/browse/screens/Browse.tsx'), lazyLoadFallback);
 const { DownloadQueue } = loadable(() => import('@/features/downloads/screens/DownloadQueue.tsx'), lazyLoadFallback);
 const { Library } = loadable(() => import('@/features/library/screens/Library.tsx'), lazyLoadFallback);
 const { Manga } = loadable(() => import('@/features/manga/screens/Manga.tsx'), lazyLoadFallback);
 const { SearchAll } = loadable(() => import('@/features/global-search/screens/SearchAll.tsx'), lazyLoadFallback);
+const { MigrationManualSearch } = loadable(
+    () => import('@/features/migration/screens/MigrationManualSearch.tsx'),
+    lazyLoadFallback,
+);
 const { Settings } = loadable(() => import('@/features/settings/screens/Settings.tsx'), lazyLoadFallback);
 const { About } = loadable(() => import('@/features/settings/screens/About.tsx'), lazyLoadFallback);
 const { Backup } = loadable(() => import('@/features/backup/screens/Backup.tsx'), lazyLoadFallback);
@@ -61,10 +70,15 @@ const { DownloadSettings } = loadable(
     () => import('@/features/downloads/screens/DownloadSettings.tsx'),
     lazyLoadFallback,
 );
+const { ImagesSettings } = loadable(() => import('@/features/settings/screens/ImagesSettings.tsx'), lazyLoadFallback);
+const { ImageProcessingSetting } = loadable(
+    () => import('@/features/settings/screens/ImageProcessingSetting.tsx'),
+    lazyLoadFallback,
+);
 const { ServerSettings } = loadable(() => import('@/features/settings/screens/ServerSettings.tsx'), lazyLoadFallback);
 const { BrowseSettings } = loadable(() => import('@/features/browse/screens/BrowseSettings.tsx'), lazyLoadFallback);
 const { WebUISettings } = loadable(() => import('@/features/settings/screens/WebUISettings.tsx'), lazyLoadFallback);
-const { Migrate } = loadable(() => import('@/features/migration/screens/Migrate.tsx'), lazyLoadFallback);
+const { Migration } = loadable(() => import('@/features/migration/screens/Migration.tsx'), lazyLoadFallback);
 const { DeviceSetting } = loadable(() => import('@/features/device/screens/DeviceSetting.tsx'), lazyLoadFallback);
 const { TrackingSettings } = loadable(
     () => import('@/features/tracker/screens/TrackingSettings.tsx'),
@@ -103,21 +117,66 @@ const ScrollToTop = () => {
     return null;
 };
 
+const InitializeGuard = ({ children }: PropsWithChildren) => {
+    const [isInitialized, setIsInitialized] = useState(false);
+
+    useEffect(() => {
+        type RequestConfig = [string, () => Promise<unknown>][];
+        type InFlightRequest = [string, Promise<unknown>];
+
+        const initialRequests: RequestConfig = [
+            ['globalMeta', () => requestManager.getGlobalMeta().response],
+            ['serverSettings', () => requestManager.getServerSettings().response],
+        ];
+
+        const executeRequests = async (requests: RequestConfig, timeout: number = d(5).seconds.inWholeMilliseconds) => {
+            const runningRequests = requests.map(([key, fn]) => [key, fn()] satisfies InFlightRequest);
+
+            const failedRequests = runningRequests.filter(async ([_, request]) => {
+                try {
+                    await request;
+
+                    return false;
+                } catch (e) {
+                    return true;
+                }
+            });
+
+            if (failedRequests.length) {
+                await new Promise((resolve) => {
+                    setTimeout(resolve, timeout);
+                });
+
+                return executeRequests(
+                    requests.filter(([key]) => !failedRequests.some(([k]) => k === key)),
+                    (timeout * 1.5) % d(2).minutes.inWholeMilliseconds,
+                );
+            }
+        };
+
+        executeRequests(initialRequests).catch(defaultPromiseErrorHandler('InitializeGuard'));
+
+        setIsInitialized(true);
+    }, []);
+
+    if (isInitialized) {
+        return children;
+    }
+
+    return <SplashScreen />;
+};
+
 const InitialBackgroundRequests = () => {
-    const { isAuthRequired, accessToken } = useSessionContext();
-    const skipConnection = isAuthRequired == null || (!!isAuthRequired && !accessToken);
+    // Load the full download status once on startup to fill the cache
+    requestManager.useGetDownloadStatus({ nextFetchPolicy: 'standby' });
 
     const [fetchExtensionList] = requestManager.useExtensionListFetch();
 
     useEffect(() => {
-        if (skipConnection) {
-            return;
-        }
-
         // Fetch extension list on startup to show up-to-date number of available extension updates in the navigation bar
         // without having to open the extensions page.
         fetchExtensionList().catch(defaultPromiseErrorHandler('App::InitialBackgroundRequests: extension list'));
-    }, [skipConnection]);
+    }, []);
 
     return null;
 };
@@ -129,13 +188,10 @@ const InitialBackgroundRequests = () => {
  * and thus, data of existing chapters/mangas in the cache get outdated
  */
 const BackgroundSubscriptions = () => {
-    // Listen to session changes
-    const { isAuthRequired, accessToken } = useSessionContext();
+    const { isAuthRequired, accessToken } = AuthManager.useSession();
 
-    const skipConnection = isAuthRequired == null || (!!isAuthRequired && !accessToken);
+    const skipConnection = isAuthRequired === null || (isAuthRequired && !accessToken);
 
-    // Load the full download status once on startup to fill the cache
-    requestManager.useGetDownloadStatus({ nextFetchPolicy: 'standby' });
     requestManager.useDownloadSubscription({ skip: skipConnection });
     requestManager.useUpdaterSubscription({ skip: skipConnection });
     requestManager.useWebUIUpdateSubscription({ skip: skipConnection });
@@ -143,15 +199,34 @@ const BackgroundSubscriptions = () => {
     return null;
 };
 
-const PrivateRoutes = () => {
-    const { isAuthRequired, accessToken, refreshToken } = useSessionContext();
+const ReactRouterSetter = () => {
+    const navigate = useNavigate();
 
-    const isAuthenticated = !isAuthRequired || (isAuthRequired && (accessToken || refreshToken));
+    useEffect(() => {
+        ReactRouter.setNavigateFn(navigate);
+    }, []);
+
+    return null;
+};
+
+const ResumeMigration = () => {
+    useEffect(() => {
+        if (!MigrationManager.isActive()) {
+            MigrationManager.resume().catch(defaultPromiseErrorHandler('ResumeMigration'));
+        }
+    }, []);
+
+    return null;
+};
+
+const PrivateRoutes = () => {
+    const isAuthenticated = AuthManager.useIsAuthenticated();
+
     if (!isAuthenticated) {
         return (
             <Navigate
                 to={{
-                    pathname: AppRoutes.authentication.childRoutes.login.path,
+                    pathname: AppRoutes.authentication.children.login.path,
                     search: `${SearchParam.REDIRECT}=${window.location.pathname}`,
                 }}
                 replace
@@ -188,7 +263,7 @@ const MainApp = () => {
             <ErrorBoundary>
                 <Routes>
                     <Route path={AppRoutes.authentication.match}>
-                        <Route path={AppRoutes.authentication.childRoutes.login.match} element={<LoginPage />} />
+                        <Route path={AppRoutes.authentication.children.login.match} element={<LoginPage />} />
                     </Route>
 
                     <Route element={<PrivateRoutes />}>
@@ -205,36 +280,47 @@ const MainApp = () => {
                         <Route path={AppRoutes.about.match} element={<About />} />
                         <Route path={AppRoutes.settings.match}>
                             <Route index element={<Settings />} />
-                            <Route
-                                path={AppRoutes.settings.childRoutes.categories.match}
-                                element={<CategorySettings />}
-                            />
-                            <Route
-                                path={AppRoutes.settings.childRoutes.reader.match}
-                                element={<GlobalReaderSettings />}
-                            />
-                            <Route path={AppRoutes.settings.childRoutes.library.match}>
+                            <Route path={AppRoutes.settings.children.categories.match} element={<CategorySettings />} />
+                            <Route path={AppRoutes.settings.children.reader.match} element={<GlobalReaderSettings />} />
+                            <Route path={AppRoutes.settings.children.library.match}>
                                 <Route index element={<LibrarySettings />} />
                                 <Route
-                                    path={AppRoutes.settings.childRoutes.library.childRoutes.duplicates.match}
+                                    path={AppRoutes.settings.children.library.children.duplicates.match}
                                     element={<LibraryDuplicates />}
                                 />
                             </Route>
-                            <Route
-                                path={AppRoutes.settings.childRoutes.download.match}
-                                element={<DownloadSettings />}
-                            />
-                            <Route path={AppRoutes.settings.childRoutes.backup.match} element={<Backup />} />
-                            <Route path={AppRoutes.settings.childRoutes.server.match} element={<ServerSettings />} />
-                            <Route path={AppRoutes.settings.childRoutes.webui.match} element={<WebUISettings />} />
-                            <Route path={AppRoutes.settings.childRoutes.browse.match} element={<BrowseSettings />} />
-                            <Route path={AppRoutes.settings.childRoutes.history.match} element={<HistorySettings />} />
-                            <Route path={AppRoutes.settings.childRoutes.device.match} element={<DeviceSetting />} />
-                            <Route
-                                path={AppRoutes.settings.childRoutes.tracking.match}
-                                element={<TrackingSettings />}
-                            />
-                            <Route path={AppRoutes.settings.childRoutes.appearance.match} element={<Appearance />} />
+                            <Route path={AppRoutes.settings.children.download.match}>
+                                <Route index element={<DownloadSettings />} />
+                                {/* TODO: deprecated - got moved to "settings/images/processing/downloads" */}
+                                <Route
+                                    path={AppRoutes.settings.children.download.children.conversions.match}
+                                    element={
+                                        <Navigate
+                                            to={AppRoutes.settings.children.images.children.processingDownloads.path}
+                                            replace
+                                        />
+                                    }
+                                />
+                            </Route>
+                            <Route path={AppRoutes.settings.children.images.match}>
+                                <Route index element={<ImagesSettings />} />
+                                <Route
+                                    path={AppRoutes.settings.children.images.children.processingDownloads.match}
+                                    element={<ImageProcessingSetting type={ImageProcessingType.DOWNLOAD} />}
+                                />
+                                <Route
+                                    path={AppRoutes.settings.children.images.children.processingServe.match}
+                                    element={<ImageProcessingSetting type={ImageProcessingType.SERVE} />}
+                                />
+                            </Route>
+                            <Route path={AppRoutes.settings.children.backup.match} element={<Backup />} />
+                            <Route path={AppRoutes.settings.children.server.match} element={<ServerSettings />} />
+                            <Route path={AppRoutes.settings.children.webui.match} element={<WebUISettings />} />
+                            <Route path={AppRoutes.settings.children.browse.match} element={<BrowseSettings />} />
+                            <Route path={AppRoutes.settings.children.history.match} element={<HistorySettings />} />
+                            <Route path={AppRoutes.settings.children.device.match} element={<DeviceSetting />} />
+                            <Route path={AppRoutes.settings.children.tracking.match} element={<TrackingSettings />} />
+                            <Route path={AppRoutes.settings.children.appearance.match} element={<Appearance />} />
                         </Route>
 
                         {/* Manga Routes */}
@@ -242,29 +328,35 @@ const MainApp = () => {
                         <Route path={AppRoutes.sources.match}>
                             {/* TODO: deprecated - "source" and "extension" page got merged into "browse" */}
                             <Route index element={<Navigate to={AppRoutes.browse.path(BrowseTab.SOURCES)} replace />} />
-                            <Route path={AppRoutes.sources.childRoutes.browse.match} element={<SourceMangas />} />
-                            <Route path={AppRoutes.sources.childRoutes.configure.match} element={<SourceConfigure />} />
-                            <Route path={AppRoutes.sources.childRoutes.searchAll.match} element={<SearchAll />} />
+                            <Route path={AppRoutes.sources.children.browse.match} element={<SourceMangas />} />
+                            <Route path={AppRoutes.sources.children.configure.match} element={<SourceConfigure />} />
+                            <Route path={AppRoutes.sources.children.searchAll.match} element={<SearchAll />} />
                         </Route>
                         <Route path={AppRoutes.extension.match}>
+                            {/* TODO: deprecated - "source" and "extension" page got merged into "browse" */}
                             <Route
                                 index
                                 element={<Navigate to={AppRoutes.browse.path(BrowseTab.EXTENSIONS)} replace />}
                             />
-                            <Route path={AppRoutes.extension.childRoutes.info.match} element={<ExtensionInfo />} />
+                            <Route path={AppRoutes.extension.children.info.match} element={<ExtensionInfo />} />
                         </Route>
                         <Route path={AppRoutes.downloads.match} element={<DownloadQueue />} />
                         <Route path={AppRoutes.manga.match}>
-                            <Route path={AppRoutes.manga.childRoutes.reader.match} element={null} />
+                            <Route path={AppRoutes.manga.children.reader.match} element={null} />
                             <Route index element={<Manga />} />
                         </Route>
                         <Route path={AppRoutes.library.match} element={<Library />} />
                         <Route path={AppRoutes.updates.match} element={<Updates />} />
                         {!hideHistory && <Route path={AppRoutes.history.match} element={<History />} />}
                         <Route path={AppRoutes.browse.match} element={<Browse />} />
+                        <Route path={AppRoutes.browse.match} element={<Browse />} />
                         <Route path={AppRoutes.migrate.match}>
-                            <Route index element={<Migrate />} />
-                            <Route path={AppRoutes.migrate.childRoutes.search.match} element={<SearchAll />} />
+                            <Route index element={<Migration />} />
+                            <Route path={AppRoutes.migrate.children.singleMangaSearch.match} element={<SearchAll />} />
+                            <Route
+                                path={AppRoutes.migrate.children.manualSearch.match}
+                                element={<MigrationManualSearch />}
+                            />
                         </Route>
                         <Route path={AppRoutes.tracker.match} element={<TrackerOAuthLogin />} />
                     </Route>
@@ -277,7 +369,9 @@ const MainApp = () => {
 const ReaderApp = () => (
     <ErrorBoundary>
         <Routes>
-            <Route path={AppRoutes.matchAll.match} element={<Reader />} />
+            <Route element={<PrivateRoutes />}>
+                <Route path={AppRoutes.matchAll.match} element={<Reader />} />
+            </Route>
         </Routes>
     </ErrorBoundary>
 );
@@ -285,21 +379,31 @@ const ReaderApp = () => (
 export const App: React.FC = () => (
     <AppContext>
         <ScrollToTop />
-        <ServerUpdateChecker />
-        <WebUIUpdateChecker />
-        <InitialBackgroundRequests />
-        <BackgroundSubscriptions />
+        <AwaitableComponent.Root />
+
+        <ReactRouterSetter />
+
         <CssBaseline enableColorScheme />
+
         <AuthGuard>
-            <Box sx={{ display: 'flex' }}>
-                <Box sx={{ flexShrink: 0, position: 'relative', height: '100vh' }}>
-                    <DefaultNavBar />
+            <InitializeGuard>
+                <ServerUpdateChecker />
+                <WebUIUpdateChecker />
+                <InitialBackgroundRequests />
+                <BackgroundSubscriptions />
+                <ResumeMigration />
+
+                <Box sx={{ display: 'flex' }}>
+                    <Box sx={{ flexShrink: 0, position: 'relative', height: '100vh' }}>
+                        <DefaultNavBar />
+                    </Box>
+                    <Routes>
+                        <Route path={AppRoutes.matchAll.match} element={<MainApp />} />
+                        <Route path={AppRoutes.reader.match} element={<ReaderApp />} />
+                    </Routes>
                 </Box>
-                <Routes>
-                    <Route path={AppRoutes.matchAll.match} element={<MainApp />} />
-                    <Route path={AppRoutes.reader.match} element={<ReaderApp />} />
-                </Routes>
-            </Box>
+                <MigrationFABIndicator />
+            </InitializeGuard>
         </AuthGuard>
     </AppContext>
 );

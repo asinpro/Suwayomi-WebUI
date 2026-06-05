@@ -11,12 +11,14 @@
  */
 
 import ListItemIcon from '@mui/material/ListItemIcon';
-import MenuItem, { MenuItemProps as MuiMenuItemProps } from '@mui/material/MenuItem';
-import { SxProps, Theme } from '@mui/material/styles';
-import React, { forwardRef, RefObject } from 'react';
+import type { MenuItemProps as MuiMenuItemProps } from '@mui/material/MenuItem';
+import MenuItem from '@mui/material/MenuItem';
+import type { SxProps, Theme } from '@mui/material/styles';
+import type { Ref } from 'react';
+import React from 'react';
 
-import { OverridableComponent } from '@mui/material/OverridableComponent';
-import { SvgIconTypeMap } from '@mui/material/SvgIcon';
+import type { OverridableComponent } from '@mui/material/OverridableComponent';
+import type { SvgIconTypeMap } from '@mui/material/SvgIcon';
 import ListItemText from '@mui/material/ListItemText';
 
 type IconMenuItemProps = {
@@ -27,25 +29,31 @@ type IconMenuItemProps = {
     renderLabel?: () => React.ReactNode;
     LeftIcon?: OverridableComponent<SvgIconTypeMap> & { muiName: string };
     onClick?: (event: React.MouseEvent<HTMLElement>) => void;
-    ref?: RefObject<HTMLLIElement | null>;
+    ref?: Ref<HTMLLIElement | null>;
     RightIcon?: OverridableComponent<SvgIconTypeMap> & { muiName: string };
     sx?: SxProps<Theme>;
 };
 
-export const IconMenuItem = forwardRef<HTMLLIElement, IconMenuItemProps>(
-    ({ MenuItemProps, className, label, LeftIcon, renderLabel, RightIcon, ...props }, ref) => (
-        <MenuItem {...MenuItemProps} ref={ref} className={className} {...props}>
-            {LeftIcon && (
-                <ListItemIcon>
-                    <LeftIcon fontSize="small" />
-                </ListItemIcon>
-            )}
-            <ListItemText>{label}</ListItemText>
-            {RightIcon && (
-                <ListItemIcon style={{ minWidth: 0 }}>
-                    <RightIcon fontSize="small" />
-                </ListItemIcon>
-            )}
-        </MenuItem>
-    ),
+export const IconMenuItem = ({
+    MenuItemProps,
+    className,
+    label,
+    LeftIcon,
+    renderLabel,
+    RightIcon,
+    ...props
+}: IconMenuItemProps) => (
+    <MenuItem {...MenuItemProps} className={className} {...props}>
+        {LeftIcon && (
+            <ListItemIcon>
+                <LeftIcon fontSize="small" />
+            </ListItemIcon>
+        )}
+        <ListItemText>{label}</ListItemText>
+        {RightIcon && (
+            <ListItemIcon style={{ minWidth: 0 }}>
+                <RightIcon fontSize="small" />
+            </ListItemIcon>
+        )}
+    </MenuItem>
 );

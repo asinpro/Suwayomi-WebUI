@@ -6,17 +6,21 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { MetadataDownloadSettings } from '@/features/downloads/Downloads.types.ts';
-import { MetadataLibrarySettings } from '@/features/library/Library.types.ts';
-import { MetadataClientSettings } from '@/features/device/Device.types.ts';
-import { MetadataMigrationSettings } from '@/features/migration/Migration.types.ts';
-import { MetadataBrowseSettings } from '@/features/browse/Browse.types.ts';
-import { MetadataTrackingSettings } from '@/features/tracker/Tracker.types.ts';
-import { MetadataUpdateSettings } from '@/features/app-updates/AppUpdateChecker.types.ts';
-import { MetadataThemeSettings } from '@/features/theme/AppTheme.types.ts';
-import { GetServerSettingsQuery } from '@/lib/graphql/generated/graphql.ts';
-import { MetadataHistorySettings } from '@/features/history/History.types.ts';
-import { ServerSettings as GqlServerSettings } from '@/features/settings/Settings.types.ts';
+import type { MetadataDownloadSettings } from '@/features/downloads/Downloads.types.ts';
+import type { MetadataLibrarySettings } from '@/features/library/Library.types.ts';
+import type { MetadataClientSettings } from '@/features/device/Device.types.ts';
+import type { MetadataMigrationSettings } from '@/features/migration/Migration.types.ts';
+import type { MetadataBrowseSettings } from '@/features/browse/Browse.types.ts';
+import type { MetadataTrackingSettings } from '@/features/tracker/Tracker.types.ts';
+import type { MetadataUpdateSettings } from '@/features/app-updates/AppUpdateChecker.types.ts';
+import type { MetadataThemeSettings } from '@/features/theme/AppTheme.types.ts';
+import type {
+    Maybe,
+    SettingsDownloadConversion,
+    SettingsDownloadConversionHeader,
+} from '@/lib/graphql/generated/graphql-base.types.ts';
+import type { MetadataHistorySettings } from '@/features/history/History.types.ts';
+import type { GetServerSettingsQuery } from '@/lib/graphql/generated/graphql.ts';
 
 export type MetadataServerSettingKeys = keyof MetadataServerSettings;
 
@@ -37,41 +41,6 @@ export interface ISearchSettings {
 }
 
 export type ServerSettings = Omit<GetServerSettingsQuery['settings'], '__typename'>;
-export type ServerSettingsType = Pick<
-    GqlServerSettings,
-    | 'ip'
-    | 'port'
-    | 'socksProxyEnabled'
-    | 'socksProxyVersion'
-    | 'socksProxyHost'
-    | 'socksProxyPort'
-    | 'socksProxyUsername'
-    | 'socksProxyPassword'
-    | 'debugLogsEnabled'
-    | 'systemTrayEnabled'
-    | 'maxLogFiles'
-    | 'maxLogFileSize'
-    | 'maxLogFolderSize'
-    | 'authMode'
-    | 'authUsername'
-    | 'authPassword'
-    | 'jwtAudience'
-    | 'jwtTokenExpiry'
-    | 'jwtRefreshExpiry'
-    | 'flareSolverrEnabled'
-    | 'flareSolverrTimeout'
-    | 'flareSolverrUrl'
-    | 'flareSolverrSessionName'
-    | 'flareSolverrSessionTtl'
-    | 'flareSolverrAsResponseFallback'
-    | 'opdsUseBinaryFileSizes'
-    | 'opdsItemsPerPage'
-    | 'opdsEnablePageReadProgress'
-    | 'opdsMarkAsReadOnDownload'
-    | 'opdsShowOnlyUnreadChapters'
-    | 'opdsShowOnlyDownloadedChapters'
-    | 'opdsChapterSortOrder'
->;
 
 export type WebUISettingsType = Pick<
     ServerSettings,
@@ -89,3 +58,31 @@ export type GlobalUpdateSkipEntriesSettings = Pick<
 >;
 
 export type LibrarySettingsType = Pick<ServerSettings, 'updateMangas'>;
+
+export enum ImageProcessingTargetMode {
+    DISABLED = 'disabled',
+    IMAGE = 'image',
+    URL = 'url',
+}
+
+export enum ImageProcessingType {
+    DOWNLOAD = 'download',
+    SERVE = 'serve',
+}
+
+export type TSettingsDownloadConversionKeyValueItem = SettingsDownloadConversionHeader & {
+    /**
+     * The conversion object does not have a stable key, which causes issues when editing the settings
+     */
+    id: number;
+};
+
+export type TSettingsDownloadConversion = Omit<SettingsDownloadConversion, 'headers'> & {
+    /**
+     * The conversion object does not have a stable key, which causes issues when editing the settings
+     */
+    id: number;
+    mode: ImageProcessingTargetMode;
+    headers?: Maybe<TSettingsDownloadConversionKeyValueItem[]>;
+    searchParams?: Maybe<TSettingsDownloadConversionKeyValueItem[]>;
+};

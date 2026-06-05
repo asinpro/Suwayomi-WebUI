@@ -6,13 +6,14 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { MutableRefObject, RefObject, useCallback, useEffect, useMemo } from 'react';
-import { Direction, useTheme } from '@mui/material/styles';
-import { useTranslation } from 'react-i18next';
-import { TFunction } from 'i18next';
-import { userReaderStatePagesContext } from '@/features/reader/contexts/state/ReaderStatePagesContext.tsx';
+import type { MessageDescriptor } from '@lingui/core';
+import type { MutableRefObject, RefObject } from 'react';
+import { useCallback, useEffect } from 'react';
+import type { Direction } from '@mui/material/styles';
+import { d } from 'koration';
+import { msg, t } from '@lingui/core/macro';
 import {
-    getNextIndexFromPage,
+    getIndexOfPage,
     getNextPageIndex,
     getPage,
     getPageForMousePos,
@@ -20,25 +21,21 @@ import {
 } from '@/features/reader/overlay/progress-bar/ReaderProgressBar.utils.tsx';
 import { getOptionForDirection } from '@/features/theme/services/ThemeCreator.ts';
 import { ReaderService } from '@/features/reader/services/ReaderService.ts';
-import { useReaderStateChaptersContext } from '@/features/reader/contexts/state/ReaderStateChaptersContext.tsx';
-import {
+import type {
     PageInViewportType,
     ProgressBarPosition,
-    ReaderScrollAmount,
-    ReaderTransitionPageMode,
+    ReaderStatePages,
     ReadingDirection,
-    ReadingMode,
 } from '@/features/reader/Reader.types.ts';
-import { DirectionOffset, ScrollDirection, ScrollOffset, TranslationKey } from '@/base/Base.types.ts';
+import { ReaderScrollAmount, ReaderTransitionPageMode, ReadingMode } from '@/features/reader/Reader.types.ts';
+import { DirectionOffset, ScrollDirection, ScrollOffset } from '@/base/Base.types';
 import { READING_DIRECTION_TO_THEME_DIRECTION } from '@/features/reader/settings/ReaderSettings.constants.tsx';
 import {
     isATransitionPageVisible,
     isEndOfPageInViewport,
     isPageInViewport,
 } from '@/features/reader/viewer/pager/ReaderPager.utils.tsx';
-import { useReaderOverlayContext } from '@/features/reader/overlay/ReaderOverlayContext.tsx';
-import { useReaderTapZoneContext } from '@/features/reader/tap-zones/ReaderTapZoneContext.tsx';
-import { TapZoneRegionType, TReaderTapZoneContext } from '@/features/reader/tap-zones/TapZoneLayout.types.ts';
+import { TapZoneRegionType } from '@/features/reader/tap-zones/TapZoneLayout.types.ts';
 import { ReaderTapZoneService } from '@/features/reader/tap-zones/ReaderTapZoneService.ts';
 import { isContinuousReadingMode } from '@/features/reader/settings/ReaderSettings.utils.tsx';
 import {
@@ -48,14 +45,19 @@ import {
 } from '@/features/reader/Reader.utils.ts';
 import { Chapters } from '@/features/chapter/services/Chapters.ts';
 import { useMetadataServerSettings } from '@/features/settings/services/ServerSettingsMetadata.ts';
-import { ChapterIdInfo, TChapterReader } from '@/features/chapter/Chapter.types.ts';
-import { awaitConfirmation } from '@/base/utils/AwaitableDialog.tsx';
+import type { ChapterIdInfo, TChapterReader } from '@/features/chapter/Chapter.types.ts';
 import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
-import { TReaderOverlayContext } from '@/features/reader/overlay/ReaderOverlay.types.ts';
+import type { TReaderProgressCurrentPage } from '@/features/reader/overlay/progress-bar/ReaderProgressBar.types.ts';
 import {
-    ReaderProgressBarProps,
-    TReaderProgressCurrentPage,
-} from '@/features/reader/overlay/progress-bar/ReaderProgressBar.types.ts';
+    getReaderChaptersStore,
+    getReaderOverlayStore,
+    getReaderPagesStore,
+    getReaderSettingsStore,
+    getReaderStore,
+    getReaderTapZoneStore,
+} from '@/features/reader/stores/ReaderStore.ts';
+import { Confirmation } from '@/base/AppAwaitableComponent.ts';
+import { i18n } from '@/i18n';
 
 const getScrollDirectionInvert = (
     scrollDirection: ScrollDirection,
@@ -64,19 +66,11 @@ const getScrollDirectionInvert = (
 ): 1 | -1 => {
     if (scrollDirection === ScrollDirection.X) {
         if (scrollOffset === ScrollOffset.BACKWARD) {
-            if (themeDirection === 'ltr') {
-                return -1;
-            }
-
-            return 1;
+            return getOptionForDirection(-1, 1, themeDirection);
         }
 
         if (scrollOffset === ScrollOffset.FORWARD) {
-            if (themeDirection === 'ltr') {
-                return 1;
-            }
-
-            return -1;
+            return getOptionForDirection(1, -1, themeDirection);
         }
     }
 
@@ -88,19 +82,49 @@ const getScrollDirectionInvert = (
     return 1;
 };
 
-export class ReaderControls {
-    private static updateCurrentPageTimeout: NodeJS.Timeout;
+class ReaderControlsClass {
+    private updateCurrentPageTimeout: NodeJS.Timeout | undefined;
 
-    static scroll(
+    private windowFocus: boolean = true;
+
+    private windowFocusUpdateImminent = false;
+
+    constructor() {
+        let focusTimeout: NodeJS.Timeout | undefined;
+
+        window.addEventListener('blur', () => {
+            clearTimeout(focusTimeout);
+            this.windowFocus = false;
+            this.windowFocusUpdateImminent = false;
+        });
+        window.addEventListener('focus', () => {
+            this.windowFocusUpdateImminent = true;
+
+            clearTimeout(focusTimeout);
+            focusTimeout = setTimeout(() => {
+                this.windowFocus = true;
+                this.windowFocusUpdateImminent = false;
+            }, d(250).milliseconds.inWholeMilliseconds);
+        });
+    }
+
+    private checkAndUpdateWindowsFocus(): boolean {
+        const hasFocus = this.windowFocus;
+
+        if (this.windowFocusUpdateImminent) {
+            this.windowFocus = true;
+            this.windowFocusUpdateImminent = false;
+        }
+
+        return hasFocus;
+    }
+
+    scroll(
         offset: ScrollOffset,
         direction: ScrollDirection,
         readingMode: ReadingMode,
         readingDirection: ReadingDirection,
-        themeDirection: Direction,
         element: HTMLElement,
-        openChapter: ReturnType<(typeof ReaderControls)['useOpenChapter']>,
-        setIsOverlayVisible: TReaderOverlayContext['setIsVisible'],
-        setShowPreview: TReaderTapZoneContext['setShowPreview'],
         scrollAmountPercentage: number = ReaderScrollAmount.LARGE,
     ): void {
         if (!element) {
@@ -108,19 +132,16 @@ export class ReaderControls {
         }
 
         const themeDirectionOfReadingDirection = READING_DIRECTION_TO_THEME_DIRECTION[readingDirection];
-        const areReadingDirectionsEqual = themeDirection === themeDirectionOfReadingDirection;
         const isContinuousReadingModeActive = isContinuousReadingMode(readingMode);
 
         const isAtStartY = Math.abs(element.scrollTop) <= 1;
         const isAtEndY =
             Math.floor(element.scrollTop) === element.scrollHeight - element.clientHeight ||
             Math.ceil(element.scrollTop) === element.scrollHeight - element.clientHeight;
-        const isAtStartX = Math.abs(element.scrollLeft) <= 1;
+        const isAtStartX = Math.floor(Math.abs(element.scrollLeft)) === 0;
         const isAtEndX =
-            element.scrollWidth - element.clientWidth - Math.floor(Math.abs(element.scrollLeft)) <= 1 ||
-            element.scrollWidth - element.clientWidth - Math.ceil(Math.abs(element.scrollLeft)) <= 1;
-        const isAtStartXForDirection = areReadingDirectionsEqual ? isAtStartX : isAtEndX;
-        const isAtEndXForDirection = areReadingDirectionsEqual ? isAtEndX : isAtStartX;
+            Math.floor(Math.abs(element.scrollLeft)) === element.scrollWidth - element.clientWidth ||
+            Math.ceil(Math.abs(element.scrollLeft)) === element.scrollWidth - element.clientWidth;
 
         const scrollAmount = scrollAmountPercentage / 100;
         const scrollDirection = getScrollDirectionInvert(direction, offset, themeDirectionOfReadingDirection);
@@ -128,8 +149,8 @@ export class ReaderControls {
         const getNewScrollPosition = (currentPos: number, elementSize: number) =>
             currentPos + elementSize * scrollAmount * scrollDirection;
 
-        setIsOverlayVisible(false);
-        setShowPreview(false);
+        getReaderOverlayStore().setIsVisible(false);
+        getReaderTapZoneStore().setShowPreview(false);
 
         const doScroll = (
             isAtStartForDirection: boolean,
@@ -137,12 +158,12 @@ export class ReaderControls {
             scrollToOptions: ScrollToOptions,
         ) => {
             if (isAtStartForDirection && offset === ScrollOffset.BACKWARD && isContinuousReadingModeActive) {
-                openChapter('previous');
+                this.openChapter('previous');
                 return;
             }
 
             if (isAtEndForDirection && offset === ScrollOffset.FORWARD && isContinuousReadingModeActive) {
-                openChapter('next');
+                this.openChapter('next');
                 return;
             }
 
@@ -154,7 +175,7 @@ export class ReaderControls {
 
         switch (direction) {
             case ScrollDirection.X:
-                doScroll(isAtStartXForDirection, isAtEndXForDirection, {
+                doScroll(isAtStartX, isAtEndX, {
                     left: getNewScrollPosition(element.scrollLeft, element.clientWidth),
                 });
                 break;
@@ -166,18 +187,11 @@ export class ReaderControls {
         }
     }
 
-    static useOpenChapter(): (
+    openChapter(
         offset: 'previous' | 'next' | ChapterIdInfo['id'],
-        doTransitionCheck?: boolean,
-        scrollIntoView?: boolean,
-    ) => void {
-        const { t } = useTranslation();
-        const {
-            readingMode,
-            shouldInformAboutMissingChapter,
-            shouldInformAboutScanlatorChange,
-            shouldUseInfiniteScroll,
-        } = ReaderService.useSettings();
+        doTransitionCheck: boolean = true,
+        scrollIntoView: boolean = true,
+    ): void {
         const {
             currentChapter,
             previousChapter,
@@ -185,106 +199,89 @@ export class ReaderControls {
             chapters,
             visibleChapters: { lastLeadingChapterSourceOrder, lastTrailingChapterSourceOrder },
             setReaderStateChapters,
-        } = useReaderStateChaptersContext();
+        } = getReaderChaptersStore();
+        const { shouldInformAboutMissingChapter, shouldInformAboutScanlatorChange, shouldUseInfiniteScroll } =
+            getReaderSettingsStore();
 
-        const openChapter = ReaderService.useNavigateToChapter();
+        if (!currentChapter) {
+            return;
+        }
 
-        return useCallback(
-            (offset, doTransitionCheck = true, scrollIntoView = true) => {
-                if (!currentChapter) {
-                    return;
+        const isSpecificChapterMode = typeof offset === 'number';
+        const isPreviousOffset = offset === 'previous';
+
+        const doesPreviousChapterExist = isPreviousOffset && !!previousChapter;
+        const doesNextChapterExist = !isPreviousOffset && !!nextChapter;
+
+        const canOpenNextChapter = isSpecificChapterMode || doesPreviousChapterExist || doesNextChapterExist;
+        if (!canOpenNextChapter) {
+            return;
+        }
+
+        const doOpenChapter = async () => {
+            const chapterToOpen = (() => {
+                if (isSpecificChapterMode) {
+                    return chapters.find((chapter) => chapter.id === offset);
                 }
 
-                const isSpecificChapterMode = typeof offset === 'number';
-                const isPreviousOffset = offset === 'previous';
-
-                const doesPreviousChapterExist = isPreviousOffset && !!previousChapter;
-                const doesNextChapterExist = !isPreviousOffset && !!nextChapter;
-
-                const canOpenNextChapter = isSpecificChapterMode || doesPreviousChapterExist || doesNextChapterExist;
-                if (!canOpenNextChapter) {
-                    return;
+                if (isPreviousOffset) {
+                    return previousChapter;
                 }
 
-                const doOpenChapter = async () => {
-                    const chapterToOpen = (() => {
-                        if (isSpecificChapterMode) {
-                            return chapters.find((chapter) => chapter.id === offset);
-                        }
+                return nextChapter;
+            })();
 
-                        if (isPreviousOffset) {
-                            return previousChapter;
-                        }
+            if (!chapterToOpen) {
+                return;
+            }
 
-                        return nextChapter;
-                    })();
+            const isPreviousChapter = chapterToOpen.sourceOrder < currentChapter.sourceOrder;
 
-                    if (!chapterToOpen) {
-                        return;
-                    }
+            try {
+                if (doTransitionCheck) {
+                    await this.checkNextChapterConsistency(
+                        isPreviousChapter ? 'previous' : 'next',
+                        currentChapter,
+                        chapterToOpen,
+                        shouldInformAboutMissingChapter,
+                        shouldInformAboutScanlatorChange,
+                    );
+                }
 
-                    const isPreviousChapter = chapterToOpen.sourceOrder < currentChapter.sourceOrder;
+                const isAlreadyLoaded =
+                    lastLeadingChapterSourceOrder <= chapterToOpen.sourceOrder &&
+                    lastTrailingChapterSourceOrder >= chapterToOpen.sourceOrder;
+                const keepRenderedChapters = shouldUseInfiniteScroll && (!scrollIntoView || isAlreadyLoaded);
 
-                    try {
-                        if (doTransitionCheck) {
-                            await ReaderControls.checkNextChapterConsistency(
-                                t,
-                                isPreviousChapter ? 'previous' : 'next',
-                                currentChapter,
-                                chapterToOpen,
-                                shouldInformAboutMissingChapter,
-                                shouldInformAboutScanlatorChange,
-                            );
-                        }
+                if (keepRenderedChapters) {
+                    setReaderStateChapters((prevState) =>
+                        updateReaderStateVisibleChapters(
+                            isPreviousChapter,
+                            prevState,
+                            chapterToOpen.sourceOrder,
+                            scrollIntoView,
+                            isPreviousChapter ? false : undefined,
+                            !isPreviousChapter ? false : undefined,
+                        ),
+                    );
+                }
 
-                        const isAlreadyLoaded =
-                            lastLeadingChapterSourceOrder <= chapterToOpen.sourceOrder &&
-                            lastTrailingChapterSourceOrder >= chapterToOpen.sourceOrder;
-                        const keepRenderedChapters = shouldUseInfiniteScroll && (!scrollIntoView || isAlreadyLoaded);
+                ReaderService.navigateToChapter(chapterToOpen, {
+                    resumeMode: getReaderOpenChapterResumeMode(
+                        isSpecificChapterMode || !keepRenderedChapters,
+                        isPreviousChapter,
+                    ),
+                    updateInitialChapter: !keepRenderedChapters,
+                });
+            } catch (error) {
+                defaultPromiseErrorHandler('ReaderControls#useOpenChapter#doOpenChapter:')(error);
+            }
+        };
 
-                        if (keepRenderedChapters) {
-                            setReaderStateChapters((prevState) =>
-                                updateReaderStateVisibleChapters(
-                                    isPreviousChapter,
-                                    prevState,
-                                    chapterToOpen.sourceOrder,
-                                    scrollIntoView,
-                                    isPreviousChapter ? false : undefined,
-                                    !isPreviousChapter ? false : undefined,
-                                ),
-                            );
-                        }
-
-                        openChapter(chapterToOpen, {
-                            resumeMode: getReaderOpenChapterResumeMode(
-                                isSpecificChapterMode || !keepRenderedChapters,
-                                isPreviousChapter,
-                            ),
-                            updateInitialChapter: !keepRenderedChapters,
-                        });
-                    } catch (error) {
-                        defaultPromiseErrorHandler('ReaderControls#useOpenChapter#doOpenChapter:')(error);
-                    }
-                };
-
-                doOpenChapter().catch(defaultPromiseErrorHandler('ReaderControls#useOpenChapter'));
-            },
-            [
-                t,
-                currentChapter?.id,
-                openChapter,
-                readingMode.value,
-                shouldInformAboutMissingChapter,
-                shouldInformAboutScanlatorChange,
-                lastLeadingChapterSourceOrder,
-                lastTrailingChapterSourceOrder,
-                shouldUseInfiniteScroll,
-            ],
-        );
+        doOpenChapter().catch(defaultPromiseErrorHandler('ReaderControls#useOpenChapter'));
     }
 
-    private static async checkNextChapterConsistency(
-        t: TFunction,
+    private async checkNextChapterConsistency(
         offset: 'previous' | 'next',
         currentChapter: TChapterReader | null | undefined,
         chapterToOpen: TChapterReader | null | undefined,
@@ -305,197 +302,156 @@ export class ReaderControls {
             return;
         }
 
-        const offsetToTranslationKeys: Record<typeof offset, Record<'scanlator' | 'chapter_number', TranslationKey>> = {
+        const offsetToTranslations: Record<typeof offset, Record<'scanlator' | 'chapter_number', MessageDescriptor>> = {
             previous: {
-                scanlator: 'reader.chapter_transition.warning.previous.scanlator',
-                chapter_number: 'reader.chapter_transition.warning.previous.chapter_number',
+                scanlator: msg`The previous chapter has a different scanlator then the current one.\nPrevious: {nextScanlator}\nCurrent: {currentScanlator}`,
+                chapter_number: msg`{count, plural, one {There is # missing chapter.\nPrevious: {nextChapter}\nCurrent: {currentChapter}} other {There are # missing chapters.\nPrevious: {nextChapter}\nCurrent: {currentChapter}}}`,
             },
             next: {
-                scanlator: 'reader.chapter_transition.warning.next.scanlator',
-                chapter_number: 'reader.chapter_transition.warning.next.chapter_number',
+                scanlator: msg`The next chapter has a different scanlator then the current one.\nCurrent: {currentScanlator}\nNext: {nextScanlator}`,
+                chapter_number: msg`{count, plural, one {There is # missing chapter.\nCurrent: {currentChapter}\nNext: {nextChapter}} other {There are # missing chapters.\nCurrent: {currentChapter}\nNext: {nextChapter}}}`,
             },
         };
 
         const sameScanlator = isSameScanlator
             ? ''
-            : t(offsetToTranslationKeys[offset].scanlator, {
-                  nextScanlator: chapterToOpen.scanlator,
-                  currentScanlator: currentChapter.scanlator,
+            : /* lingui-extract-ignore */
+              i18n.t({
+                  ...offsetToTranslations[offset].scanlator,
+                  values: {
+                      nextScanlator: chapterToOpen.scanlator,
+                      currentScanlator: currentChapter.scanlator,
+                  },
               });
         const continuousChapter = isContinuousChapter
             ? ''
-            : t(offsetToTranslationKeys[offset].chapter_number, {
-                  count: missingChapters,
-                  nextChapter: `#${chapterToOpen.chapterNumber} ${chapterToOpen.name}`,
-                  currentChapter: `#${currentChapter.chapterNumber} ${currentChapter.name}`,
+            : /* lingui-extract-ignore */
+              i18n.t({
+                  ...offsetToTranslations[offset].chapter_number,
+                  values: {
+                      count: missingChapters,
+                      nextChapter: `#${chapterToOpen.chapterNumber} ${chapterToOpen.name}`,
+                      currentChapter: `#${currentChapter.chapterNumber} ${currentChapter.name}`,
+                  },
               });
         const warningLineBreak = !isSameScanlator && !isContinuousChapter ? '\n\n' : '';
         const warning = `${sameScanlator}${warningLineBreak}${continuousChapter}`;
 
-        await awaitConfirmation({
-            title: t('reader.chapter_transition.warning.title'),
+        await Confirmation.show({
+            title: t`Chapter transition warning`,
             message: warning,
             actions: {
                 confirm: {
-                    title: t('global.button.open'),
+                    title: t`Open`,
                 },
             },
         });
     }
 
-    static useOpenPage(): (
-        page: number | 'previous' | 'next',
-        forceDirection?: Direction,
-        hideOverlay?: boolean,
-    ) => void {
+    openPage(page: number | 'previous' | 'next', forceDirection?: Direction, hideOverlay: boolean = true): void {
         const { currentPageIndex, setPageToScrollToIndex, pages, transitionPageMode, setTransitionPageMode } =
-            userReaderStatePagesContext();
-        const { previousChapter, nextChapter } = useReaderStateChaptersContext();
-        const { setIsVisible: setIsOverlayVisible } = useReaderOverlayContext();
-        const { setShowPreview } = useReaderTapZoneContext();
-        const { readingDirection, readingMode, shouldShowTransitionPage } = ReaderService.useSettings();
-        const openChapter = ReaderControls.useOpenChapter();
+            getReaderPagesStore();
+        const { readingDirection, readingMode, shouldShowTransitionPage } = getReaderSettingsStore();
 
-        const currentPage = useMemo(() => getPage(currentPageIndex, pages), [currentPageIndex, pages]);
-        const previousPageIndex = useMemo(
-            () => getNextPageIndex('previous', currentPage.pagesIndex, pages),
-            [currentPage, pages],
-        );
-        const nextPageIndex = useMemo(
-            () => getNextPageIndex('next', currentPage.pagesIndex, pages),
-            [currentPage, pages],
-        );
-        const indexOfFirstPage = getNextIndexFromPage(pages[0]);
-        const indexOfLastPage = getNextIndexFromPage(pages[pages.length - 1]);
         const direction = READING_DIRECTION_TO_THEME_DIRECTION[readingDirection.value];
+
+        const convertedPage = getOptionForDirection(
+            page,
+            page === 'previous' ? 'next' : 'previous',
+            forceDirection ?? direction,
+        );
+
+        const currentPage = getPage(currentPageIndex, pages);
+        const previousPageIndex = getNextPageIndex('previous', currentPage.pagesIndex, pages);
+        const nextPageIndex = getNextPageIndex('next', currentPage.pagesIndex, pages);
+        const indexOfFirstPage = getIndexOfPage(pages[0]);
+        const indexOfLastPage = getIndexOfPage(pages[pages.length - 1]);
 
         const isFirstPage = currentPage.primary.index === 0;
         const isLastPage = currentPageIndex === indexOfLastPage;
         const isATransitionPageVisibleFlag = isATransitionPageVisible(transitionPageMode, readingMode.value);
         const isContinuousReadingModeActive = isContinuousReadingMode(readingMode.value);
 
-        return useCallback(
-            (page, forceDirection = direction, hideOverlay: boolean = true) => {
-                const convertedPage = getOptionForDirection(
-                    page,
-                    page === 'previous' ? 'next' : 'previous',
-                    forceDirection,
-                );
+        if (hideOverlay) {
+            getReaderOverlayStore().setIsVisible(false);
+            getReaderTapZoneStore().setShowPreview(false);
+        }
 
-                if (hideOverlay) {
-                    setIsOverlayVisible(false);
-                    setShowPreview(false);
-                }
+        const hideTransitionPage = () => setTransitionPageMode(ReaderTransitionPageMode.NONE);
 
-                const hideTransitionPage = () => setTransitionPageMode(ReaderTransitionPageMode.NONE);
+        if (typeof page === 'number') {
+            setPageToScrollToIndex(page);
+            hideTransitionPage();
+            return;
+        }
 
-                if (typeof page === 'number') {
-                    setPageToScrollToIndex(page);
-                    hideTransitionPage();
-                    return;
-                }
+        const areContinuousPagerTransitionPagesVisible = isContinuousReadingModeActive && isATransitionPageVisibleFlag;
+        const isPreviousTransitionPageVisible =
+            (!isContinuousReadingModeActive && transitionPageMode === ReaderTransitionPageMode.PREVIOUS) ||
+            areContinuousPagerTransitionPagesVisible;
+        const isNextTransitionPageVisible =
+            (!isContinuousReadingModeActive && transitionPageMode === ReaderTransitionPageMode.NEXT) ||
+            areContinuousPagerTransitionPagesVisible;
 
-                const areContinuousPagerTransitionPagesVisible =
-                    isContinuousReadingModeActive && isATransitionPageVisibleFlag;
-                const isPreviousTransitionPageVisible =
-                    (!isContinuousReadingModeActive && transitionPageMode === ReaderTransitionPageMode.PREVIOUS) ||
-                    areContinuousPagerTransitionPagesVisible;
-                const isNextTransitionPageVisible =
-                    (!isContinuousReadingModeActive && transitionPageMode === ReaderTransitionPageMode.NEXT) ||
-                    areContinuousPagerTransitionPagesVisible;
+        const shouldOpenPreviousChapter =
+            isFirstPage &&
+            (!shouldShowTransitionPage || isPreviousTransitionPageVisible) &&
+            convertedPage === 'previous' &&
+            !!getReaderChaptersStore().previousChapter;
+        if (shouldOpenPreviousChapter) {
+            this.openChapter('previous');
+            return;
+        }
 
-                const shouldOpenPreviousChapter =
-                    isFirstPage &&
-                    (!shouldShowTransitionPage || isPreviousTransitionPageVisible) &&
-                    convertedPage === 'previous' &&
-                    !!previousChapter;
-                if (shouldOpenPreviousChapter) {
-                    openChapter('previous');
-                    return;
-                }
+        const shouldOpenNextChapter =
+            isLastPage &&
+            (!shouldShowTransitionPage || isNextTransitionPageVisible) &&
+            convertedPage === 'next' &&
+            !!getReaderChaptersStore().nextChapter;
+        if (shouldOpenNextChapter) {
+            this.openChapter('next');
+            return;
+        }
 
-                const shouldOpenNextChapter =
-                    isLastPage &&
-                    (!shouldShowTransitionPage || isNextTransitionPageVisible) &&
-                    convertedPage === 'next' &&
-                    !!nextChapter;
-                if (shouldOpenNextChapter) {
-                    openChapter('next');
-                    return;
-                }
+        const isPreviousMode = convertedPage === 'previous';
+        const isNextMode = convertedPage === 'next';
 
-                const isPreviousMode = convertedPage === 'previous';
-                const isNextMode = convertedPage === 'next';
+        const closePreviousTransitionPage = isPreviousTransitionPageVisible && isNextMode;
+        const closeNextTransitionPage = isNextTransitionPageVisible && isPreviousMode;
 
-                const closePreviousTransitionPage = isPreviousTransitionPageVisible && isNextMode;
-                const closeNextTransitionPage = isNextTransitionPageVisible && isPreviousMode;
+        const needToHideTransitionPage =
+            isATransitionPageVisibleFlag &&
+            !isContinuousReadingModeActive &&
+            (closePreviousTransitionPage || closeNextTransitionPage);
+        if (needToHideTransitionPage) {
+            hideTransitionPage();
+            setPageToScrollToIndex(isPreviousTransitionPageVisible ? indexOfFirstPage : indexOfLastPage);
 
-                const needToHideTransitionPage =
-                    isATransitionPageVisibleFlag &&
-                    !isContinuousReadingModeActive &&
-                    (closePreviousTransitionPage || closeNextTransitionPage);
-                if (needToHideTransitionPage) {
-                    hideTransitionPage();
-                    setPageToScrollToIndex(isPreviousTransitionPageVisible ? indexOfFirstPage : indexOfLastPage);
+            return;
+        }
 
-                    return;
-                }
+        const needToOpenTransitionPage =
+            ((isFirstPage && isPreviousMode) || (isLastPage && isNextMode)) && !isContinuousReadingModeActive;
+        if (needToOpenTransitionPage) {
+            setTransitionPageMode(isPreviousMode ? ReaderTransitionPageMode.PREVIOUS : ReaderTransitionPageMode.NEXT);
+            return;
+        }
 
-                const needToOpenTransitionPage =
-                    ((isFirstPage && isPreviousMode) || (isLastPage && isNextMode)) && !isContinuousReadingModeActive;
-                if (needToOpenTransitionPage) {
-                    setTransitionPageMode(
-                        isPreviousMode ? ReaderTransitionPageMode.PREVIOUS : ReaderTransitionPageMode.NEXT,
-                    );
-                    return;
-                }
-
-                setPageToScrollToIndex(isPreviousMode ? previousPageIndex : nextPageIndex);
-            },
-            [
-                direction,
-                indexOfFirstPage,
-                indexOfLastPage,
-                previousPageIndex,
-                nextPageIndex,
-                indexOfLastPage,
-                isATransitionPageVisibleFlag,
-                isContinuousReadingModeActive,
-                isFirstPage,
-                isLastPage,
-                openChapter,
-                !!previousChapter,
-                !!nextChapter,
-                shouldShowTransitionPage,
-            ],
-        );
+        setPageToScrollToIndex(isPreviousMode ? previousPageIndex : nextPageIndex);
     }
 
-    static useUpdateCurrentPageIndex(): (
-        pageIndex: number,
-        debounceChapterUpdate?: boolean,
-        endReached?: boolean,
-    ) => void {
-        const { currentPageIndex, setCurrentPageIndex } = userReaderStatePagesContext();
-        const { currentChapter, chapters, previousChapter, nextChapter, visibleChapters, setReaderStateChapters } =
-            useReaderStateChaptersContext();
+    useUpdateCurrentPageIndex(): (pageIndex: number, debounceChapterUpdate?: boolean, endReached?: boolean) => void {
         const updateChapter = ReaderService.useUpdateChapter();
         const {
             settings: { downloadAheadLimit },
         } = useMetadataServerSettings();
 
-        const nextChapters = useMemo(() => {
-            if (!currentChapter) {
-                return [];
-            }
-
-            return Chapters.getNextChapters(currentChapter, chapters, {
-                offset: DirectionOffset.NEXT,
-            });
-        }, [currentChapter?.id, chapters]);
-
         return useCallback(
             (pageIndex, debounceChapterUpdate = true, endReached = false) => {
+                const { currentPageIndex, setCurrentPageIndex } = getReaderPagesStore();
+                const { currentChapter, chapters, previousChapter, nextChapter, visibleChapters } =
+                    getReaderChaptersStore();
+
                 if (pageIndex === currentPageIndex && !endReached) {
                     return;
                 }
@@ -506,6 +462,10 @@ export class ReaderControls {
                     return;
                 }
 
+                const nextChapters = Chapters.getNextChapters(currentChapter, chapters, {
+                    offset: DirectionOffset.NEXT,
+                });
+
                 const direction = currentPageIndex > pageIndex ? DirectionOffset.PREVIOUS : DirectionOffset.NEXT;
 
                 ReaderService.downloadAhead(currentChapter, nextChapter, nextChapters, pageIndex, downloadAheadLimit);
@@ -515,7 +475,6 @@ export class ReaderControls {
                     direction === DirectionOffset.NEXT ? nextChapter : previousChapter,
                     visibleChapters.lastLeadingChapterSourceOrder,
                     visibleChapters.lastTrailingChapterSourceOrder,
-                    setReaderStateChapters,
                     direction,
                 );
 
@@ -534,49 +493,55 @@ export class ReaderControls {
                     });
                 };
 
-                clearTimeout(ReaderControls.updateCurrentPageTimeout);
+                clearTimeout(this.updateCurrentPageTimeout);
                 if (debounceChapterUpdate) {
-                    ReaderControls.updateCurrentPageTimeout = setTimeout(handleCurrentPageIndexChange, 1000);
+                    this.updateCurrentPageTimeout = setTimeout(
+                        handleCurrentPageIndexChange,
+                        d(1).seconds.inWholeMilliseconds,
+                    );
                     return;
                 }
 
                 handleCurrentPageIndexChange();
             },
-            [
-                currentChapter?.id,
-                previousChapter?.id,
-                nextChapter?.id,
-                nextChapters,
-                currentPageIndex,
-                downloadAheadLimit,
-                visibleChapters,
-            ],
+            [downloadAheadLimit],
         );
     }
 
-    static updateCurrentPageOnScroll(
+    updateCurrentPageOnScroll(
         imageRefs: MutableRefObject<(HTMLElement | null)[]>,
         lastPageIndex: number,
-        updateCurrentPageIndex: ReturnType<typeof ReaderControls.useUpdateCurrentPageIndex>,
+        updateCurrentPageIndex: ReturnType<typeof this.useUpdateCurrentPageIndex>,
         type: PageInViewportType,
         readingDirection: ReadingDirection,
     ) {
-        const themeDirectionForReadingDirection = READING_DIRECTION_TO_THEME_DIRECTION[readingDirection];
+        const themeDirectionOfReadingDirection = READING_DIRECTION_TO_THEME_DIRECTION[readingDirection];
+        // In case the reader navigation bar is static, the readers "viewport" x position gets moved, thus, this needs to be considered as a threshold.
+        const scrollContainerX = getReaderStore().autoScroll.scrollRef?.current?.getBoundingClientRect().x ?? 0;
+        const pageHorizontalEndInViewportThreshold = getOptionForDirection(
+            scrollContainerX + 1,
+            window.innerWidth + 1,
+            themeDirectionOfReadingDirection,
+        );
 
         const firstVisibleImageIndex = imageRefs.current.findIndex(
             (image) =>
                 image &&
-                isPageInViewport(
-                    image,
-                    type,
-                    // the pages aren't always properly scrolled to the top which results in the leading page to still be slightly
-                    // visible (e.g. 0.0123px) breaking the "first visible image" detection
-                    {
+                isPageInViewport(image, type, {
+                    thresholds: {
                         bottom: 1,
-                        left: getOptionForDirection(0, window.innerWidth + 1, themeDirectionForReadingDirection),
-                        right: getOptionForDirection(1, 0, themeDirectionForReadingDirection),
+                        left: getOptionForDirection(
+                            0,
+                            pageHorizontalEndInViewportThreshold,
+                            themeDirectionOfReadingDirection,
+                        ),
+                        right: getOptionForDirection(
+                            pageHorizontalEndInViewportThreshold,
+                            0,
+                            themeDirectionOfReadingDirection,
+                        ),
                     },
-                ),
+                }),
         );
         const lastPage = imageRefs.current?.[imageRefs.current.length - 1];
         const isEndReached = lastPage && isEndOfPageInViewport(lastPage, type, readingDirection);
@@ -594,82 +559,53 @@ export class ReaderControls {
         updateCurrentPageIndex(firstVisibleImageIndex, firstVisibleImageIndex !== lastPageIndex);
     }
 
-    static useHandleClick(
-        scrollElement: HTMLElement | null,
-    ): (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => void {
-        const { direction: themeDirection } = useTheme();
-        const { setIsVisible: setIsOverlayVisible } = useReaderOverlayContext();
-        const { currentPageIndex, pages } = userReaderStatePagesContext();
-        const { setShowPreview } = useReaderTapZoneContext();
-        const { readingMode, readingDirection, isStaticNav, scrollAmount } = ReaderService.useSettings();
-        const openPage = ReaderControls.useOpenPage();
-        const openChapter = ReaderControls.useOpenChapter();
+    handleClick(scrollElement: HTMLElement | null, e: React.MouseEvent<HTMLDivElement, MouseEvent>): void {
+        if (!scrollElement || !this.checkAndUpdateWindowsFocus()) {
+            return;
+        }
 
-        return useCallback(
-            (e) => {
-                if (!scrollElement) {
-                    return;
+        const { readingMode, readingDirection, isStaticNav, scrollAmount } = getReaderSettingsStore();
+
+        const rect = e.currentTarget.getBoundingClientRect();
+        const rectRelativeX = e.clientX - rect.left;
+        const rectRelativeY = e.clientY - rect.top;
+        const action = ReaderTapZoneService.getAction(rectRelativeX, rectRelativeY);
+
+        getReaderTapZoneStore().setShowPreview(false);
+
+        const isContinuousReadingModeActive = isContinuousReadingMode(readingMode.value);
+        const scrollDirection =
+            readingMode.value === ReadingMode.CONTINUOUS_HORIZONTAL ? ScrollDirection.X : ScrollDirection.Y;
+
+        switch (action) {
+            case TapZoneRegionType.MENU:
+                getReaderOverlayStore().setIsVisible(isStaticNav || !getReaderOverlayStore().isVisible);
+                break;
+            case TapZoneRegionType.PREVIOUS:
+            case TapZoneRegionType.NEXT:
+                if (isContinuousReadingModeActive) {
+                    this.scroll(
+                        action === TapZoneRegionType.PREVIOUS ? ScrollOffset.BACKWARD : ScrollOffset.FORWARD,
+                        scrollDirection,
+                        readingMode.value,
+                        readingDirection.value,
+                        scrollElement,
+                        scrollAmount,
+                    );
+                } else {
+                    this.openPage(action === TapZoneRegionType.PREVIOUS ? 'previous' : 'next', 'ltr');
                 }
-
-                const rect = e.currentTarget.getBoundingClientRect();
-                const rectRelativeX = e.clientX - rect.left;
-                const rectRelativeY = e.clientY - rect.top;
-                const action = ReaderTapZoneService.getAction(rectRelativeX, rectRelativeY);
-
-                setShowPreview(false);
-
-                const isContinuousReadingModeActive = isContinuousReadingMode(readingMode.value);
-                const scrollDirection =
-                    readingMode.value === ReadingMode.CONTINUOUS_HORIZONTAL ? ScrollDirection.X : ScrollDirection.Y;
-
-                switch (action) {
-                    case TapZoneRegionType.MENU:
-                        setIsOverlayVisible((isVisible) => isStaticNav || !isVisible);
-                        break;
-                    case TapZoneRegionType.PREVIOUS:
-                    case TapZoneRegionType.NEXT:
-                        if (isContinuousReadingModeActive) {
-                            ReaderControls.scroll(
-                                action === TapZoneRegionType.PREVIOUS ? ScrollOffset.BACKWARD : ScrollOffset.FORWARD,
-                                scrollDirection,
-                                readingMode.value,
-                                readingDirection.value,
-                                themeDirection,
-                                scrollElement,
-                                openChapter,
-                                setIsOverlayVisible,
-                                setShowPreview,
-                                scrollAmount,
-                            );
-                        } else {
-                            openPage(action === TapZoneRegionType.PREVIOUS ? 'previous' : 'next', 'ltr');
-                        }
-                        break;
-                    default:
-                        throw new Error(`Unexpected "TapZoneRegionType" (${action})`);
-                }
-            },
-            [
-                scrollElement,
-                currentPageIndex,
-                pages,
-                readingMode.value,
-                openPage,
-                readingDirection.value,
-                openChapter,
-                themeDirection,
-                isStaticNav,
-                scrollAmount,
-            ],
-        );
+                break;
+            default:
+                throw new Error(`Unexpected "TapZoneRegionType" (${action})`);
+        }
     }
 
-    static useHandleProgressDragging(
-        openPage: ReturnType<(typeof ReaderControls)['useOpenPage']>,
+    useHandleProgressDragging(
         progressBarRef: RefObject<HTMLDivElement | null>,
         isDragging: boolean,
         currentPage: TReaderProgressCurrentPage,
-        pages: ReaderProgressBarProps['pages'],
+        pages: ReaderStatePages['pages'],
         progressBarPosition: ProgressBarPosition,
         getOptionForDirectionFn: typeof getOptionForDirection,
         fullSegmentClicks: boolean,
@@ -686,7 +622,7 @@ export class ReaderControls {
                     return;
                 }
 
-                const newPageIndex = getNextIndexFromPage(
+                const newPageIndex = getIndexOfPage(
                     getPageForMousePos(
                         coordinates,
                         progressBarRef.current,
@@ -697,12 +633,12 @@ export class ReaderControls {
                     ),
                 );
 
-                const hasCurrentPageIndexChanged = getNextIndexFromPage(currentPage) !== newPageIndex;
+                const hasCurrentPageIndexChanged = getIndexOfPage(currentPage) !== newPageIndex;
                 if (!hasCurrentPageIndexChanged) {
                     return;
                 }
 
-                openPage(newPageIndex, undefined, false);
+                this.openPage(newPageIndex, undefined, false);
             };
 
             const handleMouseMove = (e: MouseEvent) => {
@@ -715,13 +651,15 @@ export class ReaderControls {
                 }
             };
 
-            document.addEventListener('mousemove', handleMouseMove);
-            document.addEventListener('touchmove', handleTouchMove);
+            document.addEventListener('mousemove', handleMouseMove, { passive: true });
+            document.addEventListener('touchmove', handleTouchMove, { passive: true });
 
             return () => {
                 document.removeEventListener('mousemove', handleMouseMove);
                 document.removeEventListener('touchmove', handleTouchMove);
             };
-        }, [openPage, isDragging, currentPage, pages, progressBarPosition]);
+        }, [isDragging, currentPage, pages, progressBarPosition]);
     }
 }
+
+export const ReaderControls = new ReaderControlsClass();

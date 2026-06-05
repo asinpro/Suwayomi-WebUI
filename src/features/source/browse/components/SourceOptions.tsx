@@ -6,12 +6,12 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+import { STABLE_EMPTY_OBJECT } from '@/base/Base.constants.ts';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import Box from '@mui/material/Box';
 import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import IconButton from '@mui/material/IconButton';
 import SaveIcon from '@mui/icons-material/Save';
 import Chip from '@mui/material/Chip';
@@ -23,6 +23,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import TextField from '@mui/material/TextField';
+import { useLingui } from '@lingui/react/macro';
 import { CustomTooltip } from '@/base/components/CustomTooltip.tsx';
 import { OptionsPanel } from '@/base/components/modals/OptionsPanel.tsx';
 import { CheckBoxFilter } from '@/features/source/browse/components/filters/CheckBoxFilter.tsx';
@@ -32,17 +33,17 @@ import { SortFilter } from '@/features/source/browse/components/filters/SortFilt
 import { TextFilter } from '@/features/source/browse/components/filters/TextFilter.tsx';
 import { TriStateFilter } from '@/features/source/browse/components/filters/TriStateFilter.tsx';
 // this can only cycle once, so should be fine
-// eslint-disable-next-line import/no-cycle
+
 import { GroupFilter } from '@/features/source/browse/components/filters/GroupFilter.tsx';
 import { SeparatorFilter } from '@/features/source/browse/components/filters/SeparatorFilter.tsx';
 import { StyledFab } from '@/base/components/buttons/StyledFab.tsx';
-import { awaitConfirmation } from '@/base/utils/AwaitableDialog.tsx';
 import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
-import { ISourceMetadata, SourceFilters } from '@/features/source/Source.types.ts';
+import type { IPos, ISourceMetadata, SourceFilters } from '@/features/source/Source.types.ts';
+import { Confirmation } from '@/base/AppAwaitableComponent.ts';
 
 interface IFilters {
     sourceFilter: SourceFilters[];
-    updateFilterValue: Function;
+    updateFilterValue: (value: IPos[]) => void;
     group: number | undefined;
     update: any;
 }
@@ -52,9 +53,9 @@ interface IFilters1 {
     selectSavedSearch: (savedSearch: string) => void;
     updateSavedSearches: (savedSearch: string, updateType: 'create' | 'delete') => void;
     sourceFilter: SourceFilters[];
-    updateFilterValue: Function;
-    resetFilterValue: Function;
-    setTriggerUpdate: Function;
+    updateFilterValue: (value: IPos[]) => void;
+    resetFilterValue: (value: number) => void;
+    setTriggerUpdate: (value: number) => void;
     update: any;
 }
 
@@ -159,7 +160,7 @@ export function Options({ sourceFilter, group, updateFilterValue, update }: IFil
 }
 
 export function SourceOptions({
-    savedSearches = {},
+    savedSearches = STABLE_EMPTY_OBJECT,
     selectSavedSearch,
     updateSavedSearches,
     sourceFilter,
@@ -168,7 +169,7 @@ export function SourceOptions({
     setTriggerUpdate,
     update,
 }: IFilters1) {
-    const { t } = useTranslation();
+    const { t } = useLingui();
     const [FilterOptions, setFilterOptions] = useState(false);
     const [newSavedSearch, setNewSavedSearch] = useState('');
 
@@ -189,23 +190,22 @@ export function SourceOptions({
         <>
             <StyledFab onClick={() => setFilterOptions(!FilterOptions)} variant="extended" color="primary">
                 <FilterListIcon />
-                {t('global.button.filter')}
+                {t`Filter`}
             </StyledFab>
-
             <OptionsPanel open={FilterOptions} onClose={() => setFilterOptions(false)}>
                 <Box sx={{ p: 2, pb: savedSearchesExist ? undefined : 0 }}>
                     <Box sx={{ display: 'flex', pb: 1 }}>
-                        <Button onClick={handleReset}>{t('global.button.reset')}</Button>
+                        <Button onClick={handleReset}>{t`Reset`}</Button>
                         <PopupState variant="dialog" popupId="source-browse-save-search">
                             {(popupState) => (
                                 <>
-                                    <CustomTooltip title={t('source.filter.save_search.label.save')}>
+                                    <CustomTooltip title={t`Save search`}>
                                         <IconButton sx={{ marginLeft: 'auto' }} {...bindTrigger(popupState)}>
                                             <SaveIcon />
                                         </IconButton>
                                     </CustomTooltip>
                                     <Dialog {...bindDialog(popupState)} maxWidth="xs" fullWidth>
-                                        <DialogTitle>{t('source.filter.save_search.dialog.label.title')}</DialogTitle>
+                                        <DialogTitle>{t`Save current search`}</DialogTitle>
                                         <DialogContent>
                                             <TextField
                                                 sx={{ width: '100%' }}
@@ -223,7 +223,7 @@ export function SourceOptions({
                                                     popupState.close();
                                                 }}
                                             >
-                                                {t('global.button.cancel')}
+                                                {t`Cancel`}
                                             </Button>
                                             <Button
                                                 onClick={() => {
@@ -232,7 +232,7 @@ export function SourceOptions({
                                                     popupState.close();
                                                 }}
                                             >
-                                                {t('global.button.ok')}
+                                                {t`Ok`}
                                             </Button>
                                         </DialogActions>
                                     </Dialog>
@@ -241,7 +241,7 @@ export function SourceOptions({
                         </PopupState>
 
                         <Button variant="contained" onClick={handleSubmit}>
-                            {t('global.button.submit')}
+                            {t`Submit`}
                         </Button>
                     </Box>
                     {savedSearchesExist && (
@@ -250,26 +250,27 @@ export function SourceOptions({
                             <Stack sx={{ flexDirection: 'row' }}>
                                 {savedSearchNames.map((savedSearch) => (
                                     <Chip
+                                        key={savedSearch}
                                         label={savedSearch}
                                         onClick={() => {
                                             setFilterOptions(false);
                                             selectSavedSearch(savedSearch);
                                         }}
                                         onDelete={() => {
-                                            awaitConfirmation({
-                                                title: t('global.label.are_you_sure'),
-                                                message: t('source.filter.save_search.dialog.label.delete', {
-                                                    name: savedSearch,
-                                                }),
+                                            Confirmation.show({
+                                                title: t`Are you sure?`,
+                                                message: t`This will delete the saved search "${savedSearch}"`,
                                                 actions: {
-                                                    confirm: { title: t('global.button.delete') },
+                                                    confirm: {
+                                                        title: t`Delete`,
+                                                    },
                                                 },
                                             })
                                                 .then(() => updateSavedSearches(savedSearch, 'delete'))
                                                 .catch(defaultPromiseErrorHandler('SourceOptions::deleteSavedSearch'));
                                         }}
                                         deleteIcon={
-                                            <CustomTooltip title={t('source.filter.save_search.label.delete')}>
+                                            <CustomTooltip title={t`Delete search`}>
                                                 <DeleteIcon />
                                             </CustomTooltip>
                                         }

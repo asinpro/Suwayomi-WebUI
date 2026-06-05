@@ -9,15 +9,13 @@
 import { useLayoutEffect, useRef } from 'react';
 import { getInitialReaderPageIndex } from '@/features/reader/Reader.utils.ts';
 import { createPagesData } from '@/features/reader/viewer/pager/ReaderPager.utils.tsx';
-import {
-    ReaderPageSpreadState,
-    ReaderResumeMode,
-    ReaderStateChapters,
-    ReaderTransitionPageMode,
-} from '@/features/reader/Reader.types.ts';
-import { requestManager } from '@/lib/requests/RequestManager.ts';
-import { ReaderStatePages } from '@/features/reader/overlay/progress-bar/ReaderProgressBar.types.ts';
-import { TChapterReader } from '@/features/chapter/Chapter.types.ts';
+import type { ReaderPageSpreadState, ReaderResumeMode, ReaderStatePages } from '@/features/reader/Reader.types.ts';
+import { ReaderTransitionPageMode } from '@/features/reader/Reader.types.ts';
+import type { requestManager } from '@/lib/requests/RequestManager.ts';
+import type { TChapterReader } from '@/features/chapter/Chapter.types.ts';
+import type { ReaderChaptersStoreSlice } from '@/features/reader/stores/ReaderChaptersStore.ts';
+import { getReaderStore } from '@/features/reader/stores/ReaderStore.ts';
+import { UrlUtil } from '@/lib/UrlUtil.ts';
 
 export const useReaderSetPagesState = (
     isCurrentChapter: boolean,
@@ -29,7 +27,7 @@ export const useReaderSetPagesState = (
     pagesToSpreadState: ReaderPageSpreadState[],
     arePagesFetched: boolean,
     setArePagesFetched: (fetched: boolean) => void,
-    setReaderStateChapters: ReaderStateChapters['setReaderStateChapters'],
+    setReaderStateChapters: ReaderChaptersStoreSlice['chapters']['setReaderStateChapters'],
     setTotalPages: ReaderStatePages['setTotalPages'],
     setPages: ReaderStatePages['setPages'],
     setPageUrls: ReaderStatePages['setPageUrls'],
@@ -48,7 +46,10 @@ export const useReaderSetPagesState = (
         }
 
         const { pages: pagesFromResponse } = pagesPayload;
-        const newPages = pagesFromResponse.length ? pagesFromResponse : [''];
+        const tmpPages = pagesFromResponse.length ? pagesFromResponse : [''];
+        const newPages = tmpPages.map((page) =>
+            UrlUtil.addParams(page, { sourceId: getReaderStore().manga?.sourceId }),
+        );
         const initialReaderPageIndex = getInitialReaderPageIndex(resumeMode, lastPageRead ?? 0, newPages.length - 1);
 
         const didPagesChange = previousPageData.current !== pagesPayload?.pages;

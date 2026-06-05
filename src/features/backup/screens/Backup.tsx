@@ -10,23 +10,16 @@ import { useEffect, useRef, useState } from 'react';
 import List from '@mui/material/List';
 import ListItemText from '@mui/material/ListItemText';
 import { fromEvent } from 'file-selector';
-import { useTranslation } from 'react-i18next';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListSubheader from '@mui/material/ListSubheader';
-import { t as translate } from 'i18next';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
-import Button from '@mui/material/Button';
-import ListItem from '@mui/material/ListItem';
-import { Link } from 'react-router-dom';
-import Stack from '@mui/material/Stack';
 import { useEventListener, useMergedRef, useWindowEvent } from '@mantine/hooks';
+import { AwaitableComponent } from 'awaitable-component';
+import { useLingui } from '@lingui/react/macro';
+import { plural } from '@lingui/core/macro';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { makeToast } from '@/base/utils/Toast.ts';
-import { BackupRestoreState, ValidateBackupQuery } from '@/lib/graphql/generated/graphql.ts';
+import { BackupRestoreState } from '@/lib/graphql/generated/graphql-base.types.ts';
 import { Progress } from '@/base/components/feedback/Progress.tsx';
 import { TextSetting } from '@/base/components/settings/text/TextSetting.tsx';
 import { NumberSetting } from '@/base/components/settings/NumberSetting.tsx';
@@ -34,52 +27,39 @@ import { TimeSetting } from '@/base/components/settings/TimeSetting.tsx';
 import { LoadingPlaceholder } from '@/base/components/feedback/LoadingPlaceholder.tsx';
 import { EmptyViewAbsoluteCentered } from '@/base/components/feedback/EmptyViewAbsoluteCentered.tsx';
 import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
-import { ServerSettings } from '@/features/settings/Settings.types.ts';
-import { AppRoutes } from '@/base/AppRoute.constants.ts';
 import { getErrorMessage } from '@/lib/HelperFunctions.ts';
 import { useAppTitle } from '@/features/navigation-bar/hooks/useAppTitle.ts';
-import { BrowseTab } from '@/features/browse/Browse.types.ts';
-
-type BackupSettingsType = Pick<ServerSettings, 'backupPath' | 'backupTime' | 'backupInterval' | 'backupTTL'>;
-
-const extractBackupSettings = (settings: ServerSettings): BackupSettingsType => ({
-    backupPath: settings.backupPath,
-    backupTime: settings.backupTime,
-    backupInterval: settings.backupInterval,
-    backupTTL: settings.backupTTL,
-});
-
-const getBackupCleanupDisplayValue = (ttl: number): string => {
-    if (ttl === 0) {
-        return translate('global.label.never');
-    }
-
-    return translate('settings.backup.automated.cleanup.label.value', { days: ttl, count: ttl });
-};
+import { BackupFlagInclusionDialog } from '@/features/backup/component/BackupFlagInclusionDialog.tsx';
+import { BackupValidationDialog } from '@/features/backup/component/BackupValidationDialog.tsx';
+import {
+    convertToAutoBackupFlags,
+    convertToBackupFlags,
+    getAutoBackupFlagsInfo,
+    getBackupCleanupDisplayValue,
+} from '@/features/backup/Backup.utils.ts';
+import type { BackupSettingsType } from '@/features/backup/Backup.types.ts';
 
 let backupRestoreId: string | undefined;
 
+const resetBackupState = () => {
+    const input = document.getElementById('backup-file') as HTMLInputElement;
+    if (input) {
+        input.value = '';
+    }
+};
+
 export function Backup() {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
-    useAppTitle(t('settings.backup.title'));
+    useAppTitle(t`Backup`);
 
-    const {
-        data: settingsData,
-        loading,
-        error,
-        refetch,
-    } = requestManager.useGetServerSettings({ notifyOnNetworkStatusChange: true });
+    const { data: settingsData, loading, error, refetch } = requestManager.useGetServerSettings();
     const [mutateSettings] = requestManager.useUpdateServerSettings();
 
     const { data } = requestManager.useGetBackupRestoreStatus(backupRestoreId ?? '', {
         skip: !backupRestoreId,
         pollInterval: 1000,
     });
-
-    const [currentBackupFile, setCurrentBackupFile] = useState<File | null>(null);
-    const [isInvalidBackupDialogOpen, setIsInvalidBackupDialogOpen] = useState(false);
-    const [validationResult, setValidationResult] = useState<ValidateBackupQuery['validateBackup']>();
 
     const [, setTriggerReRender] = useState(0);
 
@@ -99,7 +79,15 @@ export function Backup() {
         value: BackupSettingsType[Setting],
     ) => {
         mutateSettings({ variables: { input: { settings: { [setting]: value } } } }).catch((e) =>
-            makeToast(t('global.error.label.failed_to_save_changes'), 'error', getErrorMessage(e)),
+            makeToast(t`Failed to save changes`, 'error', getErrorMessage(e)),
+        );
+    };
+
+    const updateSettings = <Setting extends keyof BackupSettingsType>(
+        settings: Record<Setting, BackupSettingsType[Setting]>,
+    ) => {
+        mutateSettings({ variables: { input: { settings } } }).catch((e) =>
+            makeToast(t`Failed to save changes`, 'error', getErrorMessage(e)),
         );
     };
 
@@ -114,11 +102,11 @@ export function Backup() {
         const isRestoreFinished = isSuccess || isFailure;
         if (isRestoreFinished) {
             if (isSuccess) {
-                makeToast(t('settings.backup.action.restore.label.success'), 'success');
+                makeToast(t`Backup restored.`, 'success');
             }
 
             if (isFailure) {
-                makeToast(t('settings.backup.action.restore.error.label.failure'), 'error');
+                makeToast(t`Could not restore backup`, 'error');
             }
 
             requestManager.reset();
@@ -127,45 +115,81 @@ export function Backup() {
         }
     }, [data?.restoreStatus?.state]);
 
-    const resetBackupState = () => {
-        setCurrentBackupFile(null);
+    const createBackup = async () => {
+        const flags = await AwaitableComponent.show(BackupFlagInclusionDialog, {
+            title: t`Create backup`,
+        });
 
-        const input = document.getElementById('backup-file') as HTMLInputElement;
-        if (input) {
-            input.value = '';
+        makeToast(t`Creating backup…`, 'info');
+
+        try {
+            const backupFileResponse = await requestManager.createBackupFile({ flags }).response;
+
+            const backupFileUrl = backupFileResponse.data?.createBackup.url;
+            if (!backupFileUrl) {
+                makeToast(t`Could not create backup`, 'error', getErrorMessage(backupFileResponse.error));
+                return;
+            }
+
+            const link = document.createElement('a');
+            link.href = requestManager.getValidUrlFor(backupFileUrl, '');
+            link.download = '';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (e) {
+            makeToast(t`Could not create backup`, 'error', getErrorMessage(e));
         }
     };
 
     const validateBackup = async (file: File) => {
         try {
-            const {
-                data: { validateBackup: validateBackupData },
-            } = await requestManager.validateBackupFile(file, { fetchPolicy: 'network-only' }).response;
+            const validateBackupResponse = await requestManager.validateBackupFile(file, {
+                fetchPolicy: 'network-only',
+            }).response;
+            const validateBackupData = validateBackupResponse.data?.validateBackup;
+
+            if (!validateBackupData) {
+                return false;
+            }
 
             if (validateBackupData.missingSources.length || validateBackupData.missingTrackers.length) {
-                setValidationResult(validateBackupData);
-                setIsInvalidBackupDialogOpen(true);
-                return false;
+                try {
+                    await AwaitableComponent.show(
+                        BackupValidationDialog,
+                        {
+                            validationResult: validateBackupData,
+                        },
+                        { id: `backup-validate-${file.name}` },
+                    );
+                } catch (_) {
+                    return false;
+                }
             }
 
             return true;
         } catch (e) {
-            makeToast(t('settings.backup.action.validate.error.label.failure'), 'error', getErrorMessage(e));
+            makeToast(t`Could not validate backup`, 'error', getErrorMessage(e));
+        } finally {
             resetBackupState();
         }
 
         return false;
     };
 
-    const restoreBackup = async (file: File) => {
-        try {
-            makeToast(t('settings.backup.action.restore.label.in_progress'), 'info');
+    const restoreBackup = async (backup: File) => {
+        const flags = await AwaitableComponent.show(BackupFlagInclusionDialog, {
+            title: t`Restore Backup`,
+        });
 
-            const response = await requestManager.restoreBackupFile(file).response;
+        try {
+            makeToast(t`Restoring backup…`, 'info');
+
+            const response = await requestManager.restoreBackupFile({ backup, flags }).response;
             backupRestoreId = response.data?.restoreBackup.id;
             setTriggerReRender(Date.now());
         } catch (e) {
-            makeToast(t('settings.backup.action.restore.error.label.failure'), 'error', getErrorMessage(e));
+            makeToast(t`Could not restore backup`, 'error', getErrorMessage(e));
         } finally {
             resetBackupState();
         }
@@ -173,26 +197,20 @@ export function Backup() {
 
     const submitBackup = async (file: File) => {
         if (file.name.toLowerCase().endsWith('json')) {
-            makeToast(t('settings.backup.action.restore.error.label.legacy_backup_unsupported'), 'error');
+            makeToast(t`legacy backups are not supported!`, 'error');
             return;
         }
 
         const isValidFilename = file.name.toLowerCase().match(/proto\.gz$|tachibk$/g);
         if (!isValidFilename) {
-            makeToast(t('global.error.label.invalid_file_type'), 'error');
+            makeToast(t`Invalid filetype`, 'error');
             return;
         }
 
-        setCurrentBackupFile(file);
         const isBackupValid = await validateBackup(file);
         if (isBackupValid) {
             await restoreBackup(file);
         }
-    };
-
-    const closeInvalidBackupDialog = () => {
-        setIsInvalidBackupDialogOpen(false);
-        resetBackupState();
     };
 
     useWindowEvent('drop', async (e) => {
@@ -217,28 +235,29 @@ export function Backup() {
     if (error) {
         return (
             <EmptyViewAbsoluteCentered
-                message={t('global.error.label.failed_to_load_data')}
+                message={t`Unable to load data`}
                 messageExtra={getErrorMessage(error)}
                 retry={() => refetch().catch(defaultPromiseErrorHandler('Backup::refetch'))}
             />
         );
     }
 
-    const backupSettings = extractBackupSettings(settingsData!.settings);
+    const backupSettings = settingsData!.settings;
+
+    const autoBackupFlagsInfo = getAutoBackupFlagsInfo(backupSettings);
+    const includedCategoriesText = autoBackupFlagsInfo.true;
+    const excludedCategoriesText = autoBackupFlagsInfo.false;
 
     return (
         <>
             <List sx={{ padding: 0 }}>
-                <ListItemButton component="a" href={requestManager.getExportBackupUrl()} download>
-                    <ListItemText
-                        primary={t('settings.backup.action.create.label.title')}
-                        secondary={t('settings.backup.action.create.label.description')}
-                    />
+                <ListItemButton onClick={createBackup}>
+                    <ListItemText primary={t`Create backup`} secondary={t`Back up library as a Tachiyomi backup`} />
                 </ListItemButton>
                 <ListItemButton onClick={() => inputRef.current?.click()} disabled={!!backupRestoreId}>
                     <ListItemText
-                        primary={t('settings.backup.action.restore.label.title')}
-                        secondary={t('settings.backup.action.restore.label.description')}
+                        primary={t`Restore Backup`}
+                        secondary={t`You can also drag and drop the backup file here to restore it`}
                     />
                     {backupRestoreId ? (
                         <ListItemIcon>
@@ -254,132 +273,75 @@ export function Backup() {
                     }
                 >
                     <TextSetting
-                        settingName={t('settings.backup.automated.location.label.title')}
-                        dialogDescription={t('settings.backup.automated.location.label.description')}
+                        settingName={t`Backup location`}
+                        dialogDescription={t`The path to the directory on the server where automated backups should get saved in`}
                         value={backupSettings.backupPath}
-                        settingDescription={
-                            backupSettings.backupPath.length ? backupSettings.backupPath : t('global.label.default')
-                        }
+                        settingDescription={backupSettings.backupPath.length ? backupSettings.backupPath : t`Default`}
                         handleChange={(path) => updateSetting('backupPath', path)}
                     />
+                    <ListItemButton
+                        onClick={async () => {
+                            try {
+                                const flags = await AwaitableComponent.show(BackupFlagInclusionDialog, {
+                                    title: t`Backup data`,
+                                    flags: convertToBackupFlags(backupSettings),
+                                });
+
+                                updateSettings(convertToAutoBackupFlags(flags));
+                            } catch (e) {
+                                // Ignore
+                            }
+                        }}
+                    >
+                        <ListItemText
+                            primary={t`Backup data`}
+                            secondary={
+                                <>
+                                    <span>{t`Include: ${includedCategoriesText}`}</span>
+                                    <span>{t`Exclude: ${excludedCategoriesText}`}</span>
+                                </>
+                            }
+                            slotProps={{
+                                secondary: { sx: { display: 'flex', flexDirection: 'column' } },
+                            }}
+                        />
+                    </ListItemButton>
                     <TimeSetting
-                        settingName={t('settings.backup.automated.label.time')}
+                        settingName={t`Backup time`}
                         value={backupSettings.backupTime}
                         defaultValue="00:00"
                         handleChange={(time: string) => updateSetting('backupTime', time)}
                     />
                     <NumberSetting
-                        settingTitle={t('settings.backup.automated.label.interval')}
-                        settingValue={t('global.date.value.label.day', {
-                            days: backupSettings.backupInterval,
-                            count: backupSettings.backupInterval,
+                        settingTitle={t`Backup interval`}
+                        settingValue={plural(backupSettings.backupInterval, {
+                            one: '# day',
+                            other: '# days',
                         })}
                         value={backupSettings.backupInterval}
                         defaultValue={1}
                         minValue={1}
                         maxValue={31}
                         stepSize={1}
-                        valueUnit={t('global.date.label.day_one')}
+                        valueUnit={t`Day`}
                         showSlider
                         handleUpdate={(interval: number) => updateSetting('backupInterval', interval)}
                     />
                     <NumberSetting
-                        settingTitle={t('settings.backup.automated.cleanup.label.title')}
+                        settingTitle={t`Backup cleanup`}
                         settingValue={getBackupCleanupDisplayValue(backupSettings.backupTTL)}
                         value={backupSettings.backupTTL}
                         defaultValue={14}
                         minValue={0}
                         maxValue={1000}
                         stepSize={1}
-                        valueUnit={t('global.date.label.day_one')}
+                        valueUnit={t`Day`}
                         showSlider
                         handleUpdate={(ttl: number) => updateSetting('backupTTL', ttl)}
                     />
                 </List>
             </List>
             <input ref={mergedInputRef} type="file" style={{ display: 'none' }} />
-            <Dialog open={isInvalidBackupDialogOpen}>
-                <DialogTitle>{t('settings.backup.action.validate.dialog.title')}</DialogTitle>
-                <DialogContent dividers>
-                    {!!validationResult?.missingSources.length && (
-                        <List
-                            sx={{ listStyleType: 'initial', listStylePosition: 'inside' }}
-                            subheader={t('settings.backup.action.validate.dialog.content.label.missing_sources')}
-                        >
-                            {validationResult?.missingSources.map(({ id, name }) => (
-                                <ListItem sx={{ display: 'list-item' }} key={id}>
-                                    {`${name} (${id})`}
-                                </ListItem>
-                            ))}
-                        </List>
-                    )}
-                    {!!validationResult?.missingTrackers.length && (
-                        <List
-                            sx={{ listStyleType: 'initial', listStylePosition: 'inside' }}
-                            subheader={t('settings.backup.action.validate.dialog.content.label.missing_trackers')}
-                        >
-                            {validationResult?.missingTrackers.map(({ name }) => (
-                                <ListItem sx={{ display: 'list-item' }} key={name}>
-                                    {`${name}`}
-                                </ListItem>
-                            ))}
-                        </List>
-                    )}
-                </DialogContent>
-                <DialogActions>
-                    <Stack
-                        direction="row"
-                        sx={{
-                            justifyContent: 'space-between',
-                            width: '100%',
-                        }}
-                    >
-                        {!!validationResult?.missingSources.length && (
-                            <Button
-                                onClick={closeInvalidBackupDialog}
-                                component={Link}
-                                to={AppRoutes.browse.path(BrowseTab.EXTENSIONS)}
-                                autoFocus={!!validationResult?.missingSources.length}
-                                variant={validationResult?.missingSources.length ? 'contained' : 'text'}
-                            >
-                                {t('extension.action.label.install')}
-                            </Button>
-                        )}
-                        {!!validationResult?.missingTrackers.length && (
-                            <Button
-                                onClick={closeInvalidBackupDialog}
-                                component={Link}
-                                to={AppRoutes.tracker.path}
-                                autoFocus={!!validationResult?.missingTrackers.length}
-                                variant={validationResult?.missingTrackers.length ? 'contained' : 'text'}
-                            >
-                                {t('global.button.log_in')}
-                            </Button>
-                        )}
-                        <Stack direction="row">
-                            <Button onClick={closeInvalidBackupDialog}>{t('global.button.cancel')}</Button>
-                            <Button
-                                onClick={() => {
-                                    closeInvalidBackupDialog();
-                                    restoreBackup(currentBackupFile!);
-                                }}
-                                autoFocus={
-                                    !validationResult?.missingSources.length &&
-                                    !validationResult?.missingTrackers.length
-                                }
-                                variant={
-                                    !validationResult?.missingSources.length &&
-                                    !validationResult?.missingTrackers.length
-                                        ? 'contained'
-                                        : 'text'
-                                }
-                            >
-                                {t('global.button.restore')}
-                            </Button>
-                        </Stack>
-                    </Stack>
-                </DialogActions>
-            </Dialog>
         </>
     );
 }

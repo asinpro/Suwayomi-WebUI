@@ -6,29 +6,31 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { MangaStatus } from '@/lib/graphql/generated/graphql.ts';
-import { MangaAction, MangaIdInfo, MangaType } from '@/features/manga/Manga.types.ts';
+import type { MessageDescriptor } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
+import { MangaStatus } from '@/lib/graphql/generated/graphql-base.types.ts';
+import type { MangaAction, MangaIdInfo } from '@/features/manga/Manga.types.ts';
+import { MangaType } from '@/features/manga/Manga.types.ts';
 import {
     CHAPTER_ACTION_TO_CONFIRMATION_REQUIRED,
     CHAPTER_ACTION_TO_TRANSLATION,
 } from '@/features/chapter/Chapter.constants.ts';
-import { GqlMetaHolder } from '@/features/metadata/Metadata.types.ts';
-import { TranslationKey } from '@/base/Base.types.ts';
+import type { GqlMetaHolder } from '@/features/metadata/Metadata.types.ts';
 
 export const FALLBACK_MANGA: MangaIdInfo & GqlMetaHolder = { id: -1 };
 
-export const GLOBAL_READER_SETTINGS_MANGA: MangaIdInfo = { id: -2 };
+export const GLOBAL_READER_SETTINGS_MANGA: MangaIdInfo & GqlMetaHolder = { id: -2 };
 
 export const MANGA_COVER_ASPECT_RATIO = '1 / 1.5';
 
-export const MANGA_STATUS_TO_TRANSLATION: Record<MangaStatus, TranslationKey> = {
-    [MangaStatus.Cancelled]: 'manga.status.cancelled',
-    [MangaStatus.Completed]: 'manga.status.completed',
-    [MangaStatus.Licensed]: 'manga.status.licensed',
-    [MangaStatus.Ongoing]: 'manga.status.ongoing',
-    [MangaStatus.OnHiatus]: 'manga.status.hiatus',
-    [MangaStatus.PublishingFinished]: 'manga.status.publishing_finished',
-    [MangaStatus.Unknown]: 'manga.status.unknown',
+export const MANGA_STATUS_TO_TRANSLATION: Record<MangaStatus, MessageDescriptor> = {
+    [MangaStatus.Cancelled]: msg`Cancelled`,
+    [MangaStatus.Completed]: msg`Completed`,
+    [MangaStatus.Licensed]: msg`Licensed`,
+    [MangaStatus.Ongoing]: msg`Ongoing`,
+    [MangaStatus.OnHiatus]: msg`Hiatus`,
+    [MangaStatus.PublishingFinished]: msg`Publishing finished`,
+    [MangaStatus.Unknown]: msg`Unknown`,
 };
 
 export const MANGA_ACTION_TO_CONFIRMATION_REQUIRED: Record<
@@ -45,48 +47,48 @@ export const MANGA_ACTION_TO_CONFIRMATION_REQUIRED: Record<
 export const MANGA_ACTION_TO_TRANSLATION: {
     [key in MangaAction]: {
         action: {
-            single: TranslationKey;
-            selected: TranslationKey;
+            single: MessageDescriptor;
+            selected: MessageDescriptor;
         };
-        confirmation?: TranslationKey;
-        success: TranslationKey;
-        error: TranslationKey;
+        confirmation?: MessageDescriptor;
+        success: MessageDescriptor;
+        error: MessageDescriptor;
     };
 } = {
     ...CHAPTER_ACTION_TO_TRANSLATION,
     remove_from_library: {
         action: {
-            single: 'manga.action.library.remove.label.action',
-            selected: 'manga.action.library.remove.button.selected',
+            single: msg`Remove from the library`,
+            selected: msg`Remove selected from the library`,
         },
-        confirmation: 'manga.action.library.remove.label.confirmation',
-        success: 'manga.action.library.remove.label.success',
-        error: 'manga.action.library.remove.label.error',
+        confirmation: msg`{count, plural, one {You are about to remove one entry from your library} other {You are about to remove # entries from your library}}`,
+        success: msg`{count, plural, one {Removed manga from the library} other {Removed # manga from the library}}`,
+        error: msg`{count, plural, one {Could not remove manga from the library} other {Could not remove manga from the library}}`,
     },
     change_categories: {
         action: {
-            single: 'manga.action.category.label.action',
-            selected: 'manga.action.category.button.selected',
+            single: msg`Change categories`,
+            selected: msg`Change categories of selected`,
         },
-        confirmation: 'manga.action.category.label.confirmation',
-        success: 'manga.action.category.label.success',
-        error: 'manga.action.category.label.error',
+        confirmation: msg`{count, plural, one {You are about to change the category of one entry} other {You are about to change the category of # entries}}`,
+        success: msg`{count, plural, one {Changed categories of manga} other {Changed categories of # manga}}`,
+        error: msg`{count, plural, one {Could not change the categories of the manga} other {Could not change the categories of the manga}}`,
     },
     migrate: {
         action: {
-            single: 'global.button.migrate',
-            selected: 'global.button.migrate', // not supported
+            single: msg`Migrate`,
+            selected: msg`Migrate selected`,
         },
-        success: 'manga.action.migrate.label.success',
-        error: 'manga.action.migrate.label.error',
+        success: msg`Successfully migrated manga`,
+        error: msg`Could not migrate manga`,
     },
     track: {
         action: {
-            single: 'manga.action.track.add.label.action',
-            selected: 'manga.action.track.add.label.action', // not supported
+            single: msg`Track`,
+            selected: msg`Track`, // not supported
         },
-        success: 'manga.action.track.add.label.success',
-        error: 'manga.action.track.add.label.error',
+        success: msg`Tracked manga`,
+        error: msg`Could not track manga`,
     },
 };
 
@@ -151,10 +153,132 @@ export const SOURCES_BY_MANGA_TYPE: Record<MangaType, string[]> = {
     ],
 };
 
-export const MANGA_TAGS_BY_MANGA_TYPE: Record<MangaType, TranslationKey[]> = {
-    [MangaType.MANGA]: ['manga.type.manga'],
-    [MangaType.COMIC]: ['manga.type.comic'],
-    [MangaType.WEBTOON]: ['manga.type.webtoon', 'manga.type.long_strip'],
-    [MangaType.MANHWA]: ['manga.type.manhwa', 'manga.type.long_strip'],
-    [MangaType.MANHUA]: ['manga.type.manhua', 'manga.type.long_strip'],
+/**
+ * Lingui extraction markers — DO NOT remove.
+ * These `msg` calls ensure the strings stay in .po files for translation.
+ * The actual matching data is in {@link MANGA_TAGS_BY_MANGA_TYPE} below.
+ */
+// @ts-ignore - see comment
+// oxlint-disable-next-line no-unused-vars
+const MANGA_TAG_DESCRIPTORS_BY_MANGA_TYPE: Record<MangaType, MessageDescriptor[]> = {
+    [MangaType.MANGA]: [msg`Manga`],
+    [MangaType.COMIC]: [msg`Comic`],
+    [MangaType.WEBTOON]: [msg`Webtoon`, msg`Long strip`],
+    [MangaType.MANHWA]: [msg`Manhwa`, msg`Long strip`],
+    [MangaType.MANHUA]: [msg`Manhua`, msg`Long strip`],
+};
+
+/**
+ * All translations of manga type tags across all available locales.
+ * Used for matching manga genres to detect manga type regardless of source language.
+ *
+ * **IMPORTANT:**
+ *
+ * This is generated by the `manga:gen-type-tags` script
+ */
+export const MANGA_TAGS_BY_MANGA_TYPE: Record<MangaType, string[]> = {
+    [MangaType.MANGA]: ['Manga', 'مانجا', 'مانگا', 'Mangá', 'Манга', 'மங்கா-', 'Truyện Nhật'],
+    [MangaType.COMIC]: [
+        'Comic',
+        'قصص مصورة',
+        'کمیک',
+        'קומיקס',
+        'Képregény',
+        'Komik',
+        'Fumetti',
+        'アメコミ',
+        '만화',
+        'Komiks',
+        'Quadrinhos',
+        'Комикс',
+        'காமிக்',
+        'Çizgi roman',
+        'Truyện Hoa Kỳ',
+        '美漫',
+    ],
+    [MangaType.WEBTOON]: [
+        'Webtoon',
+        'Long strip',
+        'ويب تون (Webtoon)',
+        'وبتون',
+        'ウェブトゥーン',
+        '웹툰',
+        'Веб-комикс',
+        'வெப்டூன்-',
+        'Вебтун',
+        'Cuộn dọc',
+        '条漫',
+        '條漫',
+        'شريط طولي',
+        'Tira larga',
+        'نوار بلند',
+        'Bande continue',
+        'Függőleges folyamatos',
+        'Strip panjang',
+        'Striscia lunga',
+        '縦読み漫画',
+        '긴 스트립',
+        'Długi pasek',
+        'Tira longa',
+        'Длинная полоска',
+        'நீண்ட துண்டு',
+        'Uzun şerit',
+    ],
+    [MangaType.MANHWA]: [
+        'Manhwa',
+        'Long strip',
+        'مانهوا',
+        '韓国マンガ',
+        '만화',
+        'Манхва',
+        'மன்அ்வா',
+        'Truyện Hàn',
+        '韩漫',
+        '韓漫',
+        'شريط طولي',
+        'Tira larga',
+        'نوار بلند',
+        'Bande continue',
+        'Függőleges folyamatos',
+        'Strip panjang',
+        'Striscia lunga',
+        '縦読み漫画',
+        '긴 스트립',
+        'Długi pasek',
+        'Tira longa',
+        'Длинная полоска',
+        'நீண்ட துண்டு',
+        'Uzun şerit',
+        'Cuộn dọc',
+        '条漫',
+        '條漫',
+    ],
+    [MangaType.MANHUA]: [
+        'Manhua',
+        'Long strip',
+        'مانها',
+        '漫画',
+        '만화',
+        'Маньхуа',
+        'மன்உவா',
+        'Truyện Trung',
+        '國漫',
+        'شريط طولي',
+        'Tira larga',
+        'نوار بلند',
+        'Bande continue',
+        'Függőleges folyamatos',
+        'Strip panjang',
+        'Striscia lunga',
+        '縦読み漫画',
+        '긴 스트립',
+        'Długi pasek',
+        'Tira longa',
+        'Длинная полоска',
+        'நீண்ட துண்டு',
+        'Uzun şerit',
+        'Cuộn dọc',
+        '条漫',
+        '條漫',
+    ],
 };

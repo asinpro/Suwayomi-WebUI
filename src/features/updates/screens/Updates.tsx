@@ -8,7 +8,7 @@
 
 import Typography from '@mui/material/Typography';
 import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useLingui } from '@lingui/react/macro';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { LoadingPlaceholder } from '@/base/components/feedback/LoadingPlaceholder.tsx';
 import { EmptyViewAbsoluteCentered } from '@/base/components/feedback/EmptyViewAbsoluteCentered.tsx';
@@ -25,9 +25,10 @@ import { useNavBarContext } from '@/features/navigation-bar/NavbarContext.tsx';
 import { Chapters } from '@/features/chapter/services/Chapters.ts';
 import { useAppTitleAndAction } from '@/features/navigation-bar/hooks/useAppTitleAndAction.ts';
 import { GROUPED_VIRTUOSO_Z_INDEX } from '@/lib/virtuoso/Virtuoso.constants.ts';
+import { STABLE_EMPTY_ARRAY } from '@/base/Base.constants.ts';
 
 export const Updates: React.FC = () => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
     const { appBarHeight } = useNavBarContext();
 
     const {
@@ -38,11 +39,10 @@ export const Updates: React.FC = () => {
         refetch,
     } = requestManager.useGetRecentlyUpdatedChapters(undefined, {
         fetchPolicy: 'cache-and-network',
-        notifyOnNetworkStatusChange: true,
     });
     const hasNextPage = !!chapterUpdateData?.chapters.pageInfo.hasNextPage;
     const endCursor = chapterUpdateData?.chapters.pageInfo.endCursor;
-    const updateEntries = chapterUpdateData?.chapters.nodes ?? [];
+    const updateEntries = chapterUpdateData?.chapters.nodes ?? STABLE_EMPTY_ARRAY;
     const groupedUpdates = useMemo(
         () => Object.entries(Chapters.groupByDate(updateEntries, 'fetchedAt')),
         [updateEntries],
@@ -71,8 +71,9 @@ export const Updates: React.FC = () => {
         fetchPolicy: 'cache-only',
     });
     const lastUpdateTimestamp = lastUpdateTimestampData?.lastUpdateTimestamp.timestamp;
+    const date = lastUpdateTimestamp ? dateTimeFormatter.format(+lastUpdateTimestamp) : '-';
 
-    useAppTitleAndAction(t('updates.title'), <UpdateChecker />);
+    useAppTitleAndAction(t`Updates`, <UpdateChecker />);
 
     const loadMore = useCallback(() => {
         if (!hasNextPage) {
@@ -85,7 +86,7 @@ export const Updates: React.FC = () => {
     if (error) {
         return (
             <EmptyViewAbsoluteCentered
-                message={t('global.error.label.failed_to_load_data')}
+                message={t`Unable to load data`}
                 messageExtra={getErrorMessage(error)}
                 retry={() => refetch().catch(defaultPromiseErrorHandler('Updates::refetch'))}
             />
@@ -93,7 +94,7 @@ export const Updates: React.FC = () => {
     }
 
     if (!isLoading && updateEntries.length === 0) {
-        return <EmptyViewAbsoluteCentered message={t('updates.error.label.no_updates_available')} />;
+        return <EmptyViewAbsoluteCentered message={t`You don't have any updates yet.`} />;
     }
 
     return (
@@ -109,9 +110,7 @@ export const Updates: React.FC = () => {
                     paddingTop: (theme) => ({ [theme.breakpoints.up('sm')]: { paddingTop: '6px' } }),
                 }}
             >
-                {t('library.settings.global_update.label.last_update', {
-                    date: lastUpdateTimestamp ? dateTimeFormatter.format(+lastUpdateTimestamp) : '-',
-                })}
+                {t`Last update: ${date}`}
             </Typography>
             <StyledGroupedVirtuoso
                 persistKey="updates"

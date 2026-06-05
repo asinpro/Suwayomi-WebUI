@@ -7,12 +7,13 @@
  */
 
 import Box from '@mui/material/Box';
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { CustomTooltip } from '@/base/components/CustomTooltip.tsx';
-import { CurrentPageSlotProps } from '@/features/reader/overlay/progress-bar/ReaderProgressBar.types.ts';
+import type { CurrentPageSlotProps } from '@/features/reader/overlay/progress-bar/ReaderProgressBar.types.ts';
 import { applyStyles } from '@/base/utils/ApplyStyles.ts';
 import { getProgressBarPositionInfo } from '@/features/reader/overlay/progress-bar/ReaderProgressBar.utils.tsx';
 import { READER_PROGRESS_BAR_POSITION_TO_PLACEMENT } from '@/features/reader/settings/ReaderSettings.constants.tsx';
+import { coerceIn } from '@/lib/HelperFunctions.ts';
 
 export const ReaderProgressBarCurrentPageSlot = ({
     pageName,
@@ -22,33 +23,39 @@ export const ReaderProgressBarCurrentPageSlot = ({
     boxProps,
     children,
     progressBarPosition,
-}: CurrentPageSlotProps & { children?: ReactNode }) => (
-    <CustomTooltip
-        title={pageName}
-        slotProps={{
-            tooltip: { sx: { backgroundColor: 'primary.main', color: 'primary.contrastText' } },
-        }}
-        placement={READER_PROGRESS_BAR_POSITION_TO_PLACEMENT[progressBarPosition]}
-    >
-        <Box
-            {...boxProps}
-            sx={{
-                position: 'absolute',
-                cursor: isDragging ? 'grabbing' : 'grab',
-                ...applyStyles(getProgressBarPositionInfo(progressBarPosition).isHorizontal, {
-                    left: `${(Math.max(0, currentPagesIndex - 1) / (pagesLength - 1)) * 100}%`,
-                    width: `calc(100% / ${pagesLength - 1})`,
-                    height: '100%',
-                }),
-                ...applyStyles(getProgressBarPositionInfo(progressBarPosition).isVertical, {
-                    top: `${(Math.max(0, currentPagesIndex - 1) / (pagesLength - 1)) * 100}%`,
-                    width: '100%',
-                    height: `calc(100% / ${pagesLength - 1})`,
-                }),
-                ...boxProps?.sx,
+}: CurrentPageSlotProps & { children?: ReactNode }) => {
+    const coercedTotalPages = coerceIn(pagesLength - 1, 1);
+    const coercedCurrentPagesIndex = coerceIn(currentPagesIndex - 1, 0, coercedTotalPages);
+
+    return (
+        <CustomTooltip
+            title={pageName}
+            slotProps={{
+                tooltip: { sx: { backgroundColor: 'primary.main', color: 'primary.contrastText' } },
             }}
+            placement={READER_PROGRESS_BAR_POSITION_TO_PLACEMENT[progressBarPosition]}
+            disableTouchListener
         >
-            {children}
-        </Box>
-    </CustomTooltip>
-);
+            <Box
+                {...boxProps}
+                sx={{
+                    position: 'absolute',
+                    cursor: isDragging ? 'grabbing' : 'grab',
+                    ...applyStyles(getProgressBarPositionInfo(progressBarPosition).isHorizontal, {
+                        left: `${(coercedCurrentPagesIndex / coercedTotalPages) * 100}%`,
+                        width: `calc(100% / ${coercedTotalPages})`,
+                        height: '100%',
+                    }),
+                    ...applyStyles(getProgressBarPositionInfo(progressBarPosition).isVertical, {
+                        top: `${(coercedCurrentPagesIndex / coercedTotalPages) * 100}%`,
+                        width: '100%',
+                        height: `calc(100% / ${coercedTotalPages})`,
+                    }),
+                    ...boxProps?.sx,
+                }}
+            >
+                {children}
+            </Box>
+        </CustomTooltip>
+    );
+};

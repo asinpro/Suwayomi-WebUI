@@ -17,14 +17,15 @@ import Typography from '@mui/material/Typography';
 import { useEffect, useState, type JSX } from 'react';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
-import { useTranslation } from 'react-i18next';
 import List from '@mui/material/List';
 import DeleteIcon from '@mui/icons-material/Delete';
 import IconButton from '@mui/material/IconButton';
 import DialogContentText from '@mui/material/DialogContentText';
-import InfoIcon from '@mui/icons-material/Info';
+import WarningIcon from '@mui/icons-material/Warning';
+import { useLingui } from '@lingui/react/macro';
 import { CustomTooltip } from '@/base/components/CustomTooltip.tsx';
-import { TextSetting, TextSettingProps } from '@/base/components/settings/text/TextSetting.tsx';
+import type { TextSettingProps } from '@/base/components/settings/text/TextSetting.tsx';
+import { TextSetting } from '@/base/components/settings/text/TextSetting.tsx';
 import { TextSettingDialog } from '@/base/components/settings/text/TextSettingDialog.tsx';
 import { makeToast } from '@/base/utils/Toast.ts';
 
@@ -38,7 +39,7 @@ const MutableListItem = ({
     mutable?: boolean;
     deletable?: boolean;
 }) => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
     return (
         <Stack sx={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -49,7 +50,7 @@ const MutableListItem = ({
                     <ListItemText secondary={textSettingProps.value} />
                 </ListItem>
             )}
-            <CustomTooltip title={t('chapter.action.download.delete.label.action')} disabled={!deletable}>
+            <CustomTooltip title={t`Delete`} disabled={!deletable}>
                 <IconButton disabled={!deletable} onClick={handleDelete}>
                     <DeleteIcon />
                 </IconButton>
@@ -87,7 +88,7 @@ export const MutableListSetting = ({
     validateItem = () => true,
     invalidItemError,
 }: MutableListSettingProps) => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
     const values = getValues(valueInfos);
 
@@ -129,7 +130,7 @@ export const MutableListSetting = ({
         }
 
         if (!validateItem?.(newValue, dialogValues)) {
-            makeToast(invalidItemError ?? t('global.error.label.invalid_input'), 'error');
+            makeToast(invalidItemError ?? t`Invalid input`, 'error');
             return;
         }
 
@@ -151,12 +152,13 @@ export const MutableListSetting = ({
                 <ListItemText
                     primary={settingName}
                     secondary={values?.length ? values?.join(', ') : description}
-                    secondaryTypographyProps={{
-                        style: { display: 'flex', flexDirection: 'column', wordBreak: 'break-word' },
+                    slotProps={{
+                        secondary: {
+                            sx: { display: 'flex', flexDirection: 'column', wordBreak: 'break-word' },
+                        },
                     }}
                 />
             </ListItemButton>
-
             <Dialog open={isDialogOpen} onClose={() => closeDialog()} fullWidth>
                 <DialogTitle>{settingName}</DialogTitle>
                 {(!!description || !!dialogDisclaimer) && (
@@ -179,7 +181,7 @@ export const MutableListSetting = ({
                                         alignItems: 'center',
                                     }}
                                 >
-                                    <InfoIcon color="warning" />
+                                    <WarningIcon color="warning" />
                                     <Typography
                                         variant="body1"
                                         sx={{
@@ -219,17 +221,14 @@ export const MutableListSetting = ({
                             width: '100%',
                         }}
                     >
-                        <Button onClick={() => setIsAddItemDialogOpen(true)}>
-                            {addItemButtonTitle ?? t('global.button.add')}
-                        </Button>
+                        <Button onClick={() => setIsAddItemDialogOpen(true)}>{addItemButtonTitle ?? t`Add`}</Button>
                         <Stack direction="row">
-                            <Button onClick={() => closeDialog()}>{t('global.button.cancel')}</Button>
-                            <Button onClick={() => saveChanges()}>{t('global.button.ok')}</Button>
+                            <Button onClick={() => closeDialog()}>{t`Cancel`}</Button>
+                            <Button onClick={() => saveChanges()}>{t`Ok`}</Button>
                         </Stack>
                     </Stack>
                 </DialogActions>
             </Dialog>
-
             {isAddItemDialogOpen && (
                 <TextSettingDialog
                     settingName=""

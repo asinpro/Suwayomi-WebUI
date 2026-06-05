@@ -14,11 +14,11 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import ListItemButton from '@mui/material/ListItemButton';
 import { useCallback, useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import dayjs from 'dayjs';
+import { useLingui } from '@lingui/react/macro';
 
 export const TimeSetting = ({
     settingName,
@@ -31,7 +31,7 @@ export const TimeSetting = ({
     defaultValue: string;
     handleChange: (path: string) => void;
 }) => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [dialogValue, setDialogValue] = useState(value);
@@ -79,10 +79,11 @@ export const TimeSetting = ({
                 <ListItemText
                     primary={settingName}
                     secondary={dayjs(value, 'HH:mm').format('LT')}
-                    secondaryTypographyProps={{ style: { display: 'flex', flexDirection: 'column' } }}
+                    slotProps={{
+                        secondary: { sx: { display: 'flex', flexDirection: 'column' } },
+                    }}
                 />
             </ListItemButton>
-
             <Dialog open={isDialogOpen} onClose={closeDialog}>
                 <DialogTitle>{settingName}</DialogTitle>
                 <DialogContent>
@@ -105,11 +106,11 @@ export const TimeSetting = ({
                             }}
                             color="primary"
                         >
-                            {t('global.button.reset_to_default')}
+                            {t`Reset to Default`}
                         </Button>
                     ) : null}
                     <Button onClick={closeDialogWithReset} color="primary">
-                        {t('global.button.cancel')}
+                        {t`Cancel`}
                     </Button>
                     <Button
                         onClick={() => {
@@ -117,7 +118,7 @@ export const TimeSetting = ({
                         }}
                         color="primary"
                     >
-                        {t('global.button.ok')}
+                        {t`Ok`}
                     </Button>
                 </DialogActions>
             </Dialog>

@@ -3,7 +3,7 @@ import {
 	GetChaptersMangaQuery, GetDownloadStatusQueryVariables, GetGlobalMetadataQueryVariables,
 	GetMangaScreenQueryVariables, GetSourceBrowseQueryVariables, GetUpdateStatusQueryVariables, GetWebuiUpdateStatusQueryVariables,
 } from "@/lib/graphql/generated/graphql.ts";
-import {FieldFunctionOptions} from "@apollo/client/cache/inmemory/policies";
+import {FieldFunctionOptions} from "@apollo/client/cache";
 export type AboutServerPayloadKeySpecifier = ('buildTime' | 'buildType' | 'discord' | 'github' | 'name' | 'revision' | 'version' | AboutServerPayloadKeySpecifier)[];
 export type AboutServerPayloadFieldPolicy = {
 	buildTime?: FieldPolicy<any> | FieldReadFunction<any>,
@@ -14,10 +14,11 @@ export type AboutServerPayloadFieldPolicy = {
 	revision?: FieldPolicy<any> | FieldReadFunction<any>,
 	version?: FieldPolicy<any> | FieldReadFunction<any>
 };
-export type AboutWebUIKeySpecifier = ('channel' | 'tag' | AboutWebUIKeySpecifier)[];
+export type AboutWebUIKeySpecifier = ('channel' | 'tag' | 'updateTimestamp' | AboutWebUIKeySpecifier)[];
 export type AboutWebUIFieldPolicy = {
 	channel?: FieldPolicy<any> | FieldReadFunction<any>,
-	tag?: FieldPolicy<any> | FieldReadFunction<any>
+	tag?: FieldPolicy<any> | FieldReadFunction<any>,
+	updateTimestamp?: FieldPolicy<any> | FieldReadFunction<any>
 };
 export type BackupRestoreStatusKeySpecifier = ('mangaProgress' | 'state' | 'totalManga' | BackupRestoreStatusKeySpecifier)[];
 export type BackupRestoreStatusFieldPolicy = {
@@ -154,6 +155,12 @@ export type DeleteCategoryMetaPayloadFieldPolicy = {
 	clientMutationId?: FieldPolicy<any> | FieldReadFunction<any>,
 	meta?: FieldPolicy<any> | FieldReadFunction<any>
 };
+export type DeleteCategoryMetasPayloadKeySpecifier = ('categories' | 'clientMutationId' | 'metas' | DeleteCategoryMetasPayloadKeySpecifier)[];
+export type DeleteCategoryMetasPayloadFieldPolicy = {
+	categories?: FieldPolicy<any> | FieldReadFunction<any>,
+	clientMutationId?: FieldPolicy<any> | FieldReadFunction<any>,
+	metas?: FieldPolicy<any> | FieldReadFunction<any>
+};
 export type DeleteCategoryPayloadKeySpecifier = ('category' | 'clientMutationId' | 'mangas' | DeleteCategoryPayloadKeySpecifier)[];
 export type DeleteCategoryPayloadFieldPolicy = {
 	category?: FieldPolicy<any> | FieldReadFunction<any>,
@@ -165,6 +172,12 @@ export type DeleteChapterMetaPayloadFieldPolicy = {
 	chapter?: FieldPolicy<any> | FieldReadFunction<any>,
 	clientMutationId?: FieldPolicy<any> | FieldReadFunction<any>,
 	meta?: FieldPolicy<any> | FieldReadFunction<any>
+};
+export type DeleteChapterMetasPayloadKeySpecifier = ('chapters' | 'clientMutationId' | 'metas' | DeleteChapterMetasPayloadKeySpecifier)[];
+export type DeleteChapterMetasPayloadFieldPolicy = {
+	chapters?: FieldPolicy<any> | FieldReadFunction<any>,
+	clientMutationId?: FieldPolicy<any> | FieldReadFunction<any>,
+	metas?: FieldPolicy<any> | FieldReadFunction<any>
 };
 export type DeleteDownloadedChapterPayloadKeySpecifier = ('chapters' | 'clientMutationId' | DeleteDownloadedChapterPayloadKeySpecifier)[];
 export type DeleteDownloadedChapterPayloadFieldPolicy = {
@@ -181,17 +194,34 @@ export type DeleteGlobalMetaPayloadFieldPolicy = {
 	clientMutationId?: FieldPolicy<any> | FieldReadFunction<any>,
 	meta?: FieldPolicy<any> | FieldReadFunction<any>
 };
+export type DeleteGlobalMetasPayloadKeySpecifier = ('clientMutationId' | 'metas' | DeleteGlobalMetasPayloadKeySpecifier)[];
+export type DeleteGlobalMetasPayloadFieldPolicy = {
+	clientMutationId?: FieldPolicy<any> | FieldReadFunction<any>,
+	metas?: FieldPolicy<any> | FieldReadFunction<any>
+};
 export type DeleteMangaMetaPayloadKeySpecifier = ('clientMutationId' | 'manga' | 'meta' | DeleteMangaMetaPayloadKeySpecifier)[];
 export type DeleteMangaMetaPayloadFieldPolicy = {
 	clientMutationId?: FieldPolicy<any> | FieldReadFunction<any>,
 	manga?: FieldPolicy<any> | FieldReadFunction<any>,
 	meta?: FieldPolicy<any> | FieldReadFunction<any>
 };
+export type DeleteMangaMetasPayloadKeySpecifier = ('clientMutationId' | 'mangas' | 'metas' | DeleteMangaMetasPayloadKeySpecifier)[];
+export type DeleteMangaMetasPayloadFieldPolicy = {
+	clientMutationId?: FieldPolicy<any> | FieldReadFunction<any>,
+	mangas?: FieldPolicy<any> | FieldReadFunction<any>,
+	metas?: FieldPolicy<any> | FieldReadFunction<any>
+};
 export type DeleteSourceMetaPayloadKeySpecifier = ('clientMutationId' | 'meta' | 'source' | DeleteSourceMetaPayloadKeySpecifier)[];
 export type DeleteSourceMetaPayloadFieldPolicy = {
 	clientMutationId?: FieldPolicy<any> | FieldReadFunction<any>,
 	meta?: FieldPolicy<any> | FieldReadFunction<any>,
 	source?: FieldPolicy<any> | FieldReadFunction<any>
+};
+export type DeleteSourceMetasPayloadKeySpecifier = ('clientMutationId' | 'metas' | 'sources' | DeleteSourceMetasPayloadKeySpecifier)[];
+export type DeleteSourceMetasPayloadFieldPolicy = {
+	clientMutationId?: FieldPolicy<any> | FieldReadFunction<any>,
+	metas?: FieldPolicy<any> | FieldReadFunction<any>,
+	sources?: FieldPolicy<any> | FieldReadFunction<any>
 };
 export type DequeueChapterDownloadPayloadKeySpecifier = ('clientMutationId' | 'downloadStatus' | DequeueChapterDownloadPayloadKeySpecifier)[];
 export type DequeueChapterDownloadPayloadFieldPolicy = {
@@ -356,17 +386,16 @@ export type InstallExternalExtensionPayloadFieldPolicy = {
 	clientMutationId?: FieldPolicy<any> | FieldReadFunction<any>,
 	extension?: FieldPolicy<any> | FieldReadFunction<any>
 };
-export type KoSyncConnectPayloadKeySpecifier = ('clientMutationId' | 'message' | 'settings' | 'success' | 'username' | KoSyncConnectPayloadKeySpecifier)[];
+export type KoSyncConnectPayloadKeySpecifier = ('clientMutationId' | 'message' | 'status' | KoSyncConnectPayloadKeySpecifier)[];
 export type KoSyncConnectPayloadFieldPolicy = {
 	clientMutationId?: FieldPolicy<any> | FieldReadFunction<any>,
 	message?: FieldPolicy<any> | FieldReadFunction<any>,
-	settings?: FieldPolicy<any> | FieldReadFunction<any>,
-	success?: FieldPolicy<any> | FieldReadFunction<any>,
-	username?: FieldPolicy<any> | FieldReadFunction<any>
+	status?: FieldPolicy<any> | FieldReadFunction<any>
 };
-export type KoSyncStatusPayloadKeySpecifier = ('isLoggedIn' | 'username' | KoSyncStatusPayloadKeySpecifier)[];
+export type KoSyncStatusPayloadKeySpecifier = ('isLoggedIn' | 'serverAddress' | 'username' | KoSyncStatusPayloadKeySpecifier)[];
 export type KoSyncStatusPayloadFieldPolicy = {
 	isLoggedIn?: FieldPolicy<any> | FieldReadFunction<any>,
+	serverAddress?: FieldPolicy<any> | FieldReadFunction<any>,
 	username?: FieldPolicy<any> | FieldReadFunction<any>
 };
 export type LastUpdateTimestampPayloadKeySpecifier = ('timestamp' | LastUpdateTimestampPayloadKeySpecifier)[];
@@ -409,11 +438,10 @@ export type LoginTrackerOAuthPayloadFieldPolicy = {
 	isLoggedIn?: FieldPolicy<any> | FieldReadFunction<any>,
 	tracker?: FieldPolicy<any> | FieldReadFunction<any>
 };
-export type LogoutKoSyncAccountPayloadKeySpecifier = ('clientMutationId' | 'settings' | 'success' | LogoutKoSyncAccountPayloadKeySpecifier)[];
+export type LogoutKoSyncAccountPayloadKeySpecifier = ('clientMutationId' | 'status' | LogoutKoSyncAccountPayloadKeySpecifier)[];
 export type LogoutKoSyncAccountPayloadFieldPolicy = {
 	clientMutationId?: FieldPolicy<any> | FieldReadFunction<any>,
-	settings?: FieldPolicy<any> | FieldReadFunction<any>,
-	success?: FieldPolicy<any> | FieldReadFunction<any>
+	status?: FieldPolicy<any> | FieldReadFunction<any>
 };
 export type LogoutTrackerPayloadKeySpecifier = ('clientMutationId' | 'isLoggedIn' | 'tracker' | LogoutTrackerPayloadKeySpecifier)[];
 export type LogoutTrackerPayloadFieldPolicy = {
@@ -507,7 +535,7 @@ export type MultiSelectListPreferenceFieldPolicy = {
 	title?: FieldPolicy<any> | FieldReadFunction<any>,
 	visible?: FieldPolicy<any> | FieldReadFunction<any>
 };
-export type MutationKeySpecifier = ('bindTrack' | 'clearCachedImages' | 'clearDownloader' | 'connectKoSyncAccount' | 'createBackup' | 'createCategory' | 'deleteCategory' | 'deleteCategoryMeta' | 'deleteChapterMeta' | 'deleteDownloadedChapter' | 'deleteDownloadedChapters' | 'deleteGlobalMeta' | 'deleteMangaMeta' | 'deleteSourceMeta' | 'dequeueChapterDownload' | 'dequeueChapterDownloads' | 'enqueueChapterDownload' | 'enqueueChapterDownloads' | 'fetchChapterPages' | 'fetchChapters' | 'fetchExtensions' | 'fetchManga' | 'fetchSourceManga' | 'fetchTrack' | 'installExternalExtension' | 'login' | 'loginTrackerCredentials' | 'loginTrackerOAuth' | 'logoutKoSyncAccount' | 'logoutTracker' | 'refreshToken' | 'reorderChapterDownload' | 'resetSettings' | 'resetWebUIUpdateStatus' | 'restoreBackup' | 'setCategoryMeta' | 'setChapterMeta' | 'setGlobalMeta' | 'setMangaMeta' | 'setSettings' | 'setSourceMeta' | 'startDownloader' | 'stopDownloader' | 'trackProgress' | 'unbindTrack' | 'updateCategories' | 'updateCategory' | 'updateCategoryManga' | 'updateCategoryOrder' | 'updateChapter' | 'updateChapters' | 'updateExtension' | 'updateExtensions' | 'updateLibrary' | 'updateLibraryManga' | 'updateManga' | 'updateMangaCategories' | 'updateMangas' | 'updateMangasCategories' | 'updateSourcePreference' | 'updateStop' | 'updateTrack' | 'updateWebUI' | MutationKeySpecifier)[];
+export type MutationKeySpecifier = ('bindTrack' | 'clearCachedImages' | 'clearDownloader' | 'connectKoSyncAccount' | 'createBackup' | 'createCategory' | 'deleteCategory' | 'deleteCategoryMeta' | 'deleteCategoryMetas' | 'deleteChapterMeta' | 'deleteChapterMetas' | 'deleteDownloadedChapter' | 'deleteDownloadedChapters' | 'deleteGlobalMeta' | 'deleteGlobalMetas' | 'deleteMangaMeta' | 'deleteMangaMetas' | 'deleteSourceMeta' | 'deleteSourceMetas' | 'dequeueChapterDownload' | 'dequeueChapterDownloads' | 'enqueueChapterDownload' | 'enqueueChapterDownloads' | 'fetchChapterPages' | 'fetchChapters' | 'fetchExtensions' | 'fetchManga' | 'fetchSourceManga' | 'fetchTrack' | 'installExternalExtension' | 'login' | 'loginTrackerCredentials' | 'loginTrackerOAuth' | 'logoutKoSyncAccount' | 'logoutTracker' | 'pullKoSyncProgress' | 'pushKoSyncProgress' | 'refreshToken' | 'reorderChapterDownload' | 'resetSettings' | 'resetWebUIUpdateStatus' | 'restoreBackup' | 'setCategoryMeta' | 'setCategoryMetas' | 'setChapterMeta' | 'setChapterMetas' | 'setGlobalMeta' | 'setGlobalMetas' | 'setMangaMeta' | 'setMangaMetas' | 'setSettings' | 'setSourceMeta' | 'setSourceMetas' | 'startDownloader' | 'stopDownloader' | 'trackProgress' | 'unbindTrack' | 'updateCategories' | 'updateCategory' | 'updateCategoryManga' | 'updateCategoryOrder' | 'updateChapter' | 'updateChapters' | 'updateExtension' | 'updateExtensions' | 'updateLibrary' | 'updateLibraryManga' | 'updateManga' | 'updateMangaCategories' | 'updateMangas' | 'updateMangasCategories' | 'updateSourcePreference' | 'updateStop' | 'updateTrack' | 'updateWebUI' | MutationKeySpecifier)[];
 export type MutationFieldPolicy = {
 	bindTrack?: FieldPolicy<any> | FieldReadFunction<any>,
 	clearCachedImages?: FieldPolicy<any> | FieldReadFunction<any>,
@@ -517,12 +545,17 @@ export type MutationFieldPolicy = {
 	createCategory?: FieldPolicy<any> | FieldReadFunction<any>,
 	deleteCategory?: FieldPolicy<any> | FieldReadFunction<any>,
 	deleteCategoryMeta?: FieldPolicy<any> | FieldReadFunction<any>,
+	deleteCategoryMetas?: FieldPolicy<any> | FieldReadFunction<any>,
 	deleteChapterMeta?: FieldPolicy<any> | FieldReadFunction<any>,
+	deleteChapterMetas?: FieldPolicy<any> | FieldReadFunction<any>,
 	deleteDownloadedChapter?: FieldPolicy<any> | FieldReadFunction<any>,
 	deleteDownloadedChapters?: FieldPolicy<any> | FieldReadFunction<any>,
 	deleteGlobalMeta?: FieldPolicy<any> | FieldReadFunction<any>,
+	deleteGlobalMetas?: FieldPolicy<any> | FieldReadFunction<any>,
 	deleteMangaMeta?: FieldPolicy<any> | FieldReadFunction<any>,
+	deleteMangaMetas?: FieldPolicy<any> | FieldReadFunction<any>,
 	deleteSourceMeta?: FieldPolicy<any> | FieldReadFunction<any>,
+	deleteSourceMetas?: FieldPolicy<any> | FieldReadFunction<any>,
 	dequeueChapterDownload?: FieldPolicy<any> | FieldReadFunction<any>,
 	dequeueChapterDownloads?: FieldPolicy<any> | FieldReadFunction<any>,
 	enqueueChapterDownload?: FieldPolicy<any> | FieldReadFunction<any>,
@@ -539,17 +572,24 @@ export type MutationFieldPolicy = {
 	loginTrackerOAuth?: FieldPolicy<any> | FieldReadFunction<any>,
 	logoutKoSyncAccount?: FieldPolicy<any> | FieldReadFunction<any>,
 	logoutTracker?: FieldPolicy<any> | FieldReadFunction<any>,
+	pullKoSyncProgress?: FieldPolicy<any> | FieldReadFunction<any>,
+	pushKoSyncProgress?: FieldPolicy<any> | FieldReadFunction<any>,
 	refreshToken?: FieldPolicy<any> | FieldReadFunction<any>,
 	reorderChapterDownload?: FieldPolicy<any> | FieldReadFunction<any>,
 	resetSettings?: FieldPolicy<any> | FieldReadFunction<any>,
 	resetWebUIUpdateStatus?: FieldPolicy<any> | FieldReadFunction<any>,
 	restoreBackup?: FieldPolicy<any> | FieldReadFunction<any>,
 	setCategoryMeta?: FieldPolicy<any> | FieldReadFunction<any>,
+	setCategoryMetas?: FieldPolicy<any> | FieldReadFunction<any>,
 	setChapterMeta?: FieldPolicy<any> | FieldReadFunction<any>,
+	setChapterMetas?: FieldPolicy<any> | FieldReadFunction<any>,
 	setGlobalMeta?: FieldPolicy<any> | FieldReadFunction<any>,
+	setGlobalMetas?: FieldPolicy<any> | FieldReadFunction<any>,
 	setMangaMeta?: FieldPolicy<any> | FieldReadFunction<any>,
+	setMangaMetas?: FieldPolicy<any> | FieldReadFunction<any>,
 	setSettings?: FieldPolicy<any> | FieldReadFunction<any>,
 	setSourceMeta?: FieldPolicy<any> | FieldReadFunction<any>,
+	setSourceMetas?: FieldPolicy<any> | FieldReadFunction<any>,
 	startDownloader?: FieldPolicy<any> | FieldReadFunction<any>,
 	stopDownloader?: FieldPolicy<any> | FieldReadFunction<any>,
 	trackProgress?: FieldPolicy<any> | FieldReadFunction<any>,
@@ -587,11 +627,18 @@ export type PageInfoFieldPolicy = {
 	hasPreviousPage?: FieldPolicy<any> | FieldReadFunction<any>,
 	startCursor?: FieldPolicy<any> | FieldReadFunction<any>
 };
-export type PartialSettingsTypeKeySpecifier = ('authMode' | 'authPassword' | 'authUsername' | 'autoDownloadAheadLimit' | 'autoDownloadIgnoreReUploads' | 'autoDownloadNewChapters' | 'autoDownloadNewChaptersLimit' | 'backupInterval' | 'backupPath' | 'backupTTL' | 'backupTime' | 'basicAuthEnabled' | 'basicAuthPassword' | 'basicAuthUsername' | 'debugLogsEnabled' | 'downloadAsCbz' | 'downloadConversions' | 'downloadsPath' | 'electronPath' | 'excludeCompleted' | 'excludeEntryWithUnreadChapters' | 'excludeNotStarted' | 'excludeUnreadChapters' | 'extensionRepos' | 'flareSolverrAsResponseFallback' | 'flareSolverrEnabled' | 'flareSolverrSessionName' | 'flareSolverrSessionTtl' | 'flareSolverrTimeout' | 'flareSolverrUrl' | 'globalUpdateInterval' | 'gqlDebugLogsEnabled' | 'initialOpenInBrowserEnabled' | 'ip' | 'jwtAudience' | 'jwtRefreshExpiry' | 'jwtTokenExpiry' | 'koreaderSyncChecksumMethod' | 'koreaderSyncDeviceId' | 'koreaderSyncPercentageTolerance' | 'koreaderSyncServerUrl' | 'koreaderSyncStrategy' | 'koreaderSyncUserkey' | 'koreaderSyncUsername' | 'localSourcePath' | 'maxLogFileSize' | 'maxLogFiles' | 'maxLogFolderSize' | 'maxSourcesInParallel' | 'opdsChapterSortOrder' | 'opdsEnablePageReadProgress' | 'opdsItemsPerPage' | 'opdsMarkAsReadOnDownload' | 'opdsShowOnlyDownloadedChapters' | 'opdsShowOnlyUnreadChapters' | 'opdsUseBinaryFileSizes' | 'port' | 'socksProxyEnabled' | 'socksProxyHost' | 'socksProxyPassword' | 'socksProxyPort' | 'socksProxyUsername' | 'socksProxyVersion' | 'systemTrayEnabled' | 'updateMangas' | 'webUIChannel' | 'webUIFlavor' | 'webUIInterface' | 'webUIUpdateCheckInterval' | PartialSettingsTypeKeySpecifier)[];
+export type PartialSettingsTypeKeySpecifier = ('authMode' | 'authPassword' | 'authUsername' | 'autoBackupIncludeCategories' | 'autoBackupIncludeChapters' | 'autoBackupIncludeClientData' | 'autoBackupIncludeHistory' | 'autoBackupIncludeManga' | 'autoBackupIncludeServerSettings' | 'autoBackupIncludeTracking' | 'autoDownloadAheadLimit' | 'autoDownloadIgnoreReUploads' | 'autoDownloadNewChapters' | 'autoDownloadNewChaptersLimit' | 'backupInterval' | 'backupPath' | 'backupTTL' | 'backupTime' | 'basicAuthEnabled' | 'basicAuthPassword' | 'basicAuthUsername' | 'databasePassword' | 'databaseType' | 'databaseUrl' | 'databaseUsername' | 'debugLogsEnabled' | 'downloadAsCbz' | 'downloadConversions' | 'downloadsPath' | 'electronPath' | 'excludeCompleted' | 'excludeEntryWithUnreadChapters' | 'excludeNotStarted' | 'excludeUnreadChapters' | 'extensionRepos' | 'flareSolverrAsResponseFallback' | 'flareSolverrEnabled' | 'flareSolverrSessionName' | 'flareSolverrSessionTtl' | 'flareSolverrTimeout' | 'flareSolverrUrl' | 'globalUpdateInterval' | 'gqlDebugLogsEnabled' | 'initialOpenInBrowserEnabled' | 'ip' | 'jwtAudience' | 'jwtRefreshExpiry' | 'jwtTokenExpiry' | 'koreaderSyncChecksumMethod' | 'koreaderSyncDeviceId' | 'koreaderSyncPercentageTolerance' | 'koreaderSyncServerUrl' | 'koreaderSyncStrategy' | 'koreaderSyncStrategyBackward' | 'koreaderSyncStrategyForward' | 'koreaderSyncUserkey' | 'koreaderSyncUsername' | 'localSourcePath' | 'maxLogFileSize' | 'maxLogFiles' | 'maxLogFolderSize' | 'maxSourcesInParallel' | 'opdsCbzMimetype' | 'opdsChapterSortOrder' | 'opdsEnablePageReadProgress' | 'opdsItemsPerPage' | 'opdsMarkAsReadOnDownload' | 'opdsShowOnlyDownloadedChapters' | 'opdsShowOnlyUnreadChapters' | 'opdsUseBinaryFileSizes' | 'port' | 'serveConversions' | 'socksProxyEnabled' | 'socksProxyHost' | 'socksProxyPassword' | 'socksProxyPort' | 'socksProxyUsername' | 'socksProxyVersion' | 'systemTrayEnabled' | 'updateMangas' | 'useHikariConnectionPool' | 'webUIChannel' | 'webUIFlavor' | 'webUIInterface' | 'webUIUpdateCheckInterval' | PartialSettingsTypeKeySpecifier)[];
 export type PartialSettingsTypeFieldPolicy = {
 	authMode?: FieldPolicy<any> | FieldReadFunction<any>,
 	authPassword?: FieldPolicy<any> | FieldReadFunction<any>,
 	authUsername?: FieldPolicy<any> | FieldReadFunction<any>,
+	autoBackupIncludeCategories?: FieldPolicy<any> | FieldReadFunction<any>,
+	autoBackupIncludeChapters?: FieldPolicy<any> | FieldReadFunction<any>,
+	autoBackupIncludeClientData?: FieldPolicy<any> | FieldReadFunction<any>,
+	autoBackupIncludeHistory?: FieldPolicy<any> | FieldReadFunction<any>,
+	autoBackupIncludeManga?: FieldPolicy<any> | FieldReadFunction<any>,
+	autoBackupIncludeServerSettings?: FieldPolicy<any> | FieldReadFunction<any>,
+	autoBackupIncludeTracking?: FieldPolicy<any> | FieldReadFunction<any>,
 	autoDownloadAheadLimit?: FieldPolicy<any> | FieldReadFunction<any>,
 	autoDownloadIgnoreReUploads?: FieldPolicy<any> | FieldReadFunction<any>,
 	autoDownloadNewChapters?: FieldPolicy<any> | FieldReadFunction<any>,
@@ -603,6 +650,10 @@ export type PartialSettingsTypeFieldPolicy = {
 	basicAuthEnabled?: FieldPolicy<any> | FieldReadFunction<any>,
 	basicAuthPassword?: FieldPolicy<any> | FieldReadFunction<any>,
 	basicAuthUsername?: FieldPolicy<any> | FieldReadFunction<any>,
+	databasePassword?: FieldPolicy<any> | FieldReadFunction<any>,
+	databaseType?: FieldPolicy<any> | FieldReadFunction<any>,
+	databaseUrl?: FieldPolicy<any> | FieldReadFunction<any>,
+	databaseUsername?: FieldPolicy<any> | FieldReadFunction<any>,
 	debugLogsEnabled?: FieldPolicy<any> | FieldReadFunction<any>,
 	downloadAsCbz?: FieldPolicy<any> | FieldReadFunction<any>,
 	downloadConversions?: FieldPolicy<any> | FieldReadFunction<any>,
@@ -631,6 +682,8 @@ export type PartialSettingsTypeFieldPolicy = {
 	koreaderSyncPercentageTolerance?: FieldPolicy<any> | FieldReadFunction<any>,
 	koreaderSyncServerUrl?: FieldPolicy<any> | FieldReadFunction<any>,
 	koreaderSyncStrategy?: FieldPolicy<any> | FieldReadFunction<any>,
+	koreaderSyncStrategyBackward?: FieldPolicy<any> | FieldReadFunction<any>,
+	koreaderSyncStrategyForward?: FieldPolicy<any> | FieldReadFunction<any>,
 	koreaderSyncUserkey?: FieldPolicy<any> | FieldReadFunction<any>,
 	koreaderSyncUsername?: FieldPolicy<any> | FieldReadFunction<any>,
 	localSourcePath?: FieldPolicy<any> | FieldReadFunction<any>,
@@ -638,6 +691,7 @@ export type PartialSettingsTypeFieldPolicy = {
 	maxLogFiles?: FieldPolicy<any> | FieldReadFunction<any>,
 	maxLogFolderSize?: FieldPolicy<any> | FieldReadFunction<any>,
 	maxSourcesInParallel?: FieldPolicy<any> | FieldReadFunction<any>,
+	opdsCbzMimetype?: FieldPolicy<any> | FieldReadFunction<any>,
 	opdsChapterSortOrder?: FieldPolicy<any> | FieldReadFunction<any>,
 	opdsEnablePageReadProgress?: FieldPolicy<any> | FieldReadFunction<any>,
 	opdsItemsPerPage?: FieldPolicy<any> | FieldReadFunction<any>,
@@ -646,6 +700,7 @@ export type PartialSettingsTypeFieldPolicy = {
 	opdsShowOnlyUnreadChapters?: FieldPolicy<any> | FieldReadFunction<any>,
 	opdsUseBinaryFileSizes?: FieldPolicy<any> | FieldReadFunction<any>,
 	port?: FieldPolicy<any> | FieldReadFunction<any>,
+	serveConversions?: FieldPolicy<any> | FieldReadFunction<any>,
 	socksProxyEnabled?: FieldPolicy<any> | FieldReadFunction<any>,
 	socksProxyHost?: FieldPolicy<any> | FieldReadFunction<any>,
 	socksProxyPassword?: FieldPolicy<any> | FieldReadFunction<any>,
@@ -654,10 +709,23 @@ export type PartialSettingsTypeFieldPolicy = {
 	socksProxyVersion?: FieldPolicy<any> | FieldReadFunction<any>,
 	systemTrayEnabled?: FieldPolicy<any> | FieldReadFunction<any>,
 	updateMangas?: FieldPolicy<any> | FieldReadFunction<any>,
+	useHikariConnectionPool?: FieldPolicy<any> | FieldReadFunction<any>,
 	webUIChannel?: FieldPolicy<any> | FieldReadFunction<any>,
 	webUIFlavor?: FieldPolicy<any> | FieldReadFunction<any>,
 	webUIInterface?: FieldPolicy<any> | FieldReadFunction<any>,
 	webUIUpdateCheckInterval?: FieldPolicy<any> | FieldReadFunction<any>
+};
+export type PullKoSyncProgressPayloadKeySpecifier = ('chapter' | 'clientMutationId' | 'syncConflict' | PullKoSyncProgressPayloadKeySpecifier)[];
+export type PullKoSyncProgressPayloadFieldPolicy = {
+	chapter?: FieldPolicy<any> | FieldReadFunction<any>,
+	clientMutationId?: FieldPolicy<any> | FieldReadFunction<any>,
+	syncConflict?: FieldPolicy<any> | FieldReadFunction<any>
+};
+export type PushKoSyncProgressPayloadKeySpecifier = ('chapter' | 'clientMutationId' | 'success' | PushKoSyncProgressPayloadKeySpecifier)[];
+export type PushKoSyncProgressPayloadFieldPolicy = {
+	chapter?: FieldPolicy<any> | FieldReadFunction<any>,
+	clientMutationId?: FieldPolicy<any> | FieldReadFunction<any>,
+	success?: FieldPolicy<any> | FieldReadFunction<any>
 };
 export type QueryKeySpecifier = ('aboutServer' | 'aboutWebUI' | 'categories' | 'category' | 'chapter' | 'chapters' | 'checkForServerUpdates' | 'checkForWebUIUpdate' | 'downloadStatus' | 'extension' | 'extensions' | 'getWebUIUpdateStatus' | 'koSyncStatus' | 'lastUpdateTimestamp' | 'libraryUpdateStatus' | 'manga' | 'mangas' | 'meta' | 'metas' | 'restoreStatus' | 'searchTracker' | 'settings' | 'source' | 'sources' | 'trackRecord' | 'trackRecords' | 'tracker' | 'trackers' | 'updateStatus' | 'validateBackup' | QueryKeySpecifier)[];
 export type QueryFieldPolicy = {
@@ -732,20 +800,43 @@ export type SetCategoryMetaPayloadFieldPolicy = {
 	clientMutationId?: FieldPolicy<any> | FieldReadFunction<any>,
 	meta?: FieldPolicy<any> | FieldReadFunction<any>
 };
+export type SetCategoryMetasPayloadKeySpecifier = ('categories' | 'clientMutationId' | 'metas' | SetCategoryMetasPayloadKeySpecifier)[];
+export type SetCategoryMetasPayloadFieldPolicy = {
+	categories?: FieldPolicy<any> | FieldReadFunction<any>,
+	clientMutationId?: FieldPolicy<any> | FieldReadFunction<any>,
+	metas?: FieldPolicy<any> | FieldReadFunction<any>
+};
 export type SetChapterMetaPayloadKeySpecifier = ('clientMutationId' | 'meta' | SetChapterMetaPayloadKeySpecifier)[];
 export type SetChapterMetaPayloadFieldPolicy = {
 	clientMutationId?: FieldPolicy<any> | FieldReadFunction<any>,
 	meta?: FieldPolicy<any> | FieldReadFunction<any>
+};
+export type SetChapterMetasPayloadKeySpecifier = ('chapters' | 'clientMutationId' | 'metas' | SetChapterMetasPayloadKeySpecifier)[];
+export type SetChapterMetasPayloadFieldPolicy = {
+	chapters?: FieldPolicy<any> | FieldReadFunction<any>,
+	clientMutationId?: FieldPolicy<any> | FieldReadFunction<any>,
+	metas?: FieldPolicy<any> | FieldReadFunction<any>
 };
 export type SetGlobalMetaPayloadKeySpecifier = ('clientMutationId' | 'meta' | SetGlobalMetaPayloadKeySpecifier)[];
 export type SetGlobalMetaPayloadFieldPolicy = {
 	clientMutationId?: FieldPolicy<any> | FieldReadFunction<any>,
 	meta?: FieldPolicy<any> | FieldReadFunction<any>
 };
+export type SetGlobalMetasPayloadKeySpecifier = ('clientMutationId' | 'metas' | SetGlobalMetasPayloadKeySpecifier)[];
+export type SetGlobalMetasPayloadFieldPolicy = {
+	clientMutationId?: FieldPolicy<any> | FieldReadFunction<any>,
+	metas?: FieldPolicy<any> | FieldReadFunction<any>
+};
 export type SetMangaMetaPayloadKeySpecifier = ('clientMutationId' | 'meta' | SetMangaMetaPayloadKeySpecifier)[];
 export type SetMangaMetaPayloadFieldPolicy = {
 	clientMutationId?: FieldPolicy<any> | FieldReadFunction<any>,
 	meta?: FieldPolicy<any> | FieldReadFunction<any>
+};
+export type SetMangaMetasPayloadKeySpecifier = ('clientMutationId' | 'mangas' | 'metas' | SetMangaMetasPayloadKeySpecifier)[];
+export type SetMangaMetasPayloadFieldPolicy = {
+	clientMutationId?: FieldPolicy<any> | FieldReadFunction<any>,
+	mangas?: FieldPolicy<any> | FieldReadFunction<any>,
+	metas?: FieldPolicy<any> | FieldReadFunction<any>
 };
 export type SetSettingsPayloadKeySpecifier = ('clientMutationId' | 'settings' | SetSettingsPayloadKeySpecifier)[];
 export type SetSettingsPayloadFieldPolicy = {
@@ -757,11 +848,24 @@ export type SetSourceMetaPayloadFieldPolicy = {
 	clientMutationId?: FieldPolicy<any> | FieldReadFunction<any>,
 	meta?: FieldPolicy<any> | FieldReadFunction<any>
 };
-export type SettingsKeySpecifier = ('authMode' | 'authPassword' | 'authUsername' | 'autoDownloadAheadLimit' | 'autoDownloadIgnoreReUploads' | 'autoDownloadNewChapters' | 'autoDownloadNewChaptersLimit' | 'backupInterval' | 'backupPath' | 'backupTTL' | 'backupTime' | 'basicAuthEnabled' | 'basicAuthPassword' | 'basicAuthUsername' | 'debugLogsEnabled' | 'downloadAsCbz' | 'downloadConversions' | 'downloadsPath' | 'electronPath' | 'excludeCompleted' | 'excludeEntryWithUnreadChapters' | 'excludeNotStarted' | 'excludeUnreadChapters' | 'extensionRepos' | 'flareSolverrAsResponseFallback' | 'flareSolverrEnabled' | 'flareSolverrSessionName' | 'flareSolverrSessionTtl' | 'flareSolverrTimeout' | 'flareSolverrUrl' | 'globalUpdateInterval' | 'gqlDebugLogsEnabled' | 'initialOpenInBrowserEnabled' | 'ip' | 'jwtAudience' | 'jwtRefreshExpiry' | 'jwtTokenExpiry' | 'koreaderSyncChecksumMethod' | 'koreaderSyncDeviceId' | 'koreaderSyncPercentageTolerance' | 'koreaderSyncServerUrl' | 'koreaderSyncStrategy' | 'koreaderSyncUserkey' | 'koreaderSyncUsername' | 'localSourcePath' | 'maxLogFileSize' | 'maxLogFiles' | 'maxLogFolderSize' | 'maxSourcesInParallel' | 'opdsChapterSortOrder' | 'opdsEnablePageReadProgress' | 'opdsItemsPerPage' | 'opdsMarkAsReadOnDownload' | 'opdsShowOnlyDownloadedChapters' | 'opdsShowOnlyUnreadChapters' | 'opdsUseBinaryFileSizes' | 'port' | 'socksProxyEnabled' | 'socksProxyHost' | 'socksProxyPassword' | 'socksProxyPort' | 'socksProxyUsername' | 'socksProxyVersion' | 'systemTrayEnabled' | 'updateMangas' | 'webUIChannel' | 'webUIFlavor' | 'webUIInterface' | 'webUIUpdateCheckInterval' | SettingsKeySpecifier)[];
+export type SetSourceMetasPayloadKeySpecifier = ('clientMutationId' | 'metas' | 'sources' | SetSourceMetasPayloadKeySpecifier)[];
+export type SetSourceMetasPayloadFieldPolicy = {
+	clientMutationId?: FieldPolicy<any> | FieldReadFunction<any>,
+	metas?: FieldPolicy<any> | FieldReadFunction<any>,
+	sources?: FieldPolicy<any> | FieldReadFunction<any>
+};
+export type SettingsKeySpecifier = ('authMode' | 'authPassword' | 'authUsername' | 'autoBackupIncludeCategories' | 'autoBackupIncludeChapters' | 'autoBackupIncludeClientData' | 'autoBackupIncludeHistory' | 'autoBackupIncludeManga' | 'autoBackupIncludeServerSettings' | 'autoBackupIncludeTracking' | 'autoDownloadAheadLimit' | 'autoDownloadIgnoreReUploads' | 'autoDownloadNewChapters' | 'autoDownloadNewChaptersLimit' | 'backupInterval' | 'backupPath' | 'backupTTL' | 'backupTime' | 'basicAuthEnabled' | 'basicAuthPassword' | 'basicAuthUsername' | 'databasePassword' | 'databaseType' | 'databaseUrl' | 'databaseUsername' | 'debugLogsEnabled' | 'downloadAsCbz' | 'downloadConversions' | 'downloadsPath' | 'electronPath' | 'excludeCompleted' | 'excludeEntryWithUnreadChapters' | 'excludeNotStarted' | 'excludeUnreadChapters' | 'extensionRepos' | 'flareSolverrAsResponseFallback' | 'flareSolverrEnabled' | 'flareSolverrSessionName' | 'flareSolverrSessionTtl' | 'flareSolverrTimeout' | 'flareSolverrUrl' | 'globalUpdateInterval' | 'gqlDebugLogsEnabled' | 'initialOpenInBrowserEnabled' | 'ip' | 'jwtAudience' | 'jwtRefreshExpiry' | 'jwtTokenExpiry' | 'koreaderSyncChecksumMethod' | 'koreaderSyncDeviceId' | 'koreaderSyncPercentageTolerance' | 'koreaderSyncServerUrl' | 'koreaderSyncStrategy' | 'koreaderSyncStrategyBackward' | 'koreaderSyncStrategyForward' | 'koreaderSyncUserkey' | 'koreaderSyncUsername' | 'localSourcePath' | 'maxLogFileSize' | 'maxLogFiles' | 'maxLogFolderSize' | 'maxSourcesInParallel' | 'opdsCbzMimetype' | 'opdsChapterSortOrder' | 'opdsEnablePageReadProgress' | 'opdsItemsPerPage' | 'opdsMarkAsReadOnDownload' | 'opdsShowOnlyDownloadedChapters' | 'opdsShowOnlyUnreadChapters' | 'opdsUseBinaryFileSizes' | 'port' | 'serveConversions' | 'socksProxyEnabled' | 'socksProxyHost' | 'socksProxyPassword' | 'socksProxyPort' | 'socksProxyUsername' | 'socksProxyVersion' | 'systemTrayEnabled' | 'updateMangas' | 'useHikariConnectionPool' | 'webUIChannel' | 'webUIFlavor' | 'webUIInterface' | 'webUIUpdateCheckInterval' | SettingsKeySpecifier)[];
 export type SettingsFieldPolicy = {
 	authMode?: FieldPolicy<any> | FieldReadFunction<any>,
 	authPassword?: FieldPolicy<any> | FieldReadFunction<any>,
 	authUsername?: FieldPolicy<any> | FieldReadFunction<any>,
+	autoBackupIncludeCategories?: FieldPolicy<any> | FieldReadFunction<any>,
+	autoBackupIncludeChapters?: FieldPolicy<any> | FieldReadFunction<any>,
+	autoBackupIncludeClientData?: FieldPolicy<any> | FieldReadFunction<any>,
+	autoBackupIncludeHistory?: FieldPolicy<any> | FieldReadFunction<any>,
+	autoBackupIncludeManga?: FieldPolicy<any> | FieldReadFunction<any>,
+	autoBackupIncludeServerSettings?: FieldPolicy<any> | FieldReadFunction<any>,
+	autoBackupIncludeTracking?: FieldPolicy<any> | FieldReadFunction<any>,
 	autoDownloadAheadLimit?: FieldPolicy<any> | FieldReadFunction<any>,
 	autoDownloadIgnoreReUploads?: FieldPolicy<any> | FieldReadFunction<any>,
 	autoDownloadNewChapters?: FieldPolicy<any> | FieldReadFunction<any>,
@@ -773,6 +877,10 @@ export type SettingsFieldPolicy = {
 	basicAuthEnabled?: FieldPolicy<any> | FieldReadFunction<any>,
 	basicAuthPassword?: FieldPolicy<any> | FieldReadFunction<any>,
 	basicAuthUsername?: FieldPolicy<any> | FieldReadFunction<any>,
+	databasePassword?: FieldPolicy<any> | FieldReadFunction<any>,
+	databaseType?: FieldPolicy<any> | FieldReadFunction<any>,
+	databaseUrl?: FieldPolicy<any> | FieldReadFunction<any>,
+	databaseUsername?: FieldPolicy<any> | FieldReadFunction<any>,
 	debugLogsEnabled?: FieldPolicy<any> | FieldReadFunction<any>,
 	downloadAsCbz?: FieldPolicy<any> | FieldReadFunction<any>,
 	downloadConversions?: FieldPolicy<any> | FieldReadFunction<any>,
@@ -801,6 +909,8 @@ export type SettingsFieldPolicy = {
 	koreaderSyncPercentageTolerance?: FieldPolicy<any> | FieldReadFunction<any>,
 	koreaderSyncServerUrl?: FieldPolicy<any> | FieldReadFunction<any>,
 	koreaderSyncStrategy?: FieldPolicy<any> | FieldReadFunction<any>,
+	koreaderSyncStrategyBackward?: FieldPolicy<any> | FieldReadFunction<any>,
+	koreaderSyncStrategyForward?: FieldPolicy<any> | FieldReadFunction<any>,
 	koreaderSyncUserkey?: FieldPolicy<any> | FieldReadFunction<any>,
 	koreaderSyncUsername?: FieldPolicy<any> | FieldReadFunction<any>,
 	localSourcePath?: FieldPolicy<any> | FieldReadFunction<any>,
@@ -808,6 +918,7 @@ export type SettingsFieldPolicy = {
 	maxLogFiles?: FieldPolicy<any> | FieldReadFunction<any>,
 	maxLogFolderSize?: FieldPolicy<any> | FieldReadFunction<any>,
 	maxSourcesInParallel?: FieldPolicy<any> | FieldReadFunction<any>,
+	opdsCbzMimetype?: FieldPolicy<any> | FieldReadFunction<any>,
 	opdsChapterSortOrder?: FieldPolicy<any> | FieldReadFunction<any>,
 	opdsEnablePageReadProgress?: FieldPolicy<any> | FieldReadFunction<any>,
 	opdsItemsPerPage?: FieldPolicy<any> | FieldReadFunction<any>,
@@ -816,6 +927,7 @@ export type SettingsFieldPolicy = {
 	opdsShowOnlyUnreadChapters?: FieldPolicy<any> | FieldReadFunction<any>,
 	opdsUseBinaryFileSizes?: FieldPolicy<any> | FieldReadFunction<any>,
 	port?: FieldPolicy<any> | FieldReadFunction<any>,
+	serveConversions?: FieldPolicy<any> | FieldReadFunction<any>,
 	socksProxyEnabled?: FieldPolicy<any> | FieldReadFunction<any>,
 	socksProxyHost?: FieldPolicy<any> | FieldReadFunction<any>,
 	socksProxyPassword?: FieldPolicy<any> | FieldReadFunction<any>,
@@ -824,28 +936,52 @@ export type SettingsFieldPolicy = {
 	socksProxyVersion?: FieldPolicy<any> | FieldReadFunction<any>,
 	systemTrayEnabled?: FieldPolicy<any> | FieldReadFunction<any>,
 	updateMangas?: FieldPolicy<any> | FieldReadFunction<any>,
+	useHikariConnectionPool?: FieldPolicy<any> | FieldReadFunction<any>,
 	webUIChannel?: FieldPolicy<any> | FieldReadFunction<any>,
 	webUIFlavor?: FieldPolicy<any> | FieldReadFunction<any>,
 	webUIInterface?: FieldPolicy<any> | FieldReadFunction<any>,
 	webUIUpdateCheckInterval?: FieldPolicy<any> | FieldReadFunction<any>
 };
-export type SettingsDownloadConversionKeySpecifier = ('compressionLevel' | 'mimeType' | 'target' | SettingsDownloadConversionKeySpecifier)[];
+export type SettingsDownloadConversionKeySpecifier = ('callTimeout' | 'compressionLevel' | 'connectTimeout' | 'headers' | 'mimeType' | 'target' | SettingsDownloadConversionKeySpecifier)[];
 export type SettingsDownloadConversionFieldPolicy = {
+	callTimeout?: FieldPolicy<any> | FieldReadFunction<any>,
 	compressionLevel?: FieldPolicy<any> | FieldReadFunction<any>,
+	connectTimeout?: FieldPolicy<any> | FieldReadFunction<any>,
+	headers?: FieldPolicy<any> | FieldReadFunction<any>,
 	mimeType?: FieldPolicy<any> | FieldReadFunction<any>,
 	target?: FieldPolicy<any> | FieldReadFunction<any>
 };
-export type SettingsDownloadConversionTypeKeySpecifier = ('compressionLevel' | 'mimeType' | 'target' | SettingsDownloadConversionTypeKeySpecifier)[];
+export type SettingsDownloadConversionHeaderKeySpecifier = ('name' | 'value' | SettingsDownloadConversionHeaderKeySpecifier)[];
+export type SettingsDownloadConversionHeaderFieldPolicy = {
+	name?: FieldPolicy<any> | FieldReadFunction<any>,
+	value?: FieldPolicy<any> | FieldReadFunction<any>
+};
+export type SettingsDownloadConversionHeaderTypeKeySpecifier = ('name' | 'value' | SettingsDownloadConversionHeaderTypeKeySpecifier)[];
+export type SettingsDownloadConversionHeaderTypeFieldPolicy = {
+	name?: FieldPolicy<any> | FieldReadFunction<any>,
+	value?: FieldPolicy<any> | FieldReadFunction<any>
+};
+export type SettingsDownloadConversionTypeKeySpecifier = ('callTimeout' | 'compressionLevel' | 'connectTimeout' | 'headers' | 'mimeType' | 'target' | SettingsDownloadConversionTypeKeySpecifier)[];
 export type SettingsDownloadConversionTypeFieldPolicy = {
+	callTimeout?: FieldPolicy<any> | FieldReadFunction<any>,
 	compressionLevel?: FieldPolicy<any> | FieldReadFunction<any>,
+	connectTimeout?: FieldPolicy<any> | FieldReadFunction<any>,
+	headers?: FieldPolicy<any> | FieldReadFunction<any>,
 	mimeType?: FieldPolicy<any> | FieldReadFunction<any>,
 	target?: FieldPolicy<any> | FieldReadFunction<any>
 };
-export type SettingsTypeKeySpecifier = ('authMode' | 'authPassword' | 'authUsername' | 'autoDownloadAheadLimit' | 'autoDownloadIgnoreReUploads' | 'autoDownloadNewChapters' | 'autoDownloadNewChaptersLimit' | 'backupInterval' | 'backupPath' | 'backupTTL' | 'backupTime' | 'basicAuthEnabled' | 'basicAuthPassword' | 'basicAuthUsername' | 'debugLogsEnabled' | 'downloadAsCbz' | 'downloadConversions' | 'downloadsPath' | 'electronPath' | 'excludeCompleted' | 'excludeEntryWithUnreadChapters' | 'excludeNotStarted' | 'excludeUnreadChapters' | 'extensionRepos' | 'flareSolverrAsResponseFallback' | 'flareSolverrEnabled' | 'flareSolverrSessionName' | 'flareSolverrSessionTtl' | 'flareSolverrTimeout' | 'flareSolverrUrl' | 'globalUpdateInterval' | 'gqlDebugLogsEnabled' | 'initialOpenInBrowserEnabled' | 'ip' | 'jwtAudience' | 'jwtRefreshExpiry' | 'jwtTokenExpiry' | 'koreaderSyncChecksumMethod' | 'koreaderSyncDeviceId' | 'koreaderSyncPercentageTolerance' | 'koreaderSyncServerUrl' | 'koreaderSyncStrategy' | 'koreaderSyncUserkey' | 'koreaderSyncUsername' | 'localSourcePath' | 'maxLogFileSize' | 'maxLogFiles' | 'maxLogFolderSize' | 'maxSourcesInParallel' | 'opdsChapterSortOrder' | 'opdsEnablePageReadProgress' | 'opdsItemsPerPage' | 'opdsMarkAsReadOnDownload' | 'opdsShowOnlyDownloadedChapters' | 'opdsShowOnlyUnreadChapters' | 'opdsUseBinaryFileSizes' | 'port' | 'socksProxyEnabled' | 'socksProxyHost' | 'socksProxyPassword' | 'socksProxyPort' | 'socksProxyUsername' | 'socksProxyVersion' | 'systemTrayEnabled' | 'updateMangas' | 'webUIChannel' | 'webUIFlavor' | 'webUIInterface' | 'webUIUpdateCheckInterval' | SettingsTypeKeySpecifier)[];
+export type SettingsTypeKeySpecifier = ('authMode' | 'authPassword' | 'authUsername' | 'autoBackupIncludeCategories' | 'autoBackupIncludeChapters' | 'autoBackupIncludeClientData' | 'autoBackupIncludeHistory' | 'autoBackupIncludeManga' | 'autoBackupIncludeServerSettings' | 'autoBackupIncludeTracking' | 'autoDownloadAheadLimit' | 'autoDownloadIgnoreReUploads' | 'autoDownloadNewChapters' | 'autoDownloadNewChaptersLimit' | 'backupInterval' | 'backupPath' | 'backupTTL' | 'backupTime' | 'basicAuthEnabled' | 'basicAuthPassword' | 'basicAuthUsername' | 'databasePassword' | 'databaseType' | 'databaseUrl' | 'databaseUsername' | 'debugLogsEnabled' | 'downloadAsCbz' | 'downloadConversions' | 'downloadsPath' | 'electronPath' | 'excludeCompleted' | 'excludeEntryWithUnreadChapters' | 'excludeNotStarted' | 'excludeUnreadChapters' | 'extensionRepos' | 'flareSolverrAsResponseFallback' | 'flareSolverrEnabled' | 'flareSolverrSessionName' | 'flareSolverrSessionTtl' | 'flareSolverrTimeout' | 'flareSolverrUrl' | 'globalUpdateInterval' | 'gqlDebugLogsEnabled' | 'initialOpenInBrowserEnabled' | 'ip' | 'jwtAudience' | 'jwtRefreshExpiry' | 'jwtTokenExpiry' | 'koreaderSyncChecksumMethod' | 'koreaderSyncDeviceId' | 'koreaderSyncPercentageTolerance' | 'koreaderSyncServerUrl' | 'koreaderSyncStrategy' | 'koreaderSyncStrategyBackward' | 'koreaderSyncStrategyForward' | 'koreaderSyncUserkey' | 'koreaderSyncUsername' | 'localSourcePath' | 'maxLogFileSize' | 'maxLogFiles' | 'maxLogFolderSize' | 'maxSourcesInParallel' | 'opdsCbzMimetype' | 'opdsChapterSortOrder' | 'opdsEnablePageReadProgress' | 'opdsItemsPerPage' | 'opdsMarkAsReadOnDownload' | 'opdsShowOnlyDownloadedChapters' | 'opdsShowOnlyUnreadChapters' | 'opdsUseBinaryFileSizes' | 'port' | 'serveConversions' | 'socksProxyEnabled' | 'socksProxyHost' | 'socksProxyPassword' | 'socksProxyPort' | 'socksProxyUsername' | 'socksProxyVersion' | 'systemTrayEnabled' | 'updateMangas' | 'useHikariConnectionPool' | 'webUIChannel' | 'webUIFlavor' | 'webUIInterface' | 'webUIUpdateCheckInterval' | SettingsTypeKeySpecifier)[];
 export type SettingsTypeFieldPolicy = {
 	authMode?: FieldPolicy<any> | FieldReadFunction<any>,
 	authPassword?: FieldPolicy<any> | FieldReadFunction<any>,
 	authUsername?: FieldPolicy<any> | FieldReadFunction<any>,
+	autoBackupIncludeCategories?: FieldPolicy<any> | FieldReadFunction<any>,
+	autoBackupIncludeChapters?: FieldPolicy<any> | FieldReadFunction<any>,
+	autoBackupIncludeClientData?: FieldPolicy<any> | FieldReadFunction<any>,
+	autoBackupIncludeHistory?: FieldPolicy<any> | FieldReadFunction<any>,
+	autoBackupIncludeManga?: FieldPolicy<any> | FieldReadFunction<any>,
+	autoBackupIncludeServerSettings?: FieldPolicy<any> | FieldReadFunction<any>,
+	autoBackupIncludeTracking?: FieldPolicy<any> | FieldReadFunction<any>,
 	autoDownloadAheadLimit?: FieldPolicy<any> | FieldReadFunction<any>,
 	autoDownloadIgnoreReUploads?: FieldPolicy<any> | FieldReadFunction<any>,
 	autoDownloadNewChapters?: FieldPolicy<any> | FieldReadFunction<any>,
@@ -857,6 +993,10 @@ export type SettingsTypeFieldPolicy = {
 	basicAuthEnabled?: FieldPolicy<any> | FieldReadFunction<any>,
 	basicAuthPassword?: FieldPolicy<any> | FieldReadFunction<any>,
 	basicAuthUsername?: FieldPolicy<any> | FieldReadFunction<any>,
+	databasePassword?: FieldPolicy<any> | FieldReadFunction<any>,
+	databaseType?: FieldPolicy<any> | FieldReadFunction<any>,
+	databaseUrl?: FieldPolicy<any> | FieldReadFunction<any>,
+	databaseUsername?: FieldPolicy<any> | FieldReadFunction<any>,
 	debugLogsEnabled?: FieldPolicy<any> | FieldReadFunction<any>,
 	downloadAsCbz?: FieldPolicy<any> | FieldReadFunction<any>,
 	downloadConversions?: FieldPolicy<any> | FieldReadFunction<any>,
@@ -885,6 +1025,8 @@ export type SettingsTypeFieldPolicy = {
 	koreaderSyncPercentageTolerance?: FieldPolicy<any> | FieldReadFunction<any>,
 	koreaderSyncServerUrl?: FieldPolicy<any> | FieldReadFunction<any>,
 	koreaderSyncStrategy?: FieldPolicy<any> | FieldReadFunction<any>,
+	koreaderSyncStrategyBackward?: FieldPolicy<any> | FieldReadFunction<any>,
+	koreaderSyncStrategyForward?: FieldPolicy<any> | FieldReadFunction<any>,
 	koreaderSyncUserkey?: FieldPolicy<any> | FieldReadFunction<any>,
 	koreaderSyncUsername?: FieldPolicy<any> | FieldReadFunction<any>,
 	localSourcePath?: FieldPolicy<any> | FieldReadFunction<any>,
@@ -892,6 +1034,7 @@ export type SettingsTypeFieldPolicy = {
 	maxLogFiles?: FieldPolicy<any> | FieldReadFunction<any>,
 	maxLogFolderSize?: FieldPolicy<any> | FieldReadFunction<any>,
 	maxSourcesInParallel?: FieldPolicy<any> | FieldReadFunction<any>,
+	opdsCbzMimetype?: FieldPolicy<any> | FieldReadFunction<any>,
 	opdsChapterSortOrder?: FieldPolicy<any> | FieldReadFunction<any>,
 	opdsEnablePageReadProgress?: FieldPolicy<any> | FieldReadFunction<any>,
 	opdsItemsPerPage?: FieldPolicy<any> | FieldReadFunction<any>,
@@ -900,6 +1043,7 @@ export type SettingsTypeFieldPolicy = {
 	opdsShowOnlyUnreadChapters?: FieldPolicy<any> | FieldReadFunction<any>,
 	opdsUseBinaryFileSizes?: FieldPolicy<any> | FieldReadFunction<any>,
 	port?: FieldPolicy<any> | FieldReadFunction<any>,
+	serveConversions?: FieldPolicy<any> | FieldReadFunction<any>,
 	socksProxyEnabled?: FieldPolicy<any> | FieldReadFunction<any>,
 	socksProxyHost?: FieldPolicy<any> | FieldReadFunction<any>,
 	socksProxyPassword?: FieldPolicy<any> | FieldReadFunction<any>,
@@ -908,6 +1052,7 @@ export type SettingsTypeFieldPolicy = {
 	socksProxyVersion?: FieldPolicy<any> | FieldReadFunction<any>,
 	systemTrayEnabled?: FieldPolicy<any> | FieldReadFunction<any>,
 	updateMangas?: FieldPolicy<any> | FieldReadFunction<any>,
+	useHikariConnectionPool?: FieldPolicy<any> | FieldReadFunction<any>,
 	webUIChannel?: FieldPolicy<any> | FieldReadFunction<any>,
 	webUIFlavor?: FieldPolicy<any> | FieldReadFunction<any>,
 	webUIInterface?: FieldPolicy<any> | FieldReadFunction<any>,
@@ -1341,6 +1486,10 @@ export type StrictTypedTypePolicies = {
 		keyFields?: false | DeleteCategoryMetaPayloadKeySpecifier | (() => undefined | DeleteCategoryMetaPayloadKeySpecifier),
 		fields?: DeleteCategoryMetaPayloadFieldPolicy,
 	},
+	DeleteCategoryMetasPayload?: Omit<TypePolicy, "fields" | "keyFields"> & {
+		keyFields?: false | DeleteCategoryMetasPayloadKeySpecifier | (() => undefined | DeleteCategoryMetasPayloadKeySpecifier),
+		fields?: DeleteCategoryMetasPayloadFieldPolicy,
+	},
 	DeleteCategoryPayload?: Omit<TypePolicy, "fields" | "keyFields"> & {
 		keyFields?: false | DeleteCategoryPayloadKeySpecifier | (() => undefined | DeleteCategoryPayloadKeySpecifier),
 		fields?: DeleteCategoryPayloadFieldPolicy,
@@ -1348,6 +1497,10 @@ export type StrictTypedTypePolicies = {
 	DeleteChapterMetaPayload?: Omit<TypePolicy, "fields" | "keyFields"> & {
 		keyFields?: false | DeleteChapterMetaPayloadKeySpecifier | (() => undefined | DeleteChapterMetaPayloadKeySpecifier),
 		fields?: DeleteChapterMetaPayloadFieldPolicy,
+	},
+	DeleteChapterMetasPayload?: Omit<TypePolicy, "fields" | "keyFields"> & {
+		keyFields?: false | DeleteChapterMetasPayloadKeySpecifier | (() => undefined | DeleteChapterMetasPayloadKeySpecifier),
+		fields?: DeleteChapterMetasPayloadFieldPolicy,
 	},
 	DeleteDownloadedChapterPayload?: Omit<TypePolicy, "fields" | "keyFields"> & {
 		keyFields?: false | DeleteDownloadedChapterPayloadKeySpecifier | (() => undefined | DeleteDownloadedChapterPayloadKeySpecifier),
@@ -1361,13 +1514,25 @@ export type StrictTypedTypePolicies = {
 		keyFields?: false | DeleteGlobalMetaPayloadKeySpecifier | (() => undefined | DeleteGlobalMetaPayloadKeySpecifier),
 		fields?: DeleteGlobalMetaPayloadFieldPolicy,
 	},
+	DeleteGlobalMetasPayload?: Omit<TypePolicy, "fields" | "keyFields"> & {
+		keyFields?: false | DeleteGlobalMetasPayloadKeySpecifier | (() => undefined | DeleteGlobalMetasPayloadKeySpecifier),
+		fields?: DeleteGlobalMetasPayloadFieldPolicy,
+	},
 	DeleteMangaMetaPayload?: Omit<TypePolicy, "fields" | "keyFields"> & {
 		keyFields?: false | DeleteMangaMetaPayloadKeySpecifier | (() => undefined | DeleteMangaMetaPayloadKeySpecifier),
 		fields?: DeleteMangaMetaPayloadFieldPolicy,
 	},
+	DeleteMangaMetasPayload?: Omit<TypePolicy, "fields" | "keyFields"> & {
+		keyFields?: false | DeleteMangaMetasPayloadKeySpecifier | (() => undefined | DeleteMangaMetasPayloadKeySpecifier),
+		fields?: DeleteMangaMetasPayloadFieldPolicy,
+	},
 	DeleteSourceMetaPayload?: Omit<TypePolicy, "fields" | "keyFields"> & {
 		keyFields?: false | DeleteSourceMetaPayloadKeySpecifier | (() => undefined | DeleteSourceMetaPayloadKeySpecifier),
 		fields?: DeleteSourceMetaPayloadFieldPolicy,
+	},
+	DeleteSourceMetasPayload?: Omit<TypePolicy, "fields" | "keyFields"> & {
+		keyFields?: false | DeleteSourceMetasPayloadKeySpecifier | (() => undefined | DeleteSourceMetasPayloadKeySpecifier),
+		fields?: DeleteSourceMetasPayloadFieldPolicy,
 	},
 	DequeueChapterDownloadPayload?: Omit<TypePolicy, "fields" | "keyFields"> & {
 		keyFields?: false | DequeueChapterDownloadPayloadKeySpecifier | (() => undefined | DequeueChapterDownloadPayloadKeySpecifier),
@@ -1561,6 +1726,14 @@ export type StrictTypedTypePolicies = {
 		keyFields?: false | PartialSettingsTypeKeySpecifier | (() => undefined | PartialSettingsTypeKeySpecifier),
 		fields?: PartialSettingsTypeFieldPolicy,
 	},
+	PullKoSyncProgressPayload?: Omit<TypePolicy, "fields" | "keyFields"> & {
+		keyFields?: false | PullKoSyncProgressPayloadKeySpecifier | (() => undefined | PullKoSyncProgressPayloadKeySpecifier),
+		fields?: PullKoSyncProgressPayloadFieldPolicy,
+	},
+	PushKoSyncProgressPayload?: Omit<TypePolicy, "fields" | "keyFields"> & {
+		keyFields?: false | PushKoSyncProgressPayloadKeySpecifier | (() => undefined | PushKoSyncProgressPayloadKeySpecifier),
+		fields?: PushKoSyncProgressPayloadFieldPolicy,
+	},
 	Query?: Omit<TypePolicy, "fields" | "keyFields"> & {
 		keyFields?: false | QueryKeySpecifier | (() => undefined | QueryKeySpecifier),
 		fields?: QueryFieldPolicy,
@@ -1597,17 +1770,33 @@ export type StrictTypedTypePolicies = {
 		keyFields?: false | SetCategoryMetaPayloadKeySpecifier | (() => undefined | SetCategoryMetaPayloadKeySpecifier),
 		fields?: SetCategoryMetaPayloadFieldPolicy,
 	},
+	SetCategoryMetasPayload?: Omit<TypePolicy, "fields" | "keyFields"> & {
+		keyFields?: false | SetCategoryMetasPayloadKeySpecifier | (() => undefined | SetCategoryMetasPayloadKeySpecifier),
+		fields?: SetCategoryMetasPayloadFieldPolicy,
+	},
 	SetChapterMetaPayload?: Omit<TypePolicy, "fields" | "keyFields"> & {
 		keyFields?: false | SetChapterMetaPayloadKeySpecifier | (() => undefined | SetChapterMetaPayloadKeySpecifier),
 		fields?: SetChapterMetaPayloadFieldPolicy,
+	},
+	SetChapterMetasPayload?: Omit<TypePolicy, "fields" | "keyFields"> & {
+		keyFields?: false | SetChapterMetasPayloadKeySpecifier | (() => undefined | SetChapterMetasPayloadKeySpecifier),
+		fields?: SetChapterMetasPayloadFieldPolicy,
 	},
 	SetGlobalMetaPayload?: Omit<TypePolicy, "fields" | "keyFields"> & {
 		keyFields?: false | SetGlobalMetaPayloadKeySpecifier | (() => undefined | SetGlobalMetaPayloadKeySpecifier),
 		fields?: SetGlobalMetaPayloadFieldPolicy,
 	},
+	SetGlobalMetasPayload?: Omit<TypePolicy, "fields" | "keyFields"> & {
+		keyFields?: false | SetGlobalMetasPayloadKeySpecifier | (() => undefined | SetGlobalMetasPayloadKeySpecifier),
+		fields?: SetGlobalMetasPayloadFieldPolicy,
+	},
 	SetMangaMetaPayload?: Omit<TypePolicy, "fields" | "keyFields"> & {
 		keyFields?: false | SetMangaMetaPayloadKeySpecifier | (() => undefined | SetMangaMetaPayloadKeySpecifier),
 		fields?: SetMangaMetaPayloadFieldPolicy,
+	},
+	SetMangaMetasPayload?: Omit<TypePolicy, "fields" | "keyFields"> & {
+		keyFields?: false | SetMangaMetasPayloadKeySpecifier | (() => undefined | SetMangaMetasPayloadKeySpecifier),
+		fields?: SetMangaMetasPayloadFieldPolicy,
 	},
 	SetSettingsPayload?: Omit<TypePolicy, "fields" | "keyFields"> & {
 		keyFields?: false | SetSettingsPayloadKeySpecifier | (() => undefined | SetSettingsPayloadKeySpecifier),
@@ -1617,6 +1806,10 @@ export type StrictTypedTypePolicies = {
 		keyFields?: false | SetSourceMetaPayloadKeySpecifier | (() => undefined | SetSourceMetaPayloadKeySpecifier),
 		fields?: SetSourceMetaPayloadFieldPolicy,
 	},
+	SetSourceMetasPayload?: Omit<TypePolicy, "fields" | "keyFields"> & {
+		keyFields?: false | SetSourceMetasPayloadKeySpecifier | (() => undefined | SetSourceMetasPayloadKeySpecifier),
+		fields?: SetSourceMetasPayloadFieldPolicy,
+	},
 	Settings?: Omit<TypePolicy, "fields" | "keyFields"> & {
 		keyFields?: false | SettingsKeySpecifier | (() => undefined | SettingsKeySpecifier),
 		fields?: SettingsFieldPolicy,
@@ -1624,6 +1817,14 @@ export type StrictTypedTypePolicies = {
 	SettingsDownloadConversion?: Omit<TypePolicy, "fields" | "keyFields"> & {
 		keyFields?: false | SettingsDownloadConversionKeySpecifier | (() => undefined | SettingsDownloadConversionKeySpecifier),
 		fields?: SettingsDownloadConversionFieldPolicy,
+	},
+	SettingsDownloadConversionHeader?: Omit<TypePolicy, "fields" | "keyFields"> & {
+		keyFields?: false | SettingsDownloadConversionHeaderKeySpecifier | (() => undefined | SettingsDownloadConversionHeaderKeySpecifier),
+		fields?: SettingsDownloadConversionHeaderFieldPolicy,
+	},
+	SettingsDownloadConversionHeaderType?: Omit<TypePolicy, "fields" | "keyFields"> & {
+		keyFields?: false | SettingsDownloadConversionHeaderTypeKeySpecifier | (() => undefined | SettingsDownloadConversionHeaderTypeKeySpecifier),
+		fields?: SettingsDownloadConversionHeaderTypeFieldPolicy,
 	},
 	SettingsDownloadConversionType?: Omit<TypePolicy, "fields" | "keyFields"> & {
 		keyFields?: false | SettingsDownloadConversionTypeKeySpecifier | (() => undefined | SettingsDownloadConversionTypeKeySpecifier),

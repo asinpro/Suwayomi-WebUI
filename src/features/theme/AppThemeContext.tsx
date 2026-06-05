@@ -6,13 +6,14 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import React, { ReactNode, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Palette } from '@vibrant/color';
-import { FastAverageColorResult } from 'fast-average-color';
-import { useTranslation } from 'react-i18next';
-import { Direction, ThemeProvider } from '@mui/material/styles';
+import type { ReactNode } from 'react';
+import React, { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { Direction } from '@mui/material/styles';
+import { ThemeProvider } from '@mui/material/styles';
 import { CacheProvider } from '@emotion/react';
-import { AppTheme, AppThemes, getTheme } from '@/features/theme/services/AppThemes.ts';
+import { useLingui } from '@lingui/react/macro';
+import type { AppTheme } from '@/features/theme/services/AppThemes.ts';
+import { getTheme } from '@/features/theme/services/AppThemes.ts';
 import {
     createUpdateMetadataServerSettings,
     useMetadataServerSettings,
@@ -25,25 +26,11 @@ import { getErrorMessage } from '@/lib/HelperFunctions.ts';
 import { createAndSetTheme } from '@/features/theme/services/ThemeCreator.ts';
 import { AppStorage } from '@/lib/storage/AppStorage.ts';
 import { DIRECTION_TO_CACHE } from '@/features/theme/ThemeDirectionCache.ts';
-
-export enum ThemeMode {
-    SYSTEM = 'system',
-    DARK = 'dark',
-    LIGHT = 'light',
-}
-
-export type TAppThemeContext = {
-    appTheme: AppThemes;
-    setAppTheme: (theme: AppThemes) => void;
-    themeMode: ThemeMode;
-    setThemeMode: (mode: ThemeMode) => void;
-    shouldUsePureBlackMode: boolean;
-    setShouldUsePureBlackMode: (value: boolean) => void;
-    dynamicColor: (NonNullableProperties<Palette> & { average: FastAverageColorResult }) | null;
-    setDynamicColor: React.Dispatch<
-        React.SetStateAction<(NonNullableProperties<Palette> & { average: FastAverageColorResult }) | null>
-    >;
-};
+import type { TAppThemeContext } from '@/features/theme/AppTheme.types.ts';
+import { ThemeMode } from '@/features/theme/AppTheme.types.ts';
+import { getLanguageReadingDirection } from '@/lib/ISOLanguageUtil.ts';
+import { loadCatalog } from '@/i18n';
+import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
 
 export const AppThemeContext = React.createContext<TAppThemeContext>({
     appTheme: 'default',
@@ -59,10 +46,10 @@ export const AppThemeContext = React.createContext<TAppThemeContext>({
 export const useAppThemeContext = () => useContext(AppThemeContext);
 
 export const AppThemeContextProvider = ({ children }: { children: ReactNode }) => {
-    const { t, i18n } = useTranslation();
+    const { t } = useLingui();
     const {
         request: metadataServerSettingsRequest,
-        settings: { appTheme: serverAppTheme, themeMode, shouldUsePureBlackMode, customThemes },
+        settings: { appTheme: serverAppTheme, themeMode, shouldUsePureBlackMode, customThemes, locale },
     } = useMetadataServerSettings();
     const [localAppTheme, setLocalAppTheme] = useLocalStorage<AppTheme>(
         'appTheme',
@@ -80,10 +67,10 @@ export const AppThemeContextProvider = ({ children }: { children: ReactNode }) =
 
     const appTheme = areMetadataServerSettingsReady ? serverAppTheme : localAppTheme.id;
     const actualThemeMode = areMetadataServerSettingsReady ? themeMode : localThemeMode;
-    const currentDirection = i18n.dir();
+    const currentDirection = getLanguageReadingDirection(locale);
 
     const updateSetting = createUpdateMetadataServerSettings<'appTheme' | 'themeMode' | 'shouldUsePureBlackMode'>((e) =>
-        makeToast(t('global.error.label.failed_to_save_changes'), 'error', getErrorMessage(e)),
+        makeToast(t`Failed to save changes`, 'error', getErrorMessage(e)),
     );
 
     const appThemeContext = useMemo(
@@ -132,6 +119,14 @@ export const AppThemeContextProvider = ({ children }: { children: ReactNode }) =
             return;
         }
 
+        loadCatalog(locale).catch(defaultPromiseErrorHandler('AppThemeContextProvider::loadCatalog'));
+    }, [areMetadataServerSettingsReady]);
+
+    useEffect(() => {
+        if (!areMetadataServerSettingsReady) {
+            return;
+        }
+
         if (serverAppTheme !== localAppTheme.id) {
             setLocalAppTheme(getTheme(serverAppTheme, customThemes));
         }
@@ -140,8 +135,19 @@ export const AppThemeContextProvider = ({ children }: { children: ReactNode }) =
     useEffect(() => {
         // The set background color is not necessary anymore, since the theme has been loaded
         document.documentElement.style.backgroundColor = '';
+        const themeBackgroundColor = theme.palette.background.default;
 
-        AppStorage.local.setItem('theme_background', theme.palette.background.default);
+        AppStorage.local.setItem('theme_background', themeBackgroundColor);
+        // android chromium-based browser/pwa background color (e.g. top status bar and navigation bar) will change dynamically based on meta theme-color
+        let themeColorMeta = document.querySelector('meta[name="theme-color"]');
+        if (!themeColorMeta) {
+            themeColorMeta = document.createElement('meta');
+            themeColorMeta.setAttribute('name', 'theme-color');
+            document.head.appendChild(themeColorMeta);
+        }
+        if (themeColorMeta.getAttribute('content') !== themeBackgroundColor) {
+            themeColorMeta.setAttribute('content', themeBackgroundColor);
+        }
     }, [theme.palette.background.default]);
 
     if (directionRef.current !== currentDirection) {

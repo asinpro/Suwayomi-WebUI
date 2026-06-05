@@ -10,23 +10,18 @@ import { useEffect, useState } from 'react';
 import Card from '@mui/material/Card';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
-import { useTranslation } from 'react-i18next';
 import IconButton from '@mui/material/IconButton';
 import SettingsIcon from '@mui/icons-material/Settings';
 import Stack from '@mui/material/Stack';
+import { useLingui } from '@lingui/react/macro';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
-import {
-    ExtensionAction,
-    ExtensionState,
-    InstalledState,
-    InstalledStates,
-    TExtension,
-} from '@/features/extension/Extensions.types.ts';
+import type { InstalledStates, TExtension } from '@/features/extension/Extensions.types.ts';
+import { ExtensionAction, ExtensionState } from '@/features/extension/Extensions.types.ts';
 import {
     EXTENSION_ACTION_TO_NEXT_ACTION_MAP,
     EXTENSION_ACTION_TO_STATE_MAP,
-    INSTALLED_STATE_TO_TRANSLATION_KEY_MAP,
+    INSTALLED_STATE_TO_TRANSLATION_MAP,
 } from '@/features/extension/Extensions.constants.ts';
 import { getInstalledState, updateExtension } from '@/features/extension/Extensions.utils.ts';
 import { CustomTooltip } from '@/base/components/CustomTooltip.tsx';
@@ -45,7 +40,7 @@ interface IProps {
 }
 
 export function ExtensionCard(props: IProps) {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
     const {
         extension: { name, lang, versionName, isInstalled, hasUpdate, isObsolete, pkgName, iconUrl, isNsfw, repo },
@@ -100,9 +95,17 @@ export function ExtensionCard(props: IProps) {
 
     return (
         <Card>
-            <OptionalCardActionAreaLink disabled={!isInstalled} to={AppRoutes.extension.childRoutes.info.path(pkgName)}>
+            <OptionalCardActionAreaLink disabled={!isInstalled} to={AppRoutes.extension.children.info.path(pkgName)}>
                 <ListCardContent>
-                    <ListCardAvatar iconUrl={requestManager.getValidImgUrlFor(iconUrl)} alt={name} />
+                    <ListCardAvatar
+                        iconUrl={requestManager.getValidImgUrlFor(iconUrl)}
+                        alt={name}
+                        slots={{
+                            spinnerImageProps: {
+                                ignoreQueue: true,
+                            },
+                        }}
+                    />
                     <Stack
                         sx={{
                             justifyContent: 'center',
@@ -115,18 +118,40 @@ export function ExtensionCard(props: IProps) {
                             {name}
                         </Typography>
                         <Typography variant="caption">
-                            {isInstalled ? `${languageCodeToName(lang)} ` : ''}
-                            {versionName}
-                            {isNsfw && (
-                                <Typography variant="caption" color="error">
-                                    {' 18+'}
+                            {isInstalled ? `${languageCodeToName(lang)}` : ''}
+                            {isInstalled ? (
+                                <Typography variant="caption" sx={{ px: 1 }}>
+                                    •
                                 </Typography>
+                            ) : (
+                                ''
+                            )}
+                            {versionName}
+                            {isObsolete && (
+                                <>
+                                    <Typography variant="caption" sx={{ px: 1 }}>
+                                        •
+                                    </Typography>
+                                    <Typography variant="caption" color="warning" sx={{ textTransform: 'uppercase' }}>
+                                        {t`Obsolete`}
+                                    </Typography>
+                                </>
+                            )}
+                            {isNsfw && (
+                                <>
+                                    <Typography variant="caption" sx={{ px: 1 }}>
+                                        •
+                                    </Typography>
+                                    <Typography variant="caption" color="error">
+                                        18+
+                                    </Typography>
+                                </>
                             )}
                         </Typography>
                         {showSourceRepo && <Typography variant="caption">{repo}</Typography>}
                     </Stack>
                     {isInstalled && (
-                        <CustomTooltip title={t('settings.title')}>
+                        <CustomTooltip title={t`Settings`}>
                             <IconButton color="inherit" {...MUIUtil.preventRippleProp()}>
                                 <SettingsIcon />
                             </IconButton>
@@ -134,16 +159,13 @@ export function ExtensionCard(props: IProps) {
                     )}
                     <Button
                         variant="outlined"
-                        sx={{
-                            color: installedState === InstalledState.OBSOLETE ? 'red' : 'inherit',
-                            flexShrink: 0,
-                        }}
+                        sx={{ flexShrink: 0 }}
                         onClick={(e) => {
                             e.preventDefault();
                             handleButtonClick();
                         }}
                     >
-                        {t(INSTALLED_STATE_TO_TRANSLATION_KEY_MAP[installedState])}
+                        {t(INSTALLED_STATE_TO_TRANSLATION_MAP[installedState])}
                     </Button>
                 </ListCardContent>
             </OptionalCardActionAreaLink>

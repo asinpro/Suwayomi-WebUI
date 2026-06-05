@@ -6,12 +6,14 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { useTranslation } from 'react-i18next';
-import { IReaderSettings, IReaderSettingsWithDefaultFlag, ReadingMode } from '@/features/reader/Reader.types.ts';
+import { useLingui } from '@lingui/react/macro';
+import type { IReaderSettings, IReaderSettingsWithDefaultFlag } from '@/features/reader/Reader.types.ts';
+import { ReadingMode } from '@/features/reader/Reader.types.ts';
 import { SliderInput } from '@/base/components/inputs/SliderInput.tsx';
 import { DEFAULT_READER_SETTINGS, PAGE_GAP } from '@/features/reader/settings/ReaderSettings.constants.tsx';
 import { isContinuousReadingMode } from '@/features/reader/settings/ReaderSettings.utils.tsx';
-import { MultiValueButtonDefaultableProps } from '@/base/Base.types.ts';
+
+import type { SelectButtonDefaultableProps } from '@/base/components/buttons/SelectButton.tsx';
 
 export const ReaderSettingPageGap = ({
     pageGap,
@@ -20,10 +22,10 @@ export const ReaderSettingPageGap = ({
     onDefault,
     updateSetting,
 }: Pick<IReaderSettingsWithDefaultFlag, 'pageGap' | 'readingMode'> &
-    Pick<MultiValueButtonDefaultableProps<IReaderSettings['pageGap']>, 'isDefaultable' | 'onDefault'> & {
+    Pick<SelectButtonDefaultableProps<IReaderSettings['pageGap']>, 'isDefaultable' | 'onDefault'> & {
         updateSetting: (gap: number, commit: boolean) => void;
     }) => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
     const isChangeable = readingMode.value !== ReadingMode.WEBTOON && isContinuousReadingMode(readingMode.value);
     if (!isChangeable) {
@@ -32,8 +34,8 @@ export const ReaderSettingPageGap = ({
 
     return (
         <SliderInput
-            label={t('reader.settings.label.page_gap')}
-            value={t('global.value', { value: pageGap.value, unit: t('global.unit.px') })}
+            label={t`Page gap`}
+            value={`${pageGap.value}${t`px`}`}
             onDefault={isDefaultable ? onDefault : undefined}
             slotProps={{
                 slider: {

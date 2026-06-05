@@ -8,9 +8,9 @@
 
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
-import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 import { useMemo } from 'react';
+import { useLingui } from '@lingui/react/macro';
 import { useAppTitle } from '@/features/navigation-bar/hooks/useAppTitle.ts';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { EmptyViewAbsoluteCentered } from '@/base/components/feedback/EmptyViewAbsoluteCentered.tsx';
@@ -24,17 +24,18 @@ import { Header } from '@/features/extension/info/components/Header.tsx';
 import { Meta } from '@/features/extension/info/components/Meta.tsx';
 import { ActionButton } from '@/features/extension/info/components/ActionButton.tsx';
 import { SourceCard } from '@/features/extension/info/components/SourceCard.tsx';
+import { STABLE_EMPTY_OBJECT } from '@/base/Base.constants.ts';
 
 export const ExtensionInfo = () => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
     const { pkgName } = useParams<{ pkgName: string }>();
 
-    useAppTitle(t('source.extension_info.title'));
+    useAppTitle(t`Extension info`);
 
     const extensionResponse = requestManager.useGetExtension(pkgName);
     const sourcesResponse = requestManager.useGetSourceList();
 
-    const { extension } = extensionResponse.data ?? {};
+    const { extension } = extensionResponse.data ?? STABLE_EMPTY_OBJECT;
     const sources = useMemo(() => {
         if (!sourcesResponse.data?.sources) {
             return [];
@@ -55,7 +56,7 @@ export const ExtensionInfo = () => {
     if (error) {
         return (
             <EmptyViewAbsoluteCentered
-                message={t('global.error.label.failed_to_load_data')}
+                message={t`Unable to load data`}
                 messageExtra={getErrorMessage(extensionResponse.error)}
                 retry={() => {
                     if (extensionResponse.error) {
@@ -78,7 +79,10 @@ export const ExtensionInfo = () => {
         <Stack sx={{ gap: 2 }}>
             <Header {...extension} />
             <Meta {...extension} />
-            <ActionButton {...extension} />
+            <Stack sx={{ flexDirection: 'row' }}>
+                <ActionButton {...{ ...extension, isInstalled: true, hasUpdate: false }} />
+                {extension.hasUpdate && !extension.isObsolete && <ActionButton {...extension} />}
+            </Stack>
             <Box sx={{ px: 1 }}>
                 {sources.map((source) => (
                     <SourceCard key={source.id} {...source} />

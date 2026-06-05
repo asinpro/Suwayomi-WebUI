@@ -6,7 +6,9 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { DAYJS_LOCALES, DayJsLocale } from '@/lib/dayjs/Locales.ts';
+import type { DayJsLocale } from '@/lib/dayjs/Locales.ts';
+import { DAYJS_LOCALES } from '@/lib/dayjs/Locales.ts';
+import { DEFAULT_LANGUAGE } from '@/lib/ISOLanguageUtil.ts';
 
 export const getDayJsLocale = (locale: string): DayJsLocale => {
     if (DAYJS_LOCALES.includes(locale as DayJsLocale)) {
@@ -22,14 +24,14 @@ export const getDayJsLocale = (locale: string): DayJsLocale => {
         return convertedLocale as DayJsLocale;
     }
 
-    return 'en';
+    return DEFAULT_LANGUAGE;
 };
 
 export const importDayJsLocale = async (locale: string): Promise<DayJsLocale> => {
     const dayjsLocale = getDayJsLocale(locale);
 
     try {
-        // eslint-disable-next-line @typescript-eslint/no-use-before-define
+        // oxlint-disable-next-line no-use-before-define
         await localesToImport[dayjsLocale]();
     } catch (e) {
         // ignore - dayjs falls back to "en" by default

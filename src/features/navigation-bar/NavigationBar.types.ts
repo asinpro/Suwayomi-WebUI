@@ -6,11 +6,11 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { OverridableComponent } from '@mui/material/OverridableComponent';
-import { SvgIconTypeMap } from '@mui/material/SvgIcon';
-import { ReactNode } from 'react';
-import { StaticAppRoute } from '@/base/AppRoute.constants.ts';
-import { TranslationKey } from '@/base/Base.types.ts';
+import type { MessageDescriptor } from '@lingui/core';
+import type { OverridableComponent } from '@mui/material/OverridableComponent';
+import type { SvgIconTypeMap } from '@mui/material/SvgIcon';
+import type { ReactNode } from 'react';
+import type { StaticAppRoute } from '@/base/AppRoute.constants.ts';
 
 export interface INavbarOverride {
     status: boolean;
@@ -25,10 +25,10 @@ export enum NavBarItemMoreGroup {
 
 export interface NavbarItem {
     path: StaticAppRoute;
-    title: TranslationKey;
-    moreTitle?: TranslationKey;
-    SelectedIconComponent: OverridableComponent<SvgIconTypeMap<{}, 'svg'>>;
-    IconComponent: OverridableComponent<SvgIconTypeMap<{}, 'svg'>>;
+    title: MessageDescriptor;
+    moreTitle?: MessageDescriptor;
+    SelectedIconComponent: OverridableComponent<SvgIconTypeMap<object, 'svg'>>;
+    IconComponent: OverridableComponent<SvgIconTypeMap<object, 'svg'>>;
     show: 'mobile' | 'desktop' | 'both';
     moreGroup: NavBarItemMoreGroup;
     useBadge?: () => { count: number; title: string };

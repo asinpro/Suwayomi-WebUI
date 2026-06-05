@@ -6,26 +6,51 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-/* eslint-disable import/no-extraneous-dependencies */
-
 import path from 'path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react-swc';
-import viteTsconfigPaths from 'vite-tsconfig-paths';
 import legacy from '@vitejs/plugin-legacy';
-import { nodePolyfills } from 'vite-plugin-node-polyfills';
+import { VitePWA } from 'vite-plugin-pwa';
+import { lingui } from '@lingui/vite-plugin';
 import 'dotenv/config';
+import { d } from 'koration';
+import type { RuntimeCaching } from 'workbox-build';
 
-// eslint-disable-next-line import/no-default-export
-export default defineConfig(() => ({
+const createCacheFirstRuntimeCache = (cache: Omit<RuntimeCaching, 'handler'>): RuntimeCaching => ({
+    ...cache,
+    handler: 'CacheFirst',
+    options: {
+        ...cache.options,
+        expiration: {
+            purgeOnQuotaError: true,
+            ...cache.options.expiration,
+            matchOptions: {
+                ignoreVary: true,
+                ...cache.options.expiration.matchOptions,
+            },
+        },
+        cacheableResponse: {
+            statuses: [0, 200],
+            ...cache.options.cacheableResponse,
+        },
+        matchOptions: {
+            ignoreVary: true,
+            ...cache.options.matchOptions,
+        },
+    },
+});
+
+export default defineConfig(({ command }) => ({
+    base: command === 'serve' ? process.env.VITE_SUBPATH || './' : './',
     build: {
         outDir: 'build',
     },
     server: {
         port: Number(process.env.PORT),
-        allowedHosts: process.env.ALLOWED_HOSTS.split(',').map((s) => s.trim()),
+        allowedHosts: process.env.ALLOWED_HOSTS?.split(',').map((s) => s.trim()),
     },
     resolve: {
+        tsconfigPaths: true,
         alias: {
             '@': path.resolve(import.meta.dirname, './src'),
         },
@@ -34,8 +59,12 @@ export default defineConfig(() => ({
         include: ['@mui/material/Tooltip'],
     },
     plugins: [
-        react(),
-        viteTsconfigPaths(),
+        react({
+            plugins: [['@lingui/swc-plugin', {}]],
+        }),
+        lingui({
+            failOnCompileError: true,
+        }),
         legacy({
             modernPolyfills: [
                 'es/array/to-spliced',
@@ -45,8 +74,83 @@ export default defineConfig(() => ({
                 'es/object/group-by',
             ],
         }),
-        nodePolyfills({
-            include: ['assert'],
+        // Only setup image runtime caching
+        VitePWA({
+            registerType: 'autoUpdate',
+            manifest: false, // Use existing manifest
+            devOptions: {
+                enabled: true,
+            },
+            workbox: {
+                globPatterns: [],
+                runtimeCaching: [
+                    createCacheFirstRuntimeCache({
+                        urlPattern: ({ url }) => {
+                            const { pathname } = url;
+                            return pathname.match(/\/chapter\/[0-9]+\/page\/[0-9]+/g);
+                        },
+                        options: {
+                            // !!! IMPORTANT !!! - Update along with ImageCache.ts
+                            cacheName: 'image-cache-chapter-pages',
+                            expiration: {
+                                // Max age from server
+                                maxAgeSeconds: d(1).days.inWholeSeconds,
+                                maxEntries: 2500,
+                            },
+                        },
+                    }),
+                    createCacheFirstRuntimeCache({
+                        urlPattern: ({ url }) => {
+                            const { pathname } = url;
+                            return pathname.match(/\/manga\/[0-9]+\/thumbnail/g);
+                        },
+                        options: {
+                            // !!! IMPORTANT !!! - Update along with ImageCache.ts
+                            cacheName: 'image-cache-manga-thumbnails',
+                            expiration: {
+                                // Max age from server
+                                maxAgeSeconds: d(1).days.inWholeSeconds,
+                                maxEntries: 5000,
+                            },
+                        },
+                    }),
+                    createCacheFirstRuntimeCache({
+                        urlPattern: ({ url }) => {
+                            const { pathname } = url;
+                            return pathname.includes('/extension/icon/');
+                        },
+                        options: {
+                            // !!! IMPORTANT !!! - Update along with ImageCache.ts
+                            cacheName: 'image-cache-extension-icons',
+                            expiration: {
+                                // Max age from server
+                                maxAgeSeconds: d(365).days.inWholeSeconds,
+                                maxEntries: 300,
+                            },
+                        },
+                    }),
+                    createCacheFirstRuntimeCache({
+                        urlPattern: ({ request }) => request.destination === 'image',
+                        options: {
+                            // !!! IMPORTANT !!! - Update along with ImageCache.ts
+                            cacheName: 'image-cache-other',
+                            expiration: {
+                                maxAgeSeconds: d(4).days.inWholeSeconds,
+                                maxEntries: 500,
+                            },
+                        },
+                    }),
+                ],
+            },
         }),
+        {
+            name: 'inject-base-tag',
+            enforce: 'post',
+            transformIndexHtml() {
+                // Ensure the base tag is placed at the top of the header before any vite injected script
+                // For example, the plugin-legacy injects the modern polyfill script at the top of the header above the base tag, resulting in an invalid url
+                return { tags: [{ tag: 'base', attrs: { href: '/' } }] };
+            },
+        },
     ],
 }));

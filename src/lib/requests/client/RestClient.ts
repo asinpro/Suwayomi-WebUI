@@ -8,8 +8,8 @@
 
 import { BaseClient } from '@/lib/requests/client/BaseClient.ts';
 import { AuthManager } from '@/features/authentication/AuthManager.ts';
-import { UserRefreshMutation } from '@/lib/graphql/generated/graphql.ts';
-import { AbortableApolloMutationResponse } from '@/lib/requests/RequestManager.ts';
+import type { UserRefreshMutation } from '@/lib/graphql/generated/graphql.ts';
+import type { AbortableApolloMutationResponse } from '@/lib/requests/RequestManager.ts';
 
 export enum HttpMethod {
     GET = 'GET',
@@ -49,56 +49,64 @@ export class RestClient
             config?: RequestInit;
             checkResponseIsJson?: boolean;
         } = {},
-    ): Promise<Response> => {
-        const updatedUrl = url.startsWith('http') ? url : `${this.getBaseUrl()}${url}`;
-        const isAuthRequired = AuthManager.isAuthRequired();
-        const accessToken = AuthManager.getAccessToken();
+    ): Promise<Response> =>
+        this.enqueueRequest(async () => {
+            const updatedUrl = url.startsWith('http') ? url : `${this.getBaseUrl()}${url}`;
+            const isAuthRequired = AuthManager.isAuthRequired();
+            const accessToken = AuthManager.getAccessToken();
 
-        let result: Response;
+            await this.awaitRateLimit(updatedUrl);
 
-        switch (httpMethod) {
-            case HttpMethod.GET:
-                result = await this.client(updatedUrl, {
-                    ...this.config,
-                    ...config,
-                    method: httpMethod,
-                    headers: {
+            let result: Response;
+
+            switch (httpMethod) {
+                case HttpMethod.GET:
+                    result = await this.client(updatedUrl, {
+                        ...this.config,
+                        ...config,
+                        method: httpMethod,
+                        headers: {
+                            ...(isAuthRequired && accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+                            ...this.config.headers,
+                            ...config?.headers,
+                        },
+                    });
+                    break;
+                case HttpMethod.POST:
+                case HttpMethod.PATCH:
+                case HttpMethod.DELETE:
+                    result = await this.client(updatedUrl, {
                         ...(isAuthRequired && accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-                        ...this.config.headers,
-                        ...config?.headers,
-                    },
-                });
-                break;
-            case HttpMethod.POST:
-            case HttpMethod.PATCH:
-            case HttpMethod.DELETE:
-                result = await this.client(updatedUrl, {
-                    ...(isAuthRequired && accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-                    ...this.config,
-                    ...config,
-                    method: httpMethod,
-                    body: JSON.stringify(data),
-                });
-                break;
-            default:
-                throw new Error(`Unexpected HttpMethod "${httpMethod}"`);
-        }
+                        ...this.config,
+                        ...config,
+                        method: httpMethod,
+                        body: JSON.stringify(data),
+                    });
+                    break;
+                default:
+                    throw new Error(`Unexpected HttpMethod "${httpMethod}"`);
+            }
 
-        if (result.status === 401) {
-            await BaseClient.refreshAccessToken(this.handleRefreshToken);
-            return this.fetcher(url, { data, httpMethod, config, checkResponseIsJson });
-        }
+            if (result.status === 401) {
+                await BaseClient.refreshAccessToken(this.handleRefreshToken);
+                return this.fetcher(url, { data, httpMethod, config, checkResponseIsJson });
+            }
 
-        if (result.status !== 200) {
-            throw new Error(`status ${result.status}: ${result.statusText}`);
-        }
+            if (result.status === 429) {
+                this.addRateLimit(updatedUrl, result.headers.get('Retry-After'));
+                return this.fetcher(url, { data, httpMethod, config, checkResponseIsJson });
+            }
 
-        if (checkResponseIsJson && result.headers.get('content-type') !== 'application/json') {
-            throw new Error('Response is not json');
-        }
+            if (result.status !== 200) {
+                throw new Error(`status ${result.status}: ${result.statusText}`);
+            }
 
-        return result;
-    };
+            if (checkResponseIsJson && result.headers.get('content-type') !== 'application/json') {
+                throw new Error('Response is not json');
+            }
+
+            return result;
+        });
 
     constructor(handleRefreshToken: (refreshToken: string) => AbortableApolloMutationResponse<UserRefreshMutation>) {
         super(handleRefreshToken);

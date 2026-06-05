@@ -8,7 +8,7 @@
 
 import Typography from '@mui/material/Typography';
 import React, { useCallback, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useLingui } from '@lingui/react/macro';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { LoadingPlaceholder } from '@/base/components/feedback/LoadingPlaceholder.tsx';
 import { EmptyViewAbsoluteCentered } from '@/base/components/feedback/EmptyViewAbsoluteCentered.tsx';
@@ -21,11 +21,12 @@ import { getErrorMessage } from '@/lib/HelperFunctions.ts';
 import { ChapterHistoryCard } from '@/features/history/components/ChapterHistoryCard.tsx';
 import { Chapters } from '@/features/chapter/services/Chapters.ts';
 import { useAppTitle } from '@/features/navigation-bar/hooks/useAppTitle.ts';
+import { STABLE_EMPTY_ARRAY } from '@/base/Base.constants.ts';
 
 export const History: React.FC = () => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
-    useAppTitle(t('history.title'));
+    useAppTitle(t`History`);
 
     const {
         data: chapterHistoryData,
@@ -35,11 +36,10 @@ export const History: React.FC = () => {
         refetch,
     } = requestManager.useGetRecentlyReadChapters(undefined, {
         fetchPolicy: 'cache-and-network',
-        notifyOnNetworkStatusChange: true,
     });
     const hasNextPage = !!chapterHistoryData?.chapters.pageInfo.hasNextPage;
     const endCursor = chapterHistoryData?.chapters.pageInfo.endCursor;
-    const readEntries = chapterHistoryData?.chapters.nodes ?? [];
+    const readEntries = chapterHistoryData?.chapters.nodes ?? STABLE_EMPTY_ARRAY;
     const groupedHistory = useMemo(
         () => Object.entries(Chapters.groupByDate(readEntries, 'lastReadAt')),
         [readEntries],
@@ -66,7 +66,7 @@ export const History: React.FC = () => {
     if (error) {
         return (
             <EmptyViewAbsoluteCentered
-                message={t('global.error.label.failed_to_load_data')}
+                message={t`Unable to load data`}
                 messageExtra={getErrorMessage(error)}
                 retry={() => refetch().catch(defaultPromiseErrorHandler('History::refetch'))}
             />
@@ -74,7 +74,7 @@ export const History: React.FC = () => {
     }
 
     if (!isLoading && readEntries.length === 0) {
-        return <EmptyViewAbsoluteCentered message={t('history.error.label.no_history_available')} />;
+        return <EmptyViewAbsoluteCentered message={t`You have not read any series yet.`} />;
     }
 
     return (

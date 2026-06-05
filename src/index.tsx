@@ -6,25 +6,19 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import '@/polyfill.manual';
-import '@fontsource/roboto';
-import '@/lib/dayjs/Setup.ts';
-import '@/index.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+
+import '@/index.css';
+import '@/polyfill.manual';
+import { initializeLocalization } from '@/i18n';
+import '@/lib/dayjs/Setup.ts';
+import '@/lib/koration/Setup.ts';
+import '@/lib/PointerDeviceUtil.ts';
 import { App } from '@/App';
 import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
 
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.ready.then((registration) => {
-        registration.unregister().catch(defaultPromiseErrorHandler('unregister service workers'));
-        if (caches) {
-            caches.keys().then(async (names) => {
-                await Promise.all(names.map((name) => caches.delete(name)));
-            });
-        }
-    });
-}
+initializeLocalization().catch(defaultPromiseErrorHandler('i18n', true));
 
 const container = document.getElementById('root');
 const root = createRoot(container!);

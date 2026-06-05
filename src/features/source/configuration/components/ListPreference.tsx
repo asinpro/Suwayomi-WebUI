@@ -16,10 +16,9 @@ import RadioGroup from '@mui/material/RadioGroup';
 import Radio from '@mui/material/Radio';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Button from '@mui/material/Button';
-import { useTranslation } from 'react-i18next';
 import ListItemButton from '@mui/material/ListItemButton';
-
-import { ListPreferenceProps } from '@/features/source/Source.types.ts';
+import { useLingui } from '@lingui/react/macro';
+import type { ListPreferenceProps } from '@/features/source/Source.types.ts';
 
 interface IListDialogProps {
     value: string;
@@ -30,7 +29,7 @@ interface IListDialogProps {
 }
 
 function ListDialog(props: IListDialogProps) {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
     const { value: valueProp, open, onClose, options, title } = props;
     const [value, setValue] = React.useState(valueProp);
@@ -64,9 +63,11 @@ function ListDialog(props: IListDialogProps) {
         <Dialog
             sx={{ '& .MuiDialog-paper': { width: '80%', maxHeight: 435 } }}
             maxWidth="xs"
-            TransitionProps={{ onEntering: handleEntering }}
             open={open}
             onClose={handleCancel}
+            slotProps={{
+                transition: { onEntering: handleEntering },
+            }}
         >
             <DialogTitle>{title}</DialogTitle>
             <DialogContent dividers>
@@ -78,9 +79,9 @@ function ListDialog(props: IListDialogProps) {
             </DialogContent>
             <DialogActions>
                 <Button autoFocus onClick={handleCancel}>
-                    {t('global.button.cancel')}
+                    {t`Cancel`}
                 </Button>
-                <Button onClick={handleOk}>{t('global.button.ok')}</Button>
+                <Button onClick={handleOk}>{t`Ok`}</Button>
             </DialogActions>
         </Dialog>
     );

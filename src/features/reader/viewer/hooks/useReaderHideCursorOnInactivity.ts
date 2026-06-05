@@ -6,7 +6,9 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { MutableRefObject, useEffect, useRef } from 'react';
+import type { MutableRefObject } from 'react';
+import { useEffect, useRef } from 'react';
+import { d } from 'koration';
 
 export const useReaderHideCursorOnInactivity = (scrollElementRef: MutableRefObject<HTMLDivElement | null>) => {
     const mouseInactiveTimeout = useRef<NodeJS.Timeout>(undefined);
@@ -26,11 +28,11 @@ export const useReaderHideCursorOnInactivity = (scrollElementRef: MutableRefObje
             clearTimeout(mouseInactiveTimeout.current);
             mouseInactiveTimeout.current = setTimeout(() => {
                 setCursorVisibility(false);
-            }, 5000);
+            }, d(5).seconds.inWholeMilliseconds);
         };
 
         handleMouseMove();
-        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mousemove', handleMouseMove, { passive: true });
         return () => {
             setCursorVisibility(true);
             window.removeEventListener('mousemove', handleMouseMove);

@@ -12,9 +12,9 @@ import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Box from '@mui/material/Box';
 import React, { useEffect, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useLocation, useParams } from 'react-router-dom';
-import { isNetworkRequestInFlight } from '@apollo/client/core/networkStatus';
+import { isNetworkRequestInFlight } from '@apollo/client/utilities';
+import { useLingui } from '@lingui/react/macro';
 import { CustomTooltip } from '@/base/components/CustomTooltip.tsx';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { ChapterList } from '@/features/chapter/components/ChapterList.tsx';
@@ -23,16 +23,17 @@ import { MangaDetails } from '@/features/manga/components/details/MangaDetails.t
 import { MangaToolbarMenu } from '@/features/manga/components/MangaToolbarMenu.tsx';
 import { EmptyViewAbsoluteCentered } from '@/base/components/feedback/EmptyViewAbsoluteCentered.tsx';
 import { LoadingPlaceholder } from '@/base/components/feedback/LoadingPlaceholder.tsx';
-import { GetMangaScreenQuery } from '@/lib/graphql/generated/graphql.ts';
-import { GET_MANGA_SCREEN } from '@/lib/graphql/queries/MangaQuery.ts';
+import type { GetMangaScreenQuery } from '@/lib/graphql/generated/graphql.ts';
+import { GET_MANGA_SCREEN } from '@/lib/graphql/manga/MangaQuery.ts';
 import { getErrorMessage } from '@/lib/HelperFunctions.ts';
+import { STABLE_EMPTY_OBJECT } from '@/base/Base.constants.ts';
 import { useAppTitleAndAction } from '@/features/navigation-bar/hooks/useAppTitleAndAction.ts';
-import { MangaLocationState } from '@/features/manga/Manga.types.ts';
+import type { MangaLocationState } from '@/features/manga/Manga.types.ts';
 
 export const Manga: React.FC = () => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
     const { id } = useParams<{ id: string }>();
-    const { mode } = useLocation<MangaLocationState>().state ?? {};
+    const { mode } = useLocation<MangaLocationState>().state ?? STABLE_EMPTY_OBJECT;
 
     const autofetchedRef = useRef(false);
 
@@ -51,7 +52,9 @@ export const Manga: React.FC = () => {
     const error = mangaError ?? refreshError;
 
     useEffect(() => {
-        if (manga == null) return;
+        if (manga == null) {
+            return;
+        }
 
         const doFetch = !autofetchedRef.current && !manga.initialized;
         if (doFetch) {
@@ -61,18 +64,18 @@ export const Manga: React.FC = () => {
     }, [manga]);
 
     useAppTitleAndAction(
-        manga?.title ?? t('manga.title_one'),
+        manga?.title ?? t`Manga`,
         <Stack
             direction="row"
             sx={{
                 alignItems: 'center',
             }}
         >
-            {error && !isValidating && !refreshing && (
+            {!!error && !isValidating && !refreshing && (
                 <CustomTooltip
                     title={
                         <>
-                            {t('manga.error.label.request_failure')}
+                            {t`Could not load manga`}
                             <br />
                             {getErrorMessage(error)}
                         </>
@@ -94,12 +97,7 @@ export const Manga: React.FC = () => {
     );
 
     if (error && !manga) {
-        return (
-            <EmptyViewAbsoluteCentered
-                message={t('manga.error.label.request_failure')}
-                messageExtra={getErrorMessage(error)}
-            />
-        );
+        return <EmptyViewAbsoluteCentered message={t`Could not load manga`} messageExtra={getErrorMessage(error)} />;
     }
     return (
         <Box sx={{ display: { md: 'flex' }, overflow: 'hidden' }}>

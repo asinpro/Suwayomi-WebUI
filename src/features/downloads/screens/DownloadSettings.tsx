@@ -6,12 +6,13 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { useTranslation } from 'react-i18next';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import Switch from '@mui/material/Switch';
 import ListSubheader from '@mui/material/ListSubheader';
+import { useLingui } from '@lingui/react/macro';
+import { plural } from '@lingui/core/macro';
 import { TextSetting } from '@/base/components/settings/text/TextSetting.tsx';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { DownloadAheadSetting } from '@/features/downloads/components/DownloadAheadSetting.tsx';
@@ -26,13 +27,17 @@ import { NumberSetting } from '@/base/components/settings/NumberSetting.tsx';
 import { LoadingPlaceholder } from '@/base/components/feedback/LoadingPlaceholder.tsx';
 import { EmptyViewAbsoluteCentered } from '@/base/components/feedback/EmptyViewAbsoluteCentered.tsx';
 import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
-import { GetCategoriesSettingsQuery, GetCategoriesSettingsQueryVariables } from '@/lib/graphql/generated/graphql.ts';
-import { GET_CATEGORIES_SETTINGS } from '@/lib/graphql/queries/CategoryQuery.ts';
-import { MetadataDownloadSettings } from '@/features/downloads/Downloads.types.ts';
-import { ServerSettings } from '@/features/settings/Settings.types.ts';
+import type {
+    GetCategoriesSettingsQuery,
+    GetCategoriesSettingsQueryVariables,
+} from '@/lib/graphql/generated/graphql.ts';
+import { GET_CATEGORIES_SETTINGS } from '@/lib/graphql/category/CategoryQuery.ts';
+import type { MetadataDownloadSettings } from '@/features/downloads/Downloads.types.ts';
+import type { ServerSettings } from '@/features/settings/Settings.types.ts';
 import { getErrorMessage } from '@/lib/HelperFunctions.ts';
 import { useAppTitle } from '@/features/navigation-bar/hooks/useAppTitle.ts';
-import { DownloadConversionSetting } from '@/features/downloads/components/DownloadConversionSetting.tsx';
+import { ListItemLink } from '@/base/components/lists/ListItemLink.tsx';
+import { AppRoutes } from '@/base/AppRoute.constants.ts';
 
 type DownloadSettingsType = Pick<
     ServerSettings,
@@ -45,25 +50,15 @@ type DownloadSettingsType = Pick<
     | 'downloadConversions'
 >;
 
-const extractDownloadSettings = (settings: ServerSettings): DownloadSettingsType => ({
-    downloadAsCbz: settings.downloadAsCbz,
-    downloadsPath: settings.downloadsPath,
-    autoDownloadNewChapters: settings.autoDownloadNewChapters,
-    autoDownloadNewChaptersLimit: settings.autoDownloadNewChaptersLimit,
-    excludeEntryWithUnreadChapters: settings.excludeEntryWithUnreadChapters,
-    autoDownloadIgnoreReUploads: settings.autoDownloadIgnoreReUploads,
-    downloadConversions: settings.downloadConversions,
-});
-
 export const DownloadSettings = () => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
-    useAppTitle(t('download.title.download'));
+    useAppTitle(t`Downloads`);
 
     const categories = requestManager.useGetCategories<GetCategoriesSettingsQuery, GetCategoriesSettingsQueryVariables>(
         GET_CATEGORIES_SETTINGS,
     );
-    const serverSettings = requestManager.useGetServerSettings({ notifyOnNetworkStatusChange: true });
+    const serverSettings = requestManager.useGetServerSettings();
     const [mutateSettings] = requestManager.useUpdateServerSettings();
     const {
         settings: metadataSettings,
@@ -80,7 +75,7 @@ export const DownloadSettings = () => {
     if (error) {
         return (
             <EmptyViewAbsoluteCentered
-                message={t('global.error.label.failed_to_load_data')}
+                message={t`Unable to load data`}
                 messageExtra={getErrorMessage(error)}
                 retry={() => {
                     if (serverSettings.error) {
@@ -103,54 +98,53 @@ export const DownloadSettings = () => {
         );
     }
 
-    const downloadSettings = extractDownloadSettings(serverSettings.data!.settings);
+    const downloadSettings = serverSettings.data!.settings;
 
     const updateSetting = <Setting extends keyof DownloadSettingsType>(
         setting: Setting,
         value: DownloadSettingsType[Setting],
     ): Promise<any> => {
         const mutation = mutateSettings({ variables: { input: { settings: { [setting]: value } } } });
-        mutation.catch((e) => makeToast(t('global.error.label.failed_to_save_changes'), 'error', getErrorMessage(e)));
+        mutation.catch((e) => makeToast(t`Failed to save changes`, 'error', getErrorMessage(e)));
 
         return mutation;
     };
 
     const updateMetadataSetting = createUpdateMetadataServerSettings<keyof MetadataDownloadSettings>((e) =>
-        makeToast(t('global.error.label.failed_to_save_changes'), 'error', getErrorMessage(e)),
+        makeToast(t`Failed to save changes`, 'error', getErrorMessage(e)),
     );
 
     return (
         <List sx={{ pt: 0 }}>
             <TextSetting
-                settingName={t('download.settings.download_path.label.title')}
-                dialogDescription={t('download.settings.download_path.label.description')}
+                settingName={t`Download location`}
+                dialogDescription={t`The path to the directory on the server where downloaded files should get saved in`}
                 value={downloadSettings?.downloadsPath}
                 settingDescription={
-                    downloadSettings?.downloadsPath.length ? downloadSettings.downloadsPath : t('global.label.default')
+                    downloadSettings?.downloadsPath.length ? downloadSettings.downloadsPath : t`Default`
                 }
                 handleChange={(path) => updateSetting('downloadsPath', path)}
             />
             <ListItem>
-                <ListItemText primary={t('download.settings.file_type.label.cbz')} />
+                <ListItemText primary={t`Save as CBZ archive`} />
                 <Switch
                     edge="end"
                     checked={!!downloadSettings?.downloadAsCbz}
                     onChange={(e) => updateSetting('downloadAsCbz', e.target.checked)}
                 />
             </ListItem>
-            <DownloadConversionSetting
-                conversions={downloadSettings?.downloadConversions}
-                updateSetting={(conversions) => updateSetting('downloadConversions', conversions)}
-            />
+            <ListItemLink to={AppRoutes.settings.children.images.children.processingDownloads.path}>
+                <ListItemText primary={t`Image download processing`} />
+            </ListItemLink>
             <List
                 subheader={
                     <ListSubheader component="div" id="download-settings-auto-delete-downloads">
-                        {t('download.settings.delete_chapters.title')}
+                        {t`Delete chapters`}
                     </ListSubheader>
                 }
             >
                 <ListItem>
-                    <ListItemText primary={t('download.settings.delete_chapters.label.manually_marked_as_read')} />
+                    <ListItemText primary={t`Delete chapter after manually marking it as read`} />
                     <Switch
                         edge="end"
                         checked={metadataSettings.deleteChaptersManuallyMarkedRead}
@@ -164,7 +158,7 @@ export const DownloadSettings = () => {
                     }
                 />
                 <ListItem>
-                    <ListItemText primary={t('download.settings.delete_chapters.label.allow_deletion_of_bookmarked')} />
+                    <ListItemText primary={t`Allow deleting bookmarked chapters`} />
                     <Switch
                         edge="end"
                         checked={metadataSettings.deleteChaptersWithBookmark}
@@ -175,12 +169,12 @@ export const DownloadSettings = () => {
             <List
                 subheader={
                     <ListSubheader component="div" id="download-settings-auto-download">
-                        {t('download.settings.auto_download.title')}
+                        {t`Auto-download`}
                     </ListSubheader>
                 }
             >
                 <ListItem>
-                    <ListItemText primary={t('download.settings.auto_download.label.new_chapters')} />
+                    <ListItemText primary={t`Download new chapters`} />
                     <Switch
                         edge="end"
                         checked={!!downloadSettings?.autoDownloadNewChapters}
@@ -189,28 +183,28 @@ export const DownloadSettings = () => {
                 </ListItem>
                 <NumberSetting
                     disabled={!downloadSettings?.autoDownloadNewChapters}
-                    settingTitle={t('download.settings.auto_download.download_limit.label.title')}
-                    dialogDescription={t('download.settings.auto_download.download_limit.label.description')}
+                    settingTitle={t`Chapter download limit`}
+                    dialogDescription={t`Limit the amount of new chapters that are going to get downloaded.`}
                     value={downloadSettings?.autoDownloadNewChaptersLimit ?? 0}
                     settingValue={
                         !downloadSettings.autoDownloadNewChaptersLimit
-                            ? t('global.label.none')
-                            : t('download.settings.download_ahead.label.value', {
-                                  chapters: downloadSettings.autoDownloadNewChaptersLimit,
-                                  count: downloadSettings.autoDownloadNewChaptersLimit,
+                            ? t`None`
+                            : plural(downloadSettings.autoDownloadNewChaptersLimit, {
+                                  one: '# Chapter',
+                                  other: '# Chapters',
                               })
                     }
                     defaultValue={0}
                     minValue={0}
                     maxValue={20}
                     showSlider
-                    valueUnit={t('chapter.title_one')}
+                    valueUnit={t`Chapter`}
                     handleUpdate={(autoDownloadNewChaptersLimit) =>
                         updateSetting('autoDownloadNewChaptersLimit', autoDownloadNewChaptersLimit)
                     }
                 />
                 <ListItem>
-                    <ListItemText primary={t('download.settings.auto_download.label.ignore_with_unread_chapters')} />
+                    <ListItemText primary={t`Ignore automatic chapter downloads for entries with unread chapters`} />
                     <Switch
                         edge="end"
                         checked={!!downloadSettings?.excludeEntryWithUnreadChapters}
@@ -219,7 +213,7 @@ export const DownloadSettings = () => {
                     />
                 </ListItem>
                 <ListItem>
-                    <ListItemText primary={t('download.settings.auto_download.label.ignore_re_uploads')} />
+                    <ListItemText primary={t`Ignore re-uploaded chapters`} />
                     <Switch
                         edge="end"
                         checked={!!downloadSettings?.autoDownloadIgnoreReUploads}
@@ -230,13 +224,13 @@ export const DownloadSettings = () => {
                 <CategoriesInclusionSetting
                     categories={categories.data!.categories.nodes}
                     includeField="includeInDownload"
-                    dialogText={t('download.settings.auto_download.categories.label.include_in_download')}
+                    dialogText={t`Entries in excluded categories will not be downloaded even if they are also in included categories`}
                 />
             </List>
             <List
                 subheader={
                     <ListSubheader component="div" id="download-settings-download-ahead">
-                        {t('download.settings.download_ahead.title')}
+                        {t`Download ahead`}
                     </ListSubheader>
                 }
             >

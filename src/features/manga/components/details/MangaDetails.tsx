@@ -9,28 +9,29 @@
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import { styled } from '@mui/material/styles';
-import { ComponentProps, ReactNode, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import { t as translate } from 'i18next';
+import type { ComponentProps, ReactNode } from 'react';
+import { useEffect } from 'react';
 import Link from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
 import Stack from '@mui/material/Stack';
 import IconButton from '@mui/material/IconButton';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ButtonGroup from '@mui/material/ButtonGroup';
+import { useLingui } from '@lingui/react/macro';
+import { t as translate } from '@lingui/core/macro';
 import { CustomTooltip } from '@/base/components/CustomTooltip.tsx';
 import { makeToast } from '@/base/utils/Toast.ts';
 import { Mangas } from '@/features/manga/services/Mangas.ts';
 import { SpinnerImage } from '@/base/components/SpinnerImage.tsx';
-import { CustomButton } from '@/base/components/buttons/CustomButton.tsx';
+import { FlexWrapButton } from '@/base/components/buttons/FlexWrapButton.tsx';
 import { TrackMangaButton } from '@/features/manga/components/TrackMangaButton.tsx';
 import { useManageMangaLibraryState } from '@/features/manga/hooks/useManageMangaLibraryState.tsx';
 import { Metadata as BaseMetadata } from '@/base/components/texts/Metadata.tsx';
 import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
-import { MangaType, SourceType } from '@/lib/graphql/generated/graphql.ts';
+import type { MangaType, SourceType } from '@/lib/graphql/generated/graphql-base.types.ts';
 import { useMetadataServerSettings } from '@/features/settings/services/ServerSettingsMetadata.ts';
 import { MANGA_STATUS_TO_TRANSLATION } from '@/features/manga/Manga.constants.ts';
-import {
+import type {
     MangaArtistInfo,
     MangaAuthorInfo,
     MangaDescriptionInfo,
@@ -45,15 +46,16 @@ import {
     MangaTrackRecordInfo,
 } from '@/features/manga/Manga.types.ts';
 import { applyStyles } from '@/base/utils/ApplyStyles.ts';
-import { CustomButtonIcon } from '@/base/components/buttons/CustomButtonIcon.tsx';
+import { CustomIconButton } from '@/base/components/buttons/CustomIconButton.tsx';
 import { Sources } from '@/features/source/services/Sources.ts';
-import { SourceIdInfo } from '@/features/source/Source.types.ts';
+import type { SourceIdInfo } from '@/features/source/Source.types.ts';
 import { Thumbnail } from '@/features/manga/components/details/Thumbnail.tsx';
 import { DescriptionGenre } from '@/features/manga/components/details/DescriptionGenre.tsx';
 import { SearchLink } from '@/features/manga/components/details/SearchLink.tsx';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { IconBrowser } from '@/assets/icons/IconBrowser.tsx';
 import { IconWebView } from '@/assets/icons/IconWebView.tsx';
+import { MediaQuery } from '@/base/utils/MediaQuery.tsx';
 
 const DetailsWrapper = styled('div')(({ theme }) => ({
     display: 'flex',
@@ -82,7 +84,16 @@ const TopContentWrapper = ({
         }}
     >
         {mangaThumbnailBackdrop && (
-            <>
+            <Stack
+                sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    overflow: 'hidden',
+                }}
+            >
                 <SpinnerImage
                     spinnerStyle={{ display: 'none' }}
                     imgStyle={{
@@ -112,7 +123,7 @@ const TopContentWrapper = ({
                             }),
                     }}
                 />
-            </>
+            </Stack>
         )}
         {children}
     </Stack>
@@ -136,12 +147,12 @@ const MangaButtonsContainer = styled('div')(({ theme }) => ({
 }));
 
 const OpenSourceButton = ({ url }: { url?: string | null }) => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
     return (
         <ButtonGroup>
-            <CustomTooltip title={t('global.button.open_browser')} disabled={!url}>
-                <CustomButtonIcon
+            <CustomTooltip title={t`Open in browser`} disabled={!url}>
+                <CustomIconButton
                     size="medium"
                     disabled={!url}
                     component={Link}
@@ -151,10 +162,10 @@ const OpenSourceButton = ({ url }: { url?: string | null }) => {
                     variant="outlined"
                 >
                     <IconBrowser />
-                </CustomButtonIcon>
+                </CustomIconButton>
             </CustomTooltip>
-            <CustomTooltip title={t('global.button.open_webview')} disabled={!url}>
-                <CustomButtonIcon
+            <CustomTooltip title={t`Open in WebView`} disabled={!url}>
+                <CustomIconButton
                     size="medium"
                     disabled={!url}
                     component={Link}
@@ -164,7 +175,7 @@ const OpenSourceButton = ({ url }: { url?: string | null }) => {
                     variant="outlined"
                 >
                     <IconWebView />
-                </CustomButtonIcon>
+                </CustomIconButton>
             </CustomTooltip>
         </ButtonGroup>
     );
@@ -172,11 +183,11 @@ const OpenSourceButton = ({ url }: { url?: string | null }) => {
 
 function getSourceName(source?: Pick<SourceType, 'id' | 'displayName'> | null): string {
     if (!source) {
-        return translate('global.label.unknown');
+        return translate`Unknown`;
     }
 
     if (Sources.isLocalSource(source)) {
-        return translate('source.local_source.title');
+        return translate`Local source`;
     }
 
     return source.displayName ?? source.id;
@@ -215,7 +226,7 @@ export const MangaDetails = ({
         };
     mode: MangaLocationState['mode'];
 }) => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
     const {
         settings: { mangaThumbnailBackdrop, mangaDynamicColorSchemes },
@@ -223,75 +234,69 @@ export const MangaDetails = ({
 
     useEffect(() => {
         if (!manga.source) {
-            makeToast(translate('source.error.label.source_not_found'), 'error');
+            makeToast(t`Could not find source. Check your installed extensions.`, 'error');
         }
-    }, [manga.source]);
+    }, [manga.source, t]);
 
-    const { CategorySelectComponent, updateLibraryState } = useManageMangaLibraryState(manga);
+    const { updateLibraryState } = useManageMangaLibraryState(manga);
 
     const copyTitle = async () => {
         try {
             await navigator.clipboard.writeText(manga.title);
-            makeToast(t('global.label.copied_clipboard'), 'info');
+            makeToast(t`Copied to clipboard`, 'info');
         } catch (e) {
             defaultPromiseErrorHandler('MangaDetails::copyTitleLongPress')(e);
         }
     };
 
     return (
-        <>
-            <DetailsWrapper>
-                <TopContentWrapper url={Mangas.getThumbnailUrl(manga)} mangaThumbnailBackdrop={mangaThumbnailBackdrop}>
-                    <ThumbnailMetadataWrapper>
-                        <Thumbnail manga={manga} mangaDynamicColorSchemes={mangaDynamicColorSchemes} />
-                        <MetadataContainer>
-                            <Stack sx={{ flexDirection: 'row', gap: 1, alignItems: 'flex-start', mb: 1 }}>
-                                <SearchLink query={manga.title} sourceId={manga.sourceId} mode="source.global-search">
-                                    <Typography variant="h5" component="h2" sx={{ wordBreak: 'break-word' }}>
-                                        {manga.title}
-                                    </Typography>
-                                </SearchLink>
-                                <CustomTooltip title={t('global.button.copy')}>
-                                    <IconButton onClick={copyTitle} color="inherit">
-                                        <ContentCopyIcon fontSize="small" />
-                                    </IconButton>
-                                </CustomTooltip>
-                            </Stack>
-                            {manga.author && (
-                                <Metadata
-                                    title={t('manga.label.author')}
-                                    value={valuesToJoinedSearchLinks(Mangas.getAuthors(manga), manga.source?.id, mode)}
-                                />
-                            )}
-                            {manga.artist && (
-                                <Metadata
-                                    title={t('manga.label.artist')}
-                                    value={valuesToJoinedSearchLinks(Mangas.getArtists(manga), manga.source?.id, mode)}
-                                />
-                            )}
+        <DetailsWrapper>
+            <TopContentWrapper url={Mangas.getThumbnailUrl(manga)} mangaThumbnailBackdrop={mangaThumbnailBackdrop}>
+                <ThumbnailMetadataWrapper>
+                    <Thumbnail manga={manga} mangaDynamicColorSchemes={mangaDynamicColorSchemes} />
+                    <MetadataContainer>
+                        <Stack sx={{ flexDirection: 'row', gap: 1, alignItems: 'flex-start', mb: 1 }}>
+                            <SearchLink query={manga.title} sourceId={manga.sourceId} mode="source.global-search">
+                                <Typography variant="h5" component="h2" sx={{ wordBreak: 'break-word' }}>
+                                    {manga.title}
+                                </Typography>
+                            </SearchLink>
+                            <CustomTooltip title={t`Copy`}>
+                                <IconButton onClick={copyTitle} color="inherit">
+                                    <ContentCopyIcon fontSize="small" />
+                                </IconButton>
+                            </CustomTooltip>
+                        </Stack>
+                        {manga.author && (
                             <Metadata
-                                title={t('manga.label.status')}
-                                value={t(MANGA_STATUS_TO_TRANSLATION[manga.status])}
+                                title={t`Author`}
+                                value={valuesToJoinedSearchLinks(Mangas.getAuthors(manga), manga.source?.id, mode)}
                             />
-                            <Metadata title={t('source.title_one')} value={getSourceName(manga.source)} />
-                        </MetadataContainer>
-                    </ThumbnailMetadataWrapper>
-                    <MangaButtonsContainer>
-                        <CustomButton
-                            size="medium"
-                            onClick={updateLibraryState}
-                            variant={manga.inLibrary ? 'contained' : 'outlined'}
-                        >
-                            {manga.inLibrary ? <FavoriteIcon /> : <FavoriteBorderIcon />}
-                            {manga.inLibrary ? t('manga.button.in_library') : t('manga.button.add_to_library')}
-                        </CustomButton>
-                        <TrackMangaButton manga={manga} />
-                        <OpenSourceButton url={manga.realUrl} />
-                    </MangaButtonsContainer>
-                </TopContentWrapper>
-                <DescriptionGenre manga={manga} mode={mode} />
-            </DetailsWrapper>
-            {CategorySelectComponent}
-        </>
+                        )}
+                        {manga.artist && (
+                            <Metadata
+                                title={t`Artist`}
+                                value={valuesToJoinedSearchLinks(Mangas.getArtists(manga), manga.source?.id, mode)}
+                            />
+                        )}
+                        <Metadata title={t`Status`} value={t(MANGA_STATUS_TO_TRANSLATION[manga.status])} />
+                        <Metadata title={t`Source`} value={getSourceName(manga.source)} />
+                    </MetadataContainer>
+                </ThumbnailMetadataWrapper>
+                <MangaButtonsContainer>
+                    <FlexWrapButton
+                        size={MediaQuery.useIsMobileWidth() ? 'small' : 'medium'}
+                        onClick={updateLibraryState}
+                        variant={manga.inLibrary ? 'contained' : 'outlined'}
+                    >
+                        {manga.inLibrary ? <FavoriteIcon /> : <FavoriteBorderIcon />}
+                        {manga.inLibrary ? t`In Library` : t`Add To Library`}
+                    </FlexWrapButton>
+                    <TrackMangaButton manga={manga} />
+                    <OpenSourceButton url={manga.realUrl} />
+                </MangaButtonsContainer>
+            </TopContentWrapper>
+            <DescriptionGenre manga={manga} mode={mode} />
+        </DetailsWrapper>
     );
 };

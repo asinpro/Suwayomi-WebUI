@@ -10,18 +10,21 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
-import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
+import type { AwaitableComponentProps } from 'awaitable-component';
+import { Link as RouterLink } from 'react-router-dom';
+import { useLingui } from '@lingui/react/macro';
+import type { ReactNode } from 'react';
 
 type Action = {
     show?: boolean;
-    title?: string;
+    title?: ReactNode;
     contain?: boolean;
 };
 
 type Actions = {
-    extra?: Action;
+    extra?: Action & { link?: string };
     cancel?: Action;
     confirm?: Action;
 };
@@ -31,32 +34,33 @@ export const ConfirmDialog = ({
     message,
     actions: passedActions,
     onExtra,
-    onCancel,
-    onConfirm,
-}: {
-    title: string;
-    message: string;
+    onDismiss,
+    onSubmit,
+    isVisible,
+    onExitComplete,
+}: AwaitableComponentProps & {
+    title: ReactNode;
+    message: ReactNode;
     actions?: Actions;
     onExtra?: () => void;
-    onCancel: () => void;
-    onConfirm: () => void;
 }) => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
     const actions = {
         extra: {
             show: passedActions?.extra?.show ?? false,
             title: passedActions?.extra?.title ?? '',
             contain: passedActions?.extra?.contain ?? false,
+            link: passedActions?.extra?.link ?? undefined,
         },
         cancel: {
             show: passedActions?.cancel?.show ?? true,
-            title: passedActions?.cancel?.title ?? t('global.button.cancel'),
+            title: passedActions?.cancel?.title ?? t`Cancel`,
             contain: passedActions?.cancel?.contain ?? false,
         },
         confirm: {
             show: passedActions?.confirm?.show ?? true,
-            title: passedActions?.confirm?.title ?? t('global.button.ok'),
+            title: passedActions?.confirm?.title ?? t`Ok`,
             contain:
                 !passedActions?.extra?.contain &&
                 !passedActions?.cancel?.contain &&
@@ -66,7 +70,7 @@ export const ConfirmDialog = ({
     } satisfies Actions;
 
     return (
-        <Dialog open onClose={onCancel}>
+        <Dialog open={isVisible} onTransitionExited={onExitComplete} onClose={onDismiss}>
             <DialogTitle>{title}</DialogTitle>
             <DialogContent
                 sx={{
@@ -84,11 +88,39 @@ export const ConfirmDialog = ({
                         gap: 1,
                     }}
                 >
-                    {actions.extra.show && (
-                        <Button onClick={onExtra} variant={actions.extra.contain ? 'contained' : undefined}>
-                            {actions.extra.title}
-                        </Button>
-                    )}
+                    {(() => {
+                        if (!actions.extra.show) {
+                            return null;
+                        }
+
+                        if (actions.extra.link) {
+                            return (
+                                <Button
+                                    component={RouterLink}
+                                    to={actions.extra.link}
+                                    onClick={() => {
+                                        onDismiss();
+                                        onExtra?.();
+                                    }}
+                                    variant={actions.extra.contain ? 'contained' : undefined}
+                                >
+                                    {actions.extra.title}
+                                </Button>
+                            );
+                        }
+
+                        return (
+                            <Button
+                                onClick={() => {
+                                    onDismiss();
+                                    onExtra?.();
+                                }}
+                                variant={actions.extra.contain ? 'contained' : undefined}
+                            >
+                                {actions.extra.title}
+                            </Button>
+                        );
+                    })()}
                     <Stack
                         sx={{
                             flexDirection: 'row',
@@ -96,12 +128,12 @@ export const ConfirmDialog = ({
                         }}
                     >
                         {actions.cancel.show && (
-                            <Button onClick={onCancel} variant={actions.cancel.contain ? 'contained' : undefined}>
+                            <Button onClick={onDismiss} variant={actions.cancel.contain ? 'contained' : undefined}>
                                 {actions.cancel.title}
                             </Button>
                         )}
                         {actions.confirm.show && (
-                            <Button onClick={onConfirm} variant={actions.confirm.contain ? 'contained' : undefined}>
+                            <Button onClick={onSubmit} variant={actions.confirm.contain ? 'contained' : undefined}>
                                 {actions.confirm.title}
                             </Button>
                         )}

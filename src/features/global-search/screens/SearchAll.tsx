@@ -10,9 +10,8 @@ import Card from '@mui/material/Card';
 import CardActionArea from '@mui/material/CardActionArea';
 import Typography from '@mui/material/Typography';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { StringParam, useQueryParam } from 'use-query-params';
-import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
@@ -20,13 +19,16 @@ import PushPinIcon from '@mui/icons-material/PushPin';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import { useElementSize } from '@mantine/hooks';
-import IconButton from '@mui/material/IconButton'; // ms
+import IconButton from '@mui/material/IconButton';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import { d } from 'koration';
+import { useLingui } from '@lingui/react/macro';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { AppbarSearch } from '@/base/components/AppbarSearch.tsx';
 import { useDebounce } from '@/base/hooks/useDebounce.ts';
-import { MangaCardProps } from '@/features/manga/Manga.types.ts';
+import type { MangaCardProps, MangaIdInfo } from '@/features/manga/Manga.types.ts';
 import { EmptyView } from '@/base/components/feedback/EmptyView.tsx';
+import { STABLE_EMPTY_ARRAY, STABLE_EMPTY_OBJECT } from '@/base/Base.constants.ts';
 import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
 import { LoadingPlaceholder } from '@/base/components/feedback/LoadingPlaceholder.tsx';
 import { BaseMangaGrid } from '@/features/manga/components/BaseMangaGrid.tsx';
@@ -35,7 +37,7 @@ import { translateExtensionLanguage } from '@/features/extension/Extensions.util
 import { AppRoutes } from '@/base/AppRoute.constants.ts';
 import { getErrorMessage } from '@/lib/HelperFunctions.ts';
 import { Sources } from '@/features/source/services/Sources.ts';
-import {
+import type {
     SourceDisplayNameInfo,
     SourceIdInfo,
     SourceLanguageInfo,
@@ -51,9 +53,13 @@ import { getSourceMetadata } from '@/features/source/services/SourceMetadata.ts'
 import { makeToast } from '@/base/utils/Toast.ts';
 import { CustomTooltip } from '@/base/components/CustomTooltip.tsx';
 import { MUIUtil } from '@/lib/mui/MUI.util.ts';
-import { MetadataBrowseSettings } from '@/features/browse/Browse.types.ts';
+import type { MetadataBrowseSettings } from '@/features/browse/Browse.types.ts';
 import { SourceLanguageSelect } from '@/features/source/components/SourceLanguageSelect.tsx';
 import { SearchParam } from '@/base/Base.types.ts';
+import { MigrationManager } from '@/features/migration/MigrationManager.ts';
+import { assertIsDefined } from '@/base/Asserts.ts';
+import { ReactRouter } from '@/lib/react-router/ReactRouter.ts';
+import type { RouteStateSourcesSearchAll } from '@/features/global-search/SearchAll.types.ts';
 
 type SourceLoadingState = { isLoading: boolean; hasResults: boolean; emptySearch: boolean; error: any };
 type SourceToLoadingStateMap = Map<string, SourceLoadingState>;
@@ -110,7 +116,7 @@ const compareSourcesBySearchResult = (
 
     return 0;
 };
-const TRIGGER_SEARCH_THRESHOLD = 1000; // ms
+const TRIGGER_SEARCH_THRESHOLD = d(1).seconds.inWholeMilliseconds;
 
 const SourceSearchPreview = React.memo(
     ({
@@ -120,14 +126,17 @@ const SourceSearchPreview = React.memo(
         emptyQuery,
         mode,
         shouldShowOnlySourcesWithResults,
+        onMigrateSelect,
+        mangaId,
     }: {
         source: SourceIdInfo & SourceDisplayNameInfo & SourceNameInfo & SourceLanguageInfo;
         onSearchRequestFinished: (source: SourceIdInfo, state: SourceLoadingState) => void;
         searchString: string | null | undefined;
         emptyQuery: boolean;
-    } & Pick<MangaCardProps, 'mode'> &
+        mangaId?: MangaIdInfo['id'];
+    } & Pick<MangaCardProps, 'mode' | 'onMigrateSelect'> &
         Pick<MetadataBrowseSettings, 'shouldShowOnlySourcesWithResults'>) => {
-        const { t } = useTranslation();
+        const { t } = useLingui();
 
         const { id, name, lang } = source;
 
@@ -148,7 +157,7 @@ const SourceSearchPreview = React.memo(
         const { data: searchResult, isLoading, error, abortRequest } = results[0]!;
         currentAbortRequest.current = abortRequest;
 
-        const mangas = searchResult?.fetchSourceManga?.mangas ?? [];
+        const mangas = searchResult?.fetchSourceManga?.mangas ?? STABLE_EMPTY_ARRAY;
         const noMangasFound = !error && !isLoading && !mangas.length;
 
         useEffect(() => {
@@ -160,11 +169,16 @@ const SourceSearchPreview = React.memo(
             });
         }, [isLoading, noMangasFound, searchString, error]);
 
+        useEffect(
+            () => () => currentAbortRequest.current?.(new Error(`SourceSearchPreview(${id}, ${name}): search closed`)),
+            [],
+        );
+
         let errorMessage: string | undefined;
         if (error) {
-            errorMessage = t('search.error.label.source_search_failed');
+            errorMessage = t`Could not search source`;
         } else if (noMangasFound) {
-            errorMessage = t('manga.error.label.no_mangas_found');
+            errorMessage = t`No manga found`;
         }
 
         if ((!isLoading && !searchString) || emptyQuery) {
@@ -180,14 +194,18 @@ const SourceSearchPreview = React.memo(
                 <Card sx={{ mb: 1 }}>
                     <CardActionArea
                         component={Link}
-                        to={AppRoutes.sources.childRoutes.browse.path(id, searchString)}
+                        to={AppRoutes.sources.children.browse.path(id, searchString)}
+                        state={AppRoutes.sources.children.browse.state({
+                            mode,
+                            mangaId,
+                        })}
                         sx={{ p: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                     >
                         <Box>
                             <Typography variant="h5">{name}</Typography>
                             <Typography variant="caption">{translateExtensionLanguage(lang)}</Typography>
                         </Box>
-                        <CustomTooltip title={t('global.button.show_more')}>
+                        <CustomTooltip title={t`Show more`}>
                             <IconButton {...MUIUtil.preventRippleProp()}>
                                 <ArrowForwardIcon />
                             </IconButton>
@@ -223,6 +241,7 @@ const SourceSearchPreview = React.memo(
                         message={errorMessage}
                         inLibraryIndicator
                         mode={mode}
+                        onMigrateSelect={onMigrateSelect}
                     />
                 )}
             </Box>
@@ -230,15 +249,17 @@ const SourceSearchPreview = React.memo(
     },
 );
 
-export const SearchAll: React.FC = () => {
-    const { t } = useTranslation();
+export const SearchAll = ({
+    migrationDestinationSourceIds,
+}: {
+    migrationDestinationSourceIds?: SourceIdInfo['id'][];
+}) => {
+    const { t } = useLingui();
     const navigate = useNavigate();
-    const { pathname, state } = useLocation<{ mangaTitle?: string; shouldShowOnlyPinnedSources?: boolean }>();
+    const { state } = useLocation<RouteStateSourcesSearchAll>();
     const { ref: filterHeaderRef, height: filterHeaderHeight } = useElementSize();
 
-    const shouldShowOnlyPinnedSources = state?.shouldShowOnlyPinnedSources ?? true;
-    const isMigrateMode = pathname.startsWith('/migrate/source');
-
+    const { mangaId } = useParams<{ mangaId?: string }>() ?? STABLE_EMPTY_OBJECT;
     const [query] = useQueryParam(SearchParam.QUERY, StringParam);
     const searchString = useDebounce(query, TRIGGER_SEARCH_THRESHOLD);
 
@@ -247,21 +268,37 @@ export const SearchAll: React.FC = () => {
         settings: { showNsfw, shouldShowOnlySourcesWithResults },
     } = useMetadataServerSettings();
 
-    const { data, loading, error, refetch } = requestManager.useGetSourceList({ notifyOnNetworkStatusChange: true });
-    const sources = useMemo(() => data?.sources.nodes ?? [], [data?.sources.nodes]);
+    const { data, loading, error, refetch } = requestManager.useGetSourceList();
+    const tmpSources = data?.sources.nodes ?? STABLE_EMPTY_ARRAY;
+    const sources = useMemo(
+        () =>
+            tmpSources.filter(
+                (source) => !migrationDestinationSourceIds || migrationDestinationSourceIds.includes(source.id),
+            ),
+        [tmpSources, migrationDestinationSourceIds],
+    );
 
     const [sourceToLoadingStateMap, setSourceToLoadingStateMap] = useState<SourceToLoadingStateMap>(new Map());
     const debouncedSourceToLoadingStateMap = useDebounce(sourceToLoadingStateMap, 500);
 
-    const sourceLanguages = useMemo(() => Sources.getLanguages(sources), [sources]);
+    const sourceLanguages = useMemo(() => Sources.getLanguages(sources, { excludeLocalSource: true }), [sources]);
+
+    const hasPinnedSources = useMemo(() => !!Sources.filter(sources, { pinned: true }).length, [sources]);
+
+    const {
+        title = t`Global Search`,
+        shouldShowOnlyPinnedSources = hasPinnedSources,
+        mode = 'source',
+    } = state ?? STABLE_EMPTY_OBJECT;
+    const isMigrateMode = ['migrate.select.single', 'migrate.select.bulk'].includes(mode);
 
     const filteredSources = useMemo(
         () =>
             Sources.filter(sources, {
-                showNsfw,
+                isNsfw: showNsfw ? undefined : false,
                 languages: shownLangs,
                 keepLocalSource: true,
-                pinned: shouldShowOnlyPinnedSources,
+                pinned: shouldShowOnlyPinnedSources ? true : undefined,
                 enabled: true,
             }),
         [sources, shownLangs, shouldShowOnlyPinnedSources],
@@ -287,18 +324,18 @@ export const SearchAll: React.FC = () => {
     );
 
     const updateMetadataSettings = createUpdateMetadataServerSettings<'shouldShowOnlySourcesWithResults'>((e) =>
-        makeToast(t('global.error.label.failed_to_save_changes'), 'error', getErrorMessage(e)),
+        makeToast(t`Failed to save changes`, 'error', getErrorMessage(e)),
     );
 
     useAppTitleAndAction(
-        t(isMigrateMode ? 'migrate.search.title' : 'search.title.global_search', { title: state?.mangaTitle }),
+        title,
         <>
             <AppbarSearch isClosable={false} />
             <SourceLanguageSelect
                 selectedLanguages={shownLangs}
                 setSelectedLanguages={setShownLangs}
                 languages={sourceLanguages}
-                sources={sources ?? []}
+                sources={sources}
             />
         </>,
         [shownLangs, setShownLangs, sourceLanguages, sources],
@@ -311,7 +348,7 @@ export const SearchAll: React.FC = () => {
     if (error) {
         return (
             <EmptyViewAbsoluteCentered
-                message={t('global.error.label.failed_to_load_data')}
+                message={t`Unable to load data`}
                 messageExtra={getErrorMessage(error)}
                 retry={() => refetch().catch(defaultPromiseErrorHandler('SearchAll::refetch'))}
             />
@@ -333,44 +370,56 @@ export const SearchAll: React.FC = () => {
                     background: (theme) => theme.palette.background.default,
                 }}
             >
-                <Stack sx={{ flexDirection: 'row', gap: 1 }}>
-                    <Button
-                        startIcon={<PushPinIcon />}
-                        variant={shouldShowOnlyPinnedSources ? 'contained' : 'outlined'}
-                        onClick={() =>
-                            navigate(
-                                {
-                                    pathname: '',
-                                    search: query ? `query=${query}` : '',
-                                },
-                                {
-                                    replace: true,
-                                    state: { ...state, shouldShowOnlyPinnedSources: true },
-                                },
-                            )
-                        }
-                    >
-                        {t('global.label.pinned')}
-                    </Button>
-                    <Button
-                        startIcon={<DoneAllIcon />}
-                        variant={!shouldShowOnlyPinnedSources ? 'contained' : 'outlined'}
-                        onClick={() =>
-                            navigate(
-                                {
-                                    pathname: '',
-                                    search: query ? `query=${query}` : '',
-                                },
-                                {
-                                    replace: true,
-                                    state: { ...state, shouldShowOnlyPinnedSources: false },
-                                },
-                            )
-                        }
-                    >
-                        {t('extension.language.all')}
-                    </Button>
-                </Stack>
+                {hasPinnedSources && (
+                    <>
+                        <Button
+                            startIcon={<PushPinIcon />}
+                            variant={shouldShowOnlyPinnedSources ? 'contained' : 'outlined'}
+                            onClick={() =>
+                                navigate(
+                                    {
+                                        pathname: '',
+                                        search: query ? `query=${query}` : '',
+                                    },
+                                    {
+                                        replace: true,
+                                        state: {
+                                            ...state,
+                                            ...AppRoutes.sources.children.searchAll.state({
+                                                shouldShowOnlyPinnedSources: true,
+                                            }),
+                                        },
+                                    },
+                                )
+                            }
+                        >
+                            {t`Pinned`}
+                        </Button>
+                        <Button
+                            startIcon={<DoneAllIcon />}
+                            variant={!shouldShowOnlyPinnedSources ? 'contained' : 'outlined'}
+                            onClick={() =>
+                                navigate(
+                                    {
+                                        pathname: '',
+                                        search: query ? `query=${query}` : '',
+                                    },
+                                    {
+                                        replace: true,
+                                        state: {
+                                            ...state,
+                                            ...AppRoutes.sources.children.searchAll.state({
+                                                shouldShowOnlyPinnedSources: false,
+                                            }),
+                                        },
+                                    },
+                                )
+                            }
+                        >
+                            {t`All`}
+                        </Button>
+                    </>
+                )}
                 <Button
                     startIcon={<FilterListIcon />}
                     variant={shouldShowOnlySourcesWithResults ? 'contained' : 'outlined'}
@@ -378,7 +427,7 @@ export const SearchAll: React.FC = () => {
                         updateMetadataSettings('shouldShowOnlySourcesWithResults', !shouldShowOnlySourcesWithResults)
                     }
                 >
-                    {t('search.filter.has_results')}
+                    {t`Has results`}
                 </Button>
             </Stack>
             <Box sx={{ pt: `${filterHeaderHeight}px` }}>
@@ -389,8 +438,22 @@ export const SearchAll: React.FC = () => {
                         onSearchRequestFinished={updateSourceLoadingState}
                         searchString={searchString}
                         emptyQuery={!query}
-                        mode={isMigrateMode ? 'migrate.select' : 'source'}
+                        mode={mode}
                         shouldShowOnlySourcesWithResults={shouldShowOnlySourcesWithResults}
+                        onMigrateSelect={
+                            isMigrateMode
+                                ? (match) => {
+                                      assertIsDefined(mangaId);
+                                      MigrationManager.selectManualMatch(Number(mangaId), {
+                                          ...match,
+                                          sourceTitle: Sources.getFromCache(match.sourceId)?.displayName,
+                                          latestChapterNumber: undefined,
+                                      });
+                                      ReactRouter.navigate(AppRoutes.migrate.path);
+                                  }
+                                : undefined
+                        }
+                        mangaId={mangaId ? Number(mangaId) : undefined}
                     />
                 ))}
             </Box>

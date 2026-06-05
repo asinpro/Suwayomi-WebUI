@@ -7,21 +7,18 @@
  */
 
 import Box from '@mui/material/Box';
-import { ReaderService } from '@/features/reader/services/ReaderService.ts';
 import { useNavBarContext } from '@/features/navigation-bar/NavbarContext.tsx';
-import { NavbarContextType } from '@/features/navigation-bar/NavigationBar.types.ts';
+import type { NavbarContextType } from '@/features/navigation-bar/NavigationBar.types.ts';
 import { withPropsFrom } from '@/base/hoc/withPropsFrom.tsx';
-import { IReaderSettings } from '@/features/reader/Reader.types.ts';
+import { useReaderSettingsStore } from '@/features/reader/stores/ReaderStore.ts';
 
-const BaseReaderRGBAFilter = ({
-    readerNavBarWidth,
-    customFilter: {
-        rgba: {
-            value: { red, green, blue, alpha, blendMode },
-            enabled,
-        },
-    },
-}: Pick<NavbarContextType, 'readerNavBarWidth'> & Pick<IReaderSettings, 'customFilter'>) => {
+const BaseReaderRGBAFilter = ({ readerNavBarWidth }: Pick<NavbarContextType, 'readerNavBarWidth'>) => {
+    const {
+        value: { red, green, blue, alpha, blendMode },
+        enabled,
+    } = useReaderSettingsStore((state) => state.customFilter.rgba);
+    const safeAreaInset = useReaderSettingsStore('safeAreaInset');
+
     if (!enabled) {
         return null;
     }
@@ -30,10 +27,10 @@ const BaseReaderRGBAFilter = ({
         <Box
             sx={{
                 position: 'fixed',
-                top: 0,
-                left: readerNavBarWidth,
-                right: 0,
-                bottom: 0,
+                top: safeAreaInset.top ? 'env(safe-area-inset-top)' : 0,
+                left: `calc(${readerNavBarWidth}px - ${safeAreaInset.left ? 'env(safe-area-inset-left)' : '0px'})`,
+                right: safeAreaInset.right ? 'env(safe-area-inset-right)' : 0,
+                bottom: safeAreaInset.bottom ? 'env(safe-area-inset-bottom)' : 0,
                 pointerEvents: 'none',
                 background: `rgba(${red} ${green} ${blue} / ${alpha}%)`,
                 mixBlendMode: `${blendMode}`,
@@ -42,8 +39,4 @@ const BaseReaderRGBAFilter = ({
     );
 };
 
-export const ReaderRGBAFilter = withPropsFrom(
-    BaseReaderRGBAFilter,
-    [useNavBarContext, ReaderService.useSettingsWithoutDefaultFlag],
-    ['readerNavBarWidth', 'customFilter'],
-);
+export const ReaderRGBAFilter = withPropsFrom(BaseReaderRGBAFilter, [useNavBarContext], ['readerNavBarWidth']);

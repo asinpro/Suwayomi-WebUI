@@ -15,27 +15,37 @@ import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import React from 'react';
-import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import SyncAltIcon from '@mui/icons-material/SyncAlt';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
+import { AwaitableComponent } from 'awaitable-component';
+import ColorLensIcon from '@mui/icons-material/ColorLens';
+import { useLingui } from '@lingui/react/macro';
 import { CustomTooltip } from '@/base/components/CustomTooltip.tsx';
-import { useCategorySelect } from '@/features/category/hooks/useCategorySelect.tsx';
-import { MangaType } from '@/lib/graphql/generated/graphql.ts';
 import { AppRoutes } from '@/base/AppRoute.constants.ts';
+import { CategorySelect } from '@/features/category/components/CategorySelect.tsx';
+import { useMetadataServerSettings } from '@/features/settings/services/ServerSettingsMetadata.ts';
+import { ThemeCreationDialog } from '@/features/theme/components/CreateThemeDialog.tsx';
+import type {
+    MangaIdInfo,
+    MangaInLibraryInfo,
+    MangaSourceIdInfo,
+    MangaTitleInfo,
+} from '@/features/manga/Manga.types.ts';
 
 interface IProps {
-    manga: Pick<MangaType, 'id' | 'inLibrary' | 'sourceId' | 'title'>;
+    manga: MangaIdInfo & MangaInLibraryInfo & MangaSourceIdInfo & MangaTitleInfo;
     onRefresh: () => any;
     refreshing: boolean;
 }
 
 export const MangaToolbarMenu = ({ manga, onRefresh, refreshing }: IProps) => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
     const theme = useTheme();
     const isLargeScreen = useMediaQuery(theme.breakpoints.up('sm'));
+    const { settings } = useMetadataServerSettings();
 
     const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
     const open = Boolean(anchorEl);
@@ -43,15 +53,21 @@ export const MangaToolbarMenu = ({ manga, onRefresh, refreshing }: IProps) => {
         setAnchorEl(null);
     };
 
-    const { openCategorySelect, CategorySelectComponent } = useCategorySelect({
-        mangaId: manga.id,
-    });
+    const openCategorySelection = () => {
+        AwaitableComponent.show(CategorySelect, { mangaId: manga.id });
+    };
+
+    const saveDynamicColorTheme = () => {
+        AwaitableComponent.show(ThemeCreationDialog, {
+            mode: 'save_dynamic',
+        });
+    };
 
     return (
         <>
             {isLargeScreen && (
                 <>
-                    <CustomTooltip title={t('manga.label.reload_from_source')} disabled={refreshing}>
+                    <CustomTooltip title={t`Reload data from source`} disabled={refreshing}>
                         <IconButton
                             onClick={() => {
                                 onRefresh();
@@ -62,16 +78,26 @@ export const MangaToolbarMenu = ({ manga, onRefresh, refreshing }: IProps) => {
                             <Refresh />
                         </IconButton>
                     </CustomTooltip>
+                    {settings.mangaDynamicColorSchemes && (
+                        <CustomTooltip title={t`Save dynamic color theme`}>
+                            <IconButton onClick={saveDynamicColorTheme} color="inherit">
+                                <ColorLensIcon />
+                            </IconButton>
+                        </CustomTooltip>
+                    )}
                     {manga.inLibrary && (
                         <>
-                            <CustomTooltip title={t('global.button.migrate')}>
+                            <CustomTooltip title={t`Migrate`}>
                                 <Link
-                                    to={AppRoutes.migrate.childRoutes.search.path(
+                                    to={AppRoutes.migrate.children.singleMangaSearch.path(
                                         manga.sourceId,
                                         manga.id,
                                         manga.title,
                                     )}
-                                    state={{ mangaTitle: manga.title }}
+                                    state={AppRoutes.migrate.children.singleMangaSearch.state({
+                                        title: t`Migrate "${manga.title}"`,
+                                        mode: 'migrate.select.single',
+                                    })}
                                     style={{ textDecoration: 'none', color: 'inherit' }}
                                 >
                                     <IconButton color="inherit">
@@ -79,10 +105,10 @@ export const MangaToolbarMenu = ({ manga, onRefresh, refreshing }: IProps) => {
                                     </IconButton>
                                 </Link>
                             </CustomTooltip>
-                            <CustomTooltip title={t('manga.label.edit_categories')}>
+                            <CustomTooltip title={t`Edit manga categories`}>
                                 <IconButton
                                     onClick={() => {
-                                        openCategorySelect(true);
+                                        openCategorySelection();
                                     }}
                                     color="inherit"
                                 >
@@ -110,8 +136,10 @@ export const MangaToolbarMenu = ({ manga, onRefresh, refreshing }: IProps) => {
                         anchorEl={anchorEl}
                         open={open}
                         onClose={handleClose}
-                        MenuListProps={{
-                            'aria-labelledby': 'chaptersMenuButton',
+                        slotProps={{
+                            list: {
+                                'aria-labelledby': 'chaptersMenuButton',
+                            },
                         }}
                     >
                         <MenuItem
@@ -124,39 +152,51 @@ export const MangaToolbarMenu = ({ manga, onRefresh, refreshing }: IProps) => {
                             <ListItemIcon>
                                 <Refresh fontSize="small" />
                             </ListItemIcon>
-                            <ListItemText>{t('manga.label.reload_from_source')}</ListItemText>
+                            <ListItemText>{t`Reload data from source`}</ListItemText>
                         </MenuItem>
+                        {settings.mangaDynamicColorSchemes && (
+                            <MenuItem onClick={saveDynamicColorTheme}>
+                                <ListItemIcon>
+                                    <ColorLensIcon fontSize="small" />
+                                </ListItemIcon>
+                                <ListItemText>{t`Save dynamic color theme`}</ListItemText>
+                            </MenuItem>
+                        )}
                         {manga.inLibrary && [
                             <MenuItem
                                 key="migrate"
                                 component={Link}
-                                to={AppRoutes.migrate.childRoutes.search.path(manga.sourceId, manga.id, manga.title)}
-                                state={{ mangaTitle: manga.title }}
+                                to={AppRoutes.migrate.children.singleMangaSearch.path(
+                                    manga.sourceId,
+                                    manga.id,
+                                    manga.title,
+                                )}
+                                state={AppRoutes.migrate.children.singleMangaSearch.state({
+                                    title: t`Migrate "${manga.title}"`,
+                                })}
                                 style={{ textDecoration: 'none', color: 'inherit' }}
                             >
                                 <ListItemIcon>
                                     <SyncAltIcon fontSize="small" />
                                 </ListItemIcon>
-                                <ListItemText>{t('migrate.title')}</ListItemText>
+                                <ListItemText>{t`Migrate`}</ListItemText>
                             </MenuItem>,
                             <MenuItem
                                 key="categories"
                                 onClick={() => {
-                                    openCategorySelect(true);
+                                    openCategorySelection();
                                     handleClose();
                                 }}
                             >
                                 <ListItemIcon>
                                     <Label fontSize="small" />
                                 </ListItemIcon>
-                                <ListItemText>{t('manga.label.edit_categories')}</ListItemText>
+                                <ListItemText>{t`Edit manga categories`}</ListItemText>
                             </MenuItem>,
                         ]}
                     </Menu>
                 </>
             )}
-
-            {CategorySelectComponent}
         </>
     );
 };

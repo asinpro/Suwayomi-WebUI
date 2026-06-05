@@ -9,22 +9,21 @@
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
-import { useTranslation } from 'react-i18next';
+import { useLingui } from '@lingui/react/macro';
 import { ReaderSettingReadingMode } from '@/features/reader/settings/layout/components/ReaderSettingReadingMode.tsx';
 import { ReaderSettingReadingDirection } from '@/features/reader/settings/layout/components/ReaderSettingReadingDirection.tsx';
 import { ReaderSettingTapZoneLayout } from '@/features/reader/settings/layout/components/ReaderSettingTapZoneLayout.tsx';
 import { ReaderSettingTapZoneInvertMode } from '@/features/reader/settings/layout/components/ReaderSettingTapZoneInvertMode.tsx';
 import { ReaderSettingPageScaleMode } from '@/features/reader/settings/layout/components/ReaderSettingPageScaleMode.tsx';
 import { ReaderSettingStretchPage } from '@/features/reader/settings/layout/components/ReaderSettingStretchPage.tsx';
-import { ReaderSettingsTypeProps } from '@/features/reader/Reader.types.ts';
+import type { ReaderSettingsTypeProps } from '@/features/reader/Reader.types.ts';
 import { ReaderSettingPageGap } from '@/features/reader/settings/layout/components/ReaderSettingPageGap.tsx';
 import { ReaderSettingWidth } from '@/features/reader/settings/layout/components/ReaderSettingWidth.tsx';
 import { DefaultSettingFootnote } from '@/features/reader/settings/components/DefaultSettingFootnote.tsx';
-import { TReaderTapZoneContext } from '@/features/reader/tap-zones/TapZoneLayout.types.ts';
+import { getReaderTapZoneStore } from '@/features/reader/stores/ReaderStore.ts';
 import { ReaderDefaultLayoutSettings } from '@/features/reader/settings/layout/ReaderDefaultLayoutSettings.tsx';
 
 export const ReaderLayoutSettings = ({
-    setShowPreview,
     settings,
     updateSetting,
     isDefaultable,
@@ -32,17 +31,16 @@ export const ReaderLayoutSettings = ({
     isSeriesMode,
     setTransparent,
 }: ReaderSettingsTypeProps & {
-    setShowPreview: TReaderTapZoneContext['setShowPreview'];
     isSeriesMode?: boolean;
 }) => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
     return (
         <Stack sx={{ gap: 2 }}>
             <DefaultSettingFootnote areDefaultSettings={!isDefaultable} />
             {isSeriesMode && (
                 <>
-                    <Typography>{t('reader.settings.source_series')}</Typography>
+                    <Typography>{t`Series settings`}</Typography>
                     <ReaderSettingReadingMode
                         readingMode={settings.readingMode}
                         setReadingMode={(value) => updateSetting('readingMode', value)}
@@ -67,24 +65,24 @@ export const ReaderLayoutSettings = ({
             <ReaderSettingTapZoneLayout
                 tapZoneLayout={settings.tapZoneLayout}
                 setTapZoneLayout={(value) => {
-                    setShowPreview(true);
+                    getReaderTapZoneStore().setShowPreview(true);
                     updateSetting('tapZoneLayout', value);
                 }}
                 isDefaultable={isDefaultable}
                 onDefault={() => {
-                    setShowPreview(true);
+                    getReaderTapZoneStore().setShowPreview(true);
                     onDefault?.('tapZoneLayout');
                 }}
             />
             <ReaderSettingTapZoneInvertMode
                 tapZoneInvertMode={settings.tapZoneInvertMode}
                 setTapZoneInvertMode={(value) => {
-                    setShowPreview(true);
+                    getReaderTapZoneStore().setShowPreview(true);
                     updateSetting('tapZoneInvertMode', value);
                 }}
                 isDefaultable={isDefaultable}
                 onDefault={() => {
-                    setShowPreview(true);
+                    getReaderTapZoneStore().setShowPreview(true);
                     onDefault?.('tapZoneInvertMode');
                 }}
             />

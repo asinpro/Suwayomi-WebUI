@@ -6,7 +6,6 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { useTranslation } from 'react-i18next';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import IconButton from '@mui/material/IconButton';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -15,6 +14,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
+import { useLingui } from '@lingui/react/macro';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { useLocalStorage } from '@/base/hooks/useStorage.tsx';
 import { GridLayouts } from '@/base/components/GridLayouts.tsx';
@@ -25,19 +25,23 @@ import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts'
 import { MangaCard } from '@/features/manga/components/cards/MangaCard.tsx';
 import { StyledGroupedVirtuoso } from '@/base/components/virtuoso/StyledGroupedVirtuoso.tsx';
 import { StyledGroupHeader } from '@/base/components/virtuoso/StyledGroupHeader.tsx';
-import { GetMangasDuplicatesQuery, GetMangasDuplicatesQueryVariables } from '@/lib/graphql/generated/graphql.ts';
-import { GET_MANGAS_DUPLICATES } from '@/lib/graphql/queries/MangaQuery.ts';
+import type { GetMangasDuplicatesQuery, GetMangasDuplicatesQueryVariables } from '@/lib/graphql/generated/graphql.ts';
+import { GET_MANGAS_DUPLICATES } from '@/lib/graphql/manga/MangaQuery.ts';
 import { BaseMangaGrid } from '@/features/manga/components/BaseMangaGrid.tsx';
-import { IMangaGridProps } from '@/features/manga/components/MangaGrid.tsx';
+import type { IMangaGridProps } from '@/features/manga/components/MangaGrid.tsx';
 import { StyledGroupItemWrapper } from '@/base/components/virtuoso/StyledGroupItemWrapper.tsx';
 import { VirtuosoUtil } from '@/lib/virtuoso/Virtuoso.util.tsx';
-import { LibraryDuplicatesWorkerInput, TMangaDuplicate, TMangaDuplicates } from '@/features/library/Library.types.ts';
+import type {
+    LibraryDuplicatesWorkerInput,
+    TMangaDuplicate,
+    TMangaDuplicates,
+} from '@/features/library/Library.types.ts';
 import { GridLayout } from '@/base/Base.types.ts';
 import { getErrorMessage } from '@/lib/HelperFunctions.ts';
 import { useAppTitleAndAction } from '@/features/navigation-bar/hooks/useAppTitleAndAction.ts';
 
 export const LibraryDuplicates = () => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
     const [gridLayout, setGridLayout] = useLocalStorage('libraryDuplicatesGridLayout', GridLayout.List);
     const [checkAlternativeTitles, setCheckAlternativeTitles] = useLocalStorage(
@@ -46,7 +50,7 @@ export const LibraryDuplicates = () => {
     );
 
     useAppTitleAndAction(
-        t('library.settings.advanced.duplicates.label.title'),
+        t`Duplicated entries`,
         <>
             <GridLayouts gridLayout={gridLayout} onChange={setGridLayout} />
             <PopupState variant="popover" popupId="library-dupliactes-settings">
@@ -58,7 +62,7 @@ export const LibraryDuplicates = () => {
                         <Menu {...bindMenu(popupState)}>
                             <MenuItem>
                                 <CheckboxInput
-                                    label={t('library.settings.advanced.duplicates.settings.label.check_description')}
+                                    label={t`Check description`}
                                     checked={checkAlternativeTitles}
                                     onChange={(_, checked) => setCheckAlternativeTitles(checked)}
                                 />
@@ -105,10 +109,7 @@ export const LibraryDuplicates = () => {
         () => Object.keys(mangasByTitle).toSorted((titleA, titleB) => titleA.localeCompare(titleB)),
         [mangasByTitle],
     );
-    const duplicatedMangas = useMemo(
-        () => duplicatedTitles.map((title) => mangasByTitle[title]).flat(),
-        [mangasByTitle],
-    );
+    const duplicatedMangas = useMemo(() => duplicatedTitles.flatMap((title) => mangasByTitle[title]), [mangasByTitle]);
     const mangasCountByTitle = useMemo(
         () => duplicatedTitles.map((title) => mangasByTitle[title]).map((mangas) => mangas.length),
         [mangasByTitle],
@@ -130,7 +131,7 @@ export const LibraryDuplicates = () => {
     if (error) {
         return (
             <EmptyViewAbsoluteCentered
-                message={t('global.error.label.failed_to_load_data')}
+                message={t`Unable to load data`}
                 messageExtra={getErrorMessage(error)}
                 retry={() => refetch().catch(defaultPromiseErrorHandler('LibraryDuplicates::refetch'))}
             />

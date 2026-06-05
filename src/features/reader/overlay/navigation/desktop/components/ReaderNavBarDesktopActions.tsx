@@ -7,36 +7,39 @@
  */
 
 import Stack from '@mui/material/Stack';
-import { useTranslation } from 'react-i18next';
 import IconButton from '@mui/material/IconButton';
 import DownloadIcon from '@mui/icons-material/Download';
 import ReplayIcon from '@mui/icons-material/Replay';
 import { memo, useMemo, useRef } from 'react';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { useLingui } from '@lingui/react/macro';
 import { CustomTooltip } from '@/base/components/CustomTooltip.tsx';
 import { Chapters } from '@/features/chapter/services/Chapters.ts';
-import { ReaderStateChapters } from '@/features/reader/Reader.types.ts';
 import { DownloadStateIndicator } from '@/base/components/downloads/DownloadStateIndicator.tsx';
-import { ReaderStatePages } from '@/features/reader/overlay/progress-bar/ReaderProgressBar.types.ts';
-import { withPropsFrom } from '@/base/hoc/withPropsFrom.tsx';
-import { useReaderStateChaptersContext } from '@/features/reader/contexts/state/ReaderStateChaptersContext.tsx';
-import { userReaderStatePagesContext } from '@/features/reader/contexts/state/ReaderStatePagesContext.tsx';
 import { ReaderLibraryButton } from '@/features/reader/overlay/navigation/components/ReaderLibraryButton.tsx';
 import { ReaderBookmarkButton } from '@/features/reader/overlay/navigation/components/ReaderBookmarkButton.tsx';
 import { CHAPTER_ACTION_TO_TRANSLATION, FALLBACK_CHAPTER } from '@/features/chapter/Chapter.constants.ts';
 import { IconBrowser } from '@/assets/icons/IconBrowser.tsx';
 import { IconWebView } from '@/assets/icons/IconWebView.tsx';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
+import {
+    getReaderPagesStore,
+    useReaderChaptersStore,
+    useReaderPagesStore,
+} from '@/features/reader/stores/ReaderStore.ts';
+import type { ChapterDownloadInfo, ChapterIdInfo } from '@/features/chapter/Chapter.types.ts';
 
-const DownloadButton = ({ currentChapter }: Required<Pick<ReaderStateChapters, 'currentChapter'>>) => {
-    const { t } = useTranslation();
+const DownloadButton = ({ id = -1, isDownloaded }: ChapterIdInfo & ChapterDownloadInfo) => {
+    const { t } = useLingui();
 
-    const downloadStatus = Chapters.useDownloadStatusFromCache(currentChapter?.id ?? -1);
+    const downloadStatus = Chapters.useDownloadStatusFromCache(id);
 
-    if (currentChapter && Chapters.isDownloaded(currentChapter)) {
+    const isDisabled = id === undefined;
+
+    if (id !== undefined && isDownloaded) {
         return (
             <CustomTooltip title={t(CHAPTER_ACTION_TO_TRANSLATION.delete.action.single)}>
-                <IconButton onClick={() => Chapters.performAction('delete', [currentChapter.id], {})} color="inherit">
+                <IconButton onClick={() => Chapters.performAction('delete', [id], {})} color="inherit">
                     <DeleteIcon />
                 </IconButton>
             </CustomTooltip>
@@ -48,10 +51,10 @@ const DownloadButton = ({ currentChapter }: Required<Pick<ReaderStateChapters, '
     }
 
     return (
-        <CustomTooltip title={t(CHAPTER_ACTION_TO_TRANSLATION.download.action.single)} disabled={!currentChapter}>
+        <CustomTooltip title={t(CHAPTER_ACTION_TO_TRANSLATION.download.action.single)} disabled={isDisabled}>
             <IconButton
-                disabled={!currentChapter}
-                onClick={() => Chapters.performAction('download', [currentChapter?.id ?? -1], {})}
+                disabled={isDisabled}
+                onClick={() => Chapters.performAction('download', [id], {})}
                 color="inherit"
             >
                 <DownloadIcon />
@@ -60,77 +63,63 @@ const DownloadButton = ({ currentChapter }: Required<Pick<ReaderStateChapters, '
     );
 };
 
-const BaseReaderNavBarDesktopActions = memo(
-    ({
-        currentChapter,
-        pageLoadStates,
-        setPageLoadStates,
-        setRetryFailedPagesKeyPrefix,
-    }: Required<Pick<ReaderStateChapters, 'currentChapter'>> &
-        Pick<ReaderStatePages, 'pageLoadStates' | 'setPageLoadStates' | 'setRetryFailedPagesKeyPrefix'>) => {
-        const { id, isBookmarked, realUrl } = currentChapter ?? FALLBACK_CHAPTER;
+export const ReaderNavBarDesktopActions = memo(() => {
+    const { id, isDownloaded, isBookmarked, realUrl } = useReaderChaptersStore((state) => ({
+        id: state.currentChapter?.id ?? FALLBACK_CHAPTER.id,
+        isDownloaded: state.currentChapter?.isDownloaded ?? FALLBACK_CHAPTER.isDownloaded,
+        isBookmarked: state.currentChapter?.isBookmarked ?? FALLBACK_CHAPTER.isBookmarked,
+        realUrl: state.currentChapter?.realUrl ?? FALLBACK_CHAPTER.realUrl,
+    }));
 
-        const { t } = useTranslation();
+    const { t } = useLingui();
+    const pageLoadStates = useReaderPagesStore('pageLoadStates');
 
-        const pageRetryKeyPrefix = useRef<number>(0);
+    const pageRetryKeyPrefix = useRef<number>(0);
 
-        const haveSomePagesFailedToLoad = useMemo(
-            () => pageLoadStates.some((pageLoadState) => pageLoadState.error),
-            [pageLoadStates],
-        );
+    const haveSomePagesFailedToLoad = useMemo(
+        () => pageLoadStates.some((pageLoadState) => pageLoadState.error),
+        [pageLoadStates],
+    );
 
-        return (
-            <Stack sx={{ flexDirection: 'row', justifyContent: 'center', gap: 1 }}>
-                <ReaderLibraryButton />
-                <ReaderBookmarkButton id={id} isBookmarked={isBookmarked} />
-                <CustomTooltip title={t('reader.button.retry_load_pages')} disabled={!haveSomePagesFailedToLoad}>
-                    <IconButton
-                        onClick={() => {
-                            setPageLoadStates((statePageLoadStates) =>
-                                statePageLoadStates.map((pageLoadState) => ({
-                                    url: pageLoadState.url,
-                                    loaded: pageLoadState.loaded,
-                                })),
-                            );
-                            setRetryFailedPagesKeyPrefix(`${pageRetryKeyPrefix.current}`);
-                            pageRetryKeyPrefix.current = (pageRetryKeyPrefix.current + 1) % 1000;
-                        }}
-                        disabled={!haveSomePagesFailedToLoad}
-                        color="inherit"
-                    >
-                        <ReplayIcon />
-                    </IconButton>
-                </CustomTooltip>
-                <DownloadButton currentChapter={currentChapter} />
-                <CustomTooltip title={t('global.button.open_browser')} disabled={!realUrl}>
-                    <IconButton
-                        disabled={!realUrl}
-                        href={realUrl ?? ''}
-                        rel="noreferrer"
-                        target="_blank"
-                        color="inherit"
-                    >
-                        <IconBrowser />
-                    </IconButton>
-                </CustomTooltip>
-                <CustomTooltip title={t('global.button.open_webview')} disabled={!realUrl}>
-                    <IconButton
-                        disabled={!realUrl}
-                        href={realUrl ? requestManager.getWebviewUrl(realUrl) : ''}
-                        rel="noreferrer"
-                        target="_blank"
-                        color="inherit"
-                    >
-                        <IconWebView />
-                    </IconButton>
-                </CustomTooltip>
-            </Stack>
-        );
-    },
-);
-
-export const ReaderNavBarDesktopActions = withPropsFrom(
-    BaseReaderNavBarDesktopActions,
-    [useReaderStateChaptersContext, userReaderStatePagesContext],
-    ['currentChapter', 'pageLoadStates', 'setPageLoadStates', 'setRetryFailedPagesKeyPrefix'],
-);
+    return (
+        <Stack sx={{ flexDirection: 'row', justifyContent: 'center', gap: 1 }}>
+            <ReaderLibraryButton />
+            <ReaderBookmarkButton id={id} isBookmarked={isBookmarked} />
+            <CustomTooltip title={t`Retry errored pages`} disabled={!haveSomePagesFailedToLoad}>
+                <IconButton
+                    onClick={() => {
+                        getReaderPagesStore().setPageLoadStates((statePageLoadStates) =>
+                            statePageLoadStates.map((pageLoadState) => ({
+                                url: pageLoadState.url,
+                                loaded: pageLoadState.loaded,
+                            })),
+                        );
+                        getReaderPagesStore().setRetryFailedPagesKeyPrefix(`${pageRetryKeyPrefix.current}`);
+                        pageRetryKeyPrefix.current = (pageRetryKeyPrefix.current + 1) % 1000;
+                    }}
+                    disabled={!haveSomePagesFailedToLoad}
+                    color="inherit"
+                >
+                    <ReplayIcon />
+                </IconButton>
+            </CustomTooltip>
+            <DownloadButton id={id} isDownloaded={isDownloaded} />
+            <CustomTooltip title={t`Open in browser`} disabled={!realUrl}>
+                <IconButton disabled={!realUrl} href={realUrl ?? ''} rel="noreferrer" target="_blank" color="inherit">
+                    <IconBrowser />
+                </IconButton>
+            </CustomTooltip>
+            <CustomTooltip title={t`Open in WebView`} disabled={!realUrl}>
+                <IconButton
+                    disabled={!realUrl}
+                    href={realUrl ? requestManager.getWebviewUrl(realUrl) : ''}
+                    rel="noreferrer"
+                    target="_blank"
+                    color="inherit"
+                >
+                    <IconWebView />
+                </IconButton>
+            </CustomTooltip>
+        </Stack>
+    );
+});

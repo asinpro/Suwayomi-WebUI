@@ -6,12 +6,11 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { SourceIdInfo } from '@/features/source/Source.types.ts';
+import type { SourceIdInfo } from '@/features/source/Source.types.ts';
 
 export type MetadataBrowseSettings = {
     hideLibraryEntries: boolean;
-    extensionLanguages: string[];
-    sourceLanguages: string[];
+    browseLanguages: string[];
     showNsfw: boolean;
     lastUsedSourceId: SourceIdInfo['id'] | null;
     shouldShowOnlySourcesWithResults: boolean;

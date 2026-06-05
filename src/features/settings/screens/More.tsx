@@ -7,26 +7,29 @@
  */
 
 import { Fragment } from 'react';
-import { useTranslation } from 'react-i18next';
 import List from '@mui/material/List';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import Divider from '@mui/material/Divider';
+import { useLingui } from '@lingui/react/macro';
+import { msg } from '@lingui/core/macro';
 import { AppRoutes } from '@/base/AppRoute.constants.ts';
 import { ListItemLink } from '@/base/components/lists/ListItemLink.tsx';
 import { NAVIGATION_BAR_ITEMS } from '@/features/navigation-bar/NavigationBar.constants.ts';
 import { MediaQuery } from '@/base/utils/MediaQuery.tsx';
 import { NavigationBarUtil } from '@/features/navigation-bar/NavigationBar.util.ts';
 import { useMetadataServerSettings } from '@/features/settings/services/ServerSettingsMetadata.ts';
-import { NavbarItem, NavBarItemMoreGroup } from '@/features/navigation-bar/NavigationBar.types.ts';
+import type { NavbarItem } from '@/features/navigation-bar/NavigationBar.types.ts';
+import { NavBarItemMoreGroup } from '@/features/navigation-bar/NavigationBar.types.ts';
 import { useAppTitle } from '@/features/navigation-bar/hooks/useAppTitle.ts';
+import { STABLE_EMPTY_ARRAY } from '@/base/Base.constants.ts';
 
 export const More = () => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
     const isMobileWidth = MediaQuery.useIsMobileWidth();
 
-    useAppTitle(t('global.label.more'));
+    useAppTitle(t`More`);
 
     const {
         settings: { hideHistory },
@@ -43,10 +46,10 @@ export const More = () => {
     const hiddenNavBarItemsByMoreGroup = Object.groupBy(hiddenNavBarItems, (item) => item.moreGroup);
 
     const hiddenItemsMoreGroup = [
-        ...(hiddenNavBarItemsByMoreGroup[NavBarItemMoreGroup.HIDDEN_ITEM] ?? []),
+        ...(hiddenNavBarItemsByMoreGroup[NavBarItemMoreGroup.HIDDEN_ITEM] ?? STABLE_EMPTY_ARRAY),
         {
-            path: AppRoutes.settings.childRoutes.categories.path,
-            title: 'category.title.category_other',
+            path: AppRoutes.settings.children.categories.path,
+            title: msg`Categories`,
             SelectedIconComponent: ListAltIcon,
             IconComponent: ListAltIcon,
             show: 'both',

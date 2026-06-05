@@ -6,17 +6,19 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+import { STABLE_EMPTY_ARRAY, STABLE_EMPTY_OBJECT } from '@/base/Base.constants.ts';
 import CheckBoxOutlineBlank from '@mui/icons-material/CheckBoxOutlineBlank';
 import Delete from '@mui/icons-material/Delete';
 import Download from '@mui/icons-material/Download';
 import RemoveDone from '@mui/icons-material/RemoveDone';
 import Done from '@mui/icons-material/Done';
-import { useTranslation } from 'react-i18next';
 import BookmarkRemove from '@mui/icons-material/BookmarkRemove';
 import BookmarkAdd from '@mui/icons-material/BookmarkAdd';
 import DoneAll from '@mui/icons-material/DoneAll';
-import { ComponentProps, useMemo } from 'react';
-import { SelectableCollectionReturnType } from '@/features/collection/hooks/useSelectableCollection.ts';
+import type { ComponentProps } from 'react';
+import { useMemo } from 'react';
+import { useLingui } from '@lingui/react/macro';
+import type { SelectableCollectionReturnType } from '@/base/collection/hooks/useSelectableCollection.ts';
 import { Chapters } from '@/features/chapter/services/Chapters.ts';
 import { MenuItem } from '@/base/components/menu/MenuItem.tsx';
 import {
@@ -26,12 +28,12 @@ import {
 } from '@/base/components/menu/Menu.utils.ts';
 import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
 import { useMetadataServerSettings } from '@/features/settings/services/ServerSettingsMetadata.ts';
-import { ChapterCard } from '@/features/chapter/components/cards/ChapterCard.tsx';
+import type { ChapterCard } from '@/features/chapter/components/cards/ChapterCard.tsx';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
-import { GetChaptersMangaQuery } from '@/lib/graphql/generated/graphql.ts';
-import { GET_CHAPTERS_MANGA } from '@/lib/graphql/queries/ChapterQuery.ts';
+import type { GetChaptersMangaQuery } from '@/lib/graphql/generated/graphql.ts';
+import { GET_CHAPTERS_MANGA } from '@/lib/graphql/chapter/ChapterQuery.ts';
 import { CHAPTER_ACTION_TO_TRANSLATION } from '@/features/chapter/Chapter.constants.ts';
-import {
+import type {
     ChapterAction,
     ChapterBookmarkInfo,
     ChapterDownloadInfo,
@@ -70,14 +72,14 @@ export const ChapterActionMenuItems = ({
     chapter,
     handleSelection,
     canBeDownloaded = false,
-    selectedChapters = [],
+    selectedChapters = STABLE_EMPTY_ARRAY,
     onClose,
     selectable = true,
 }: Props) => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
     const isSingleMode = !!chapter;
-    const { isDownloaded, isRead, isBookmarked } = chapter ?? {};
+    const { isDownloaded, isRead, isBookmarked } = chapter ?? STABLE_EMPTY_OBJECT;
 
     const mangaChaptersResponse = requestManager.useGetMangaChapters<GetChaptersMangaQuery>(
         GET_CHAPTERS_MANGA,
@@ -87,7 +89,7 @@ export const ChapterActionMenuItems = ({
             fetchPolicy: 'cache-only',
         },
     );
-    const allChapters = mangaChaptersResponse.data?.chapters.nodes ?? [];
+    const allChapters = mangaChaptersResponse.data?.chapters.nodes ?? STABLE_EMPTY_ARRAY;
 
     const {
         settings: { deleteChaptersWithBookmark },
@@ -173,7 +175,7 @@ export const ChapterActionMenuItems = ({
     return (
         <>
             {isSingleMode && selectable && (
-                <MenuItem onClick={handleSelect} Icon={CheckBoxOutlineBlank} title={t('chapter.action.label.select')} />
+                <MenuItem onClick={handleSelect} Icon={CheckBoxOutlineBlank} title={t`Select`} />
             )}
             {isSingleMode && (
                 <>
@@ -184,7 +186,7 @@ export const ChapterActionMenuItems = ({
                             window.open(chapter!.realUrl!, '_blank', 'noopener,noreferrer');
                             onClose();
                         }}
-                        title={t('global.button.open_browser')}
+                        title={t`Open in browser`}
                     />
                     <MenuItem
                         Icon={IconWebView}
@@ -197,7 +199,7 @@ export const ChapterActionMenuItems = ({
                             );
                             onClose();
                         }}
-                        title={t('global.button.open_webview')}
+                        title={t`Open in WebView`}
                     />
                 </>
             )}
@@ -255,7 +257,7 @@ export const ChapterActionMenuItems = ({
                 <MenuItem
                     onClick={() => performAction('mark_prev_as_read', [])}
                     Icon={DoneAll}
-                    title={t('chapter.action.mark_as_read.add.label.action.previous')}
+                    title={t`Mark previous as read`}
                 />
             )}
         </>

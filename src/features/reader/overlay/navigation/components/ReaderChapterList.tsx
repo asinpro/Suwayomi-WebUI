@@ -6,22 +6,28 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { Virtuoso, VirtuosoProps } from 'react-virtuoso';
+import type { VirtuosoProps } from 'react-virtuoso';
+import { Virtuoso } from 'react-virtuoso';
 import { useMemo } from 'react';
-import { ReaderStateChapters } from '@/features/reader/Reader.types.ts';
+import type { ReaderStateChapters } from '@/features/reader/Reader.types.ts';
 import { ChapterListCard } from '@/features/chapter/components/cards/ChapterListCard.tsx';
+import type { ChapterIdInfo } from '@/features/chapter/Chapter.types.ts';
 
 const onSelectNoop = () => {};
 
 export const ReaderChapterList = ({
-    currentChapter,
+    currentChapterId,
     chapters,
     style,
-}: Pick<ReaderStateChapters, 'chapters' | 'currentChapter'> & Pick<VirtuosoProps<any, any>, 'style'>) => {
-    const currentChapterIndex = useMemo(
-        () => currentChapter && chapters.findIndex((chapter) => chapter.id === currentChapter.id),
-        [currentChapter, chapters],
-    );
+}: { currentChapterId: ChapterIdInfo['id'] | undefined } & Pick<ReaderStateChapters, 'chapters'> &
+    Pick<VirtuosoProps<any, any>, 'style'>) => {
+    const currentChapterIndex = useMemo(() => {
+        if (currentChapterId === undefined) {
+            return 0;
+        }
+
+        return chapters.findIndex((chapter) => chapter.id === currentChapterId);
+    }, [currentChapterId, chapters]);
 
     return (
         <Virtuoso
@@ -29,7 +35,7 @@ export const ReaderChapterList = ({
                 height: `calc(${chapters.length} * 100px)`,
                 ...style,
             }}
-            initialTopMostItemIndex={currentChapterIndex ?? 0}
+            initialTopMostItemIndex={currentChapterIndex}
             totalCount={chapters.length}
             computeItemKey={(index) => chapters[index].id}
             itemContent={(index) => (

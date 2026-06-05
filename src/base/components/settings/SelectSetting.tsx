@@ -6,6 +6,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+import type { MessageDescriptor } from '@lingui/core';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -18,17 +19,15 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import ListItemButton from '@mui/material/ListItemButton';
 import { useEffect, useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import DialogContentText from '@mui/material/DialogContentText';
-import InfoIcon from '@mui/icons-material/Info';
+import WarningIcon from '@mui/icons-material/Warning';
+import { useLingui } from '@lingui/react/macro';
 import { Select } from '@/base/components/inputs/Select.tsx';
 
-import { TranslationKey } from '@/base/Base.types.ts';
-
 export type SelectSettingValueDisplayInfo = {
-    text: TranslationKey | string;
-    description?: TranslationKey | string;
-    disclaimer?: TranslationKey | string;
+    text: MessageDescriptor | string;
+    description?: MessageDescriptor | string;
+    disclaimer?: MessageDescriptor | string;
 };
 
 export type SelectSettingValue<Value> = [Value: Value, DisplayInfo: SelectSettingValueDisplayInfo];
@@ -48,7 +47,7 @@ export const SelectSetting = <SettingValue extends string | number>({
     handleChange: (value: SettingValue) => void;
     disabled?: boolean;
 }) => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [dialogValue, setDialogValue] = useState(value);
@@ -82,11 +81,12 @@ export const SelectSetting = <SettingValue extends string | number>({
             <ListItemButton disabled={disabled} onClick={() => setIsDialogOpen(true)}>
                 <ListItemText
                     primary={settingName}
-                    secondary={valueDisplayText ? t(valueDisplayText as TranslationKey) : t('global.label.loading')}
-                    secondaryTypographyProps={{ style: { display: 'flex', flexDirection: 'column' } }}
+                    secondary={valueDisplayText ? t(valueDisplayText as MessageDescriptor) : t`Loading…`}
+                    slotProps={{
+                        secondary: { sx: { display: 'flex', flexDirection: 'column' } },
+                    }}
                 />
             </ListItemButton>
-
             <Dialog open={isDialogOpen} onClose={() => closeDialog()} fullWidth>
                 <DialogTitle>{settingName}</DialogTitle>
                 <DialogContent>
@@ -102,7 +102,7 @@ export const SelectSetting = <SettingValue extends string | number>({
                                         whiteSpace: 'pre-line',
                                     }}
                                 >
-                                    {t(dialogValueDisplayInfo.description as TranslationKey)}
+                                    {t(dialogValueDisplayInfo.description as MessageDescriptor)}
                                 </Typography>
                             )}
                             {dialogValueDisplayInfo.disclaimer && (
@@ -112,7 +112,7 @@ export const SelectSetting = <SettingValue extends string | number>({
                                         alignItems: 'center',
                                     }}
                                 >
-                                    <InfoIcon color="warning" />
+                                    <WarningIcon color="warning" />
                                     <Typography
                                         variant="body1"
                                         sx={{
@@ -121,7 +121,7 @@ export const SelectSetting = <SettingValue extends string | number>({
                                             whiteSpace: 'pre-line',
                                         }}
                                     >
-                                        {t(dialogValueDisplayInfo.disclaimer as TranslationKey)}
+                                        {t(dialogValueDisplayInfo.disclaimer as MessageDescriptor)}
                                     </Typography>
                                 </Stack>
                             )}
@@ -135,7 +135,7 @@ export const SelectSetting = <SettingValue extends string | number>({
                         >
                             {values.map(([selectValue, { text: selectText }]) => (
                                 <MenuItem key={selectValue} value={selectValue}>
-                                    {t(selectText as TranslationKey)}
+                                    {t(selectText as MessageDescriptor)}
                                 </MenuItem>
                             ))}
                         </Select>
@@ -143,10 +143,10 @@ export const SelectSetting = <SettingValue extends string | number>({
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => closeDialog()} color="primary">
-                        {t('global.button.cancel')}
+                        {t`Cancel`}
                     </Button>
                     <Button onClick={() => updateSetting()} color="primary">
-                        {t('global.button.ok')}
+                        {t`Ok`}
                     </Button>
                 </DialogActions>
             </Dialog>

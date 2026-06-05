@@ -6,15 +6,16 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+import type { MessageDescriptor } from '@lingui/core';
 import { useEffect, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
-import { IReaderSettings, IReaderSettingsWithDefaultFlag } from '@/features/reader/Reader.types.ts';
+import { d } from 'koration';
+import { useLingui } from '@lingui/react/macro';
+import type { IReaderSettings, IReaderSettingsWithDefaultFlag } from '@/features/reader/Reader.types.ts';
 import { makeToast } from '@/base/utils/Toast.ts';
 import { READING_MODE_VALUE_TO_DISPLAY_DATA } from '@/features/reader/settings/ReaderSettings.constants.tsx';
-import { TReaderTapZoneContext } from '@/features/reader/tap-zones/TapZoneLayout.types.ts';
-import { TranslationKey } from '@/base/Base.types.ts';
+import { getReaderTapZoneStore } from '@/features/reader/stores/ReaderStore.ts';
 
-const HIDE_PREVIEW_TIMEOUT = 5000;
+const HIDE_PREVIEW_TIMEOUT = d(5).seconds.inWholeMilliseconds;
 
 export const useReaderShowSettingPreviewOnChange = (
     isLoading: boolean,
@@ -25,9 +26,8 @@ export const useReaderShowSettingPreviewOnChange = (
     tapZoneInvertMode: IReaderSettingsWithDefaultFlag['tapZoneInvertMode'],
     shouldShowReadingModePreview: IReaderSettings['shouldShowReadingModePreview'],
     shouldShowTapZoneLayoutPreview: IReaderSettings['shouldShowTapZoneLayoutPreview'],
-    setShowPreview: TReaderTapZoneContext['setShowPreview'],
 ) => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
     // show setting previews on change or when open reader
     const previousReadingMode = useRef<IReaderSettingsWithDefaultFlag['readingMode']>(undefined);
@@ -43,7 +43,7 @@ export const useReaderShowSettingPreviewOnChange = (
         const didReadingModeChange = JSON.stringify(readingMode) !== JSON.stringify(previousReadingMode.current);
         const showReadingModePreview = shouldShowReadingModePreview && didReadingModeChange;
         if (showReadingModePreview) {
-            makeToast(t(READING_MODE_VALUE_TO_DISPLAY_DATA[readingMode.value].title as TranslationKey), {
+            makeToast(t(READING_MODE_VALUE_TO_DISPLAY_DATA[readingMode.value].title as MessageDescriptor), {
                 autoHideDuration: HIDE_PREVIEW_TIMEOUT,
             });
         }
@@ -54,9 +54,9 @@ export const useReaderShowSettingPreviewOnChange = (
             JSON.stringify(tapZoneInvertMode) !== JSON.stringify(previousTapZoneInvertMode.current);
         const showTapZoneLayoutPreview = shouldShowTapZoneLayoutPreview && didTapZoneLayoutChange;
         if (showTapZoneLayoutPreview) {
-            setShowPreview(true);
+            getReaderTapZoneStore().setShowPreview(true);
             if (isInitialPreview.current) {
-                setTimeout(() => setShowPreview(false), HIDE_PREVIEW_TIMEOUT);
+                setTimeout(() => getReaderTapZoneStore().setShowPreview(false), HIDE_PREVIEW_TIMEOUT);
             }
         }
         previousTapZoneLayout.current = tapZoneLayout;

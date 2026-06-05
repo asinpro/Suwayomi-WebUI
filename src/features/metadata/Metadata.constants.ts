@@ -6,16 +6,10 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-// eslint-disable-next-line import/no-extraneous-dependencies,no-restricted-imports
 import deepmerge from '@mui/utils/deepmerge';
-import { AppMetadataKeys, IMetadataMigration } from '@/features/metadata/Metadata.types.ts';
-import {
-    IReaderSettings,
-    ProgressBarPosition,
-    ReaderCustomFilter,
-    ReaderPageScaleMode,
-    ReadingMode,
-} from '@/features/reader/Reader.types.ts';
+import type { AppMetadataKeys, IMetadataMigration } from '@/features/metadata/Metadata.types.ts';
+import type { IReaderSettings, ReaderCustomFilter, SafeAreaInset } from '@/features/reader/Reader.types.ts';
+import { ProgressBarPosition, ReaderPageScaleMode, ReadingMode } from '@/features/reader/Reader.types.ts';
 import {
     AUTO_SCROLL_SPEED,
     CUSTOM_FILTER,
@@ -28,21 +22,38 @@ import {
 import { coerceIn, jsonSaveParse } from '@/lib/HelperFunctions.ts';
 import { DOWNLOAD_AHEAD } from '@/features/downloads/Downloads.constants.ts';
 import { MANGA_GRID_WIDTH } from '@/features/settings/Settings.constants.ts';
-import { SortSettings } from '@/features/migration/Migration.types.ts';
-import { ISourceMetadata } from '@/features/source/Source.types.ts';
-import { LibraryOptions } from '@/features/library/Library.types.ts';
-import { MetadataThemeSettings } from '@/features/theme/AppTheme.types.ts';
-import { TapZoneInvertMode } from '@/features/reader/tap-zones/TapZoneLayout.types.ts';
+import type { SortSettings } from '@/features/migration/Migration.types.ts';
+import type { ISourceMetadata } from '@/features/source/Source.types.ts';
+import type { LibraryOptions } from '@/features/library/Library.types.ts';
+import type { MetadataThemeSettings } from '@/features/theme/AppTheme.types.ts';
+import type { TapZoneInvertMode } from '@/features/reader/tap-zones/TapZoneLayout.types.ts';
+import { detectLocale, getISOLanguage } from '@/lib/ISOLanguageUtil.ts';
+import type { I18nResourceCode } from '@/i18n';
+import { i18nResources } from '@/i18n';
+import { toUniqueLanguageCodes } from '@/base/utils/Languages.ts';
+import { assertIsDefined } from '@/base/Asserts.ts';
+
+const MATCH_ARRAY_NUMBERS = /^\[\d+(?:,\d+)*]$/g;
 
 export const APP_METADATA_KEY_PREFIX = 'webUI';
 
 const convertToTypeNullAndUndefined = <T>(value: string, convertToType: (value: string) => T): NullAndUndefined<T> => {
-    if (value === 'null') return null;
-    if (value === 'undefined') return undefined;
+    if (value === 'null') {
+        return null;
+    }
+    if (value === 'undefined') {
+        return undefined;
+    }
     return convertToType(value);
 };
 const convertToString = (value: string): string => value;
-const convertToNumber = (value: string): number => +value;
+const convertToNumber = (value: string, defaultValue: number): number => {
+    if (Number.isNaN(+value)) {
+        return defaultValue;
+    }
+
+    return +value;
+};
 const convertToBoolean = (value: string): boolean => value === 'true';
 const convertToStringNullAndUndefined = (value: string) => convertToTypeNullAndUndefined(value, convertToString);
 const convertToBooleanNullAndUndefined = (value: string) => convertToTypeNullAndUndefined(value, convertToBoolean);
@@ -117,6 +128,9 @@ export const APP_METADATA: Record<
     deleteChapters: {
         convert: convertToBoolean,
     },
+    migrateMetadata: {
+        convert: convertToBoolean,
+    },
     migrateSortSettings: {
         convert: convertToObject<SortSettings>,
     },
@@ -132,7 +146,13 @@ export const APP_METADATA: Record<
     webUIInformAvailableUpdate: {
         convert: convertToBoolean,
     },
+    webUIInformVersionUpdated: {
+        convert: convertToBoolean,
+    },
     serverInformAvailableUpdate: {
+        convert: convertToBoolean,
+    },
+    serverInformVersionUpdated: {
         convert: convertToBoolean,
     },
     readerWidth: {
@@ -331,10 +351,7 @@ export const APP_METADATA: Record<
     showChapterNumber: {
         convert: convertToBoolean,
     },
-    extensionLanguages: {
-        convert: convertToObject<string[]>,
-    },
-    sourceLanguages: {
+    browseLanguages: {
         convert: convertToObject<string[]>,
     },
     showNsfw: {
@@ -373,6 +390,21 @@ export const APP_METADATA: Record<
     },
     excludedScanlators: {
         convert: convertToObject<string[]>,
+    },
+    locale: {
+        convert: convertToString,
+        toConstrainedValue: (value: string) => {
+            const locale = getISOLanguage(value)?.isoCode;
+
+            if (!locale || !i18nResources.includes(locale as I18nResourceCode)) {
+                return detectLocale();
+            }
+
+            return locale;
+        },
+    },
+    safeAreaInset: {
+        convert: convertToObject<SafeAreaInset>,
     },
 } as const;
 
@@ -419,12 +451,12 @@ export const GLOBAL_METADATA_KEYS: AppMetadataKeys[] = [
     'migrateCategories',
     'migrateTracking',
     'deleteChapters',
+    'migrateMetadata',
     'migrateSortSettings',
 
     // browse
     'hideLibraryEntries',
-    'extensionLanguages',
-    'sourceLanguages',
+    'browseLanguages',
     'showNsfw',
     'lastUsedSourceId',
     'shouldShowOnlySourcesWithResults',
@@ -438,7 +470,9 @@ export const GLOBAL_METADATA_KEYS: AppMetadataKeys[] = [
 
     // updates
     'webUIInformAvailableUpdate',
+    'webUIInformVersionUpdated',
     'serverInformAvailableUpdate',
+    'serverInformVersionUpdated',
 
     // sources
     'savedSearches',
@@ -446,6 +480,7 @@ export const GLOBAL_METADATA_KEYS: AppMetadataKeys[] = [
     'isEnabled',
 
     // themes
+    'locale',
     'customThemes',
     'mangaThumbnailBackdrop',
     'mangaDynamicColorSchemes',
@@ -475,11 +510,14 @@ export const GLOBAL_METADATA_KEYS: AppMetadataKeys[] = [
  * getting migrated, the key in the value migration is the "old" key (before the migration to the
  * new key).
  *
+ * For new metadata migrations, the value migrations have already been applied while the key migrations are still outstanding (same as for the value migrations)
+ *
  * Migration order (function "applyMetadataMigrations"):
  * 1. app metadata key prefix
  * 2. app metadata values
- * 3. app metadata keys
- * 4. app metadata keys deletion
+ * 3. create new app metadata with values from existing metadata
+ * 4. app metadata keys
+ * 5. app metadata keys deletion
  *
  * @example
  * // changes:
@@ -651,4 +689,51 @@ export const METADATA_MIGRATIONS: IMetadataMigration[] = [
             },
         ],
     },
+    {
+        values: [
+            {
+                key: 'sourceLanguages',
+                oldValue: /^\[.*]$/g,
+                newValue: (sourceLanguagesValue, key, oldMetadata) => {
+                    const extensionLanguagesKey = key.replace('sourceLanguages', 'extensionLanguages');
+                    const extensionLanguagesValue = oldMetadata[extensionLanguagesKey];
+
+                    const convertedSourceLanguages = convertToObject<string[]>(sourceLanguagesValue, []);
+                    const convertedExtensionLanguages = convertToObject<string[]>(extensionLanguagesValue, []);
+
+                    return JSON.stringify(
+                        toUniqueLanguageCodes([...convertedSourceLanguages, ...convertedExtensionLanguages]),
+                    );
+                },
+            },
+        ],
+        keys: [{ oldKey: 'sourceLanguages', newKey: 'browseLanguages' }],
+        deleteKeys: ['sourceLanguages', 'extensionLanguages'],
+    },
+    {
+        values: [
+            ...(() =>
+                ['pageScaleMode', 'readingDirection', 'readingMode', 'tapZoneLayout'].map((key) => ({
+                    key,
+                    oldValue: MATCH_ARRAY_NUMBERS,
+                    newValue: (value) => {
+                        const array = jsonSaveParse<number[]>(value);
+
+                        assertIsDefined(array);
+
+                        return JSON.stringify(array[0]);
+                    },
+                })) satisfies IMetadataMigration['values'])(),
+        ],
+    },
+];
+
+export const ALL_APP_METADATA_KEY_PREFIXES: string[] = [
+    ...METADATA_MIGRATIONS.reduce<Set<string>>((acc, migration) => {
+        if (migration.appKeyPrefix?.oldPrefix) {
+            acc.add(migration.appKeyPrefix.oldPrefix);
+        }
+        return acc;
+    }, new Set()),
+    APP_METADATA_KEY_PREFIX,
 ];

@@ -6,8 +6,10 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import TextField, { TextFieldProps } from '@mui/material/TextField';
-import IconButton, { IconButtonProps } from '@mui/material/IconButton';
+import type { TextFieldProps } from '@mui/material/TextField';
+import TextField from '@mui/material/TextField';
+import type { IconButtonProps } from '@mui/material/IconButton';
+import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
 import CancelIcon from '@mui/icons-material/Cancel';
 
@@ -20,11 +22,12 @@ export const SearchTextField = ({
         {...textFieldProps}
         slotProps={{
             input: {
-                ...textFieldProps.InputProps,
+                ...textFieldProps.slotProps?.input,
                 sx: {
                     color: 'inherit',
                 },
-                endAdornment: textFieldProps.InputProps?.endAdornment ?? (
+                // @ts-expect-error - "endAdornment" does not exist mimimi - fuck off
+                endAdornment: textFieldProps.slotProps?.input?.endAdornment ?? (
                     <InputAdornment position="end">
                         <IconButton {...cancelButtonProps} onClick={() => onCancel()}>
                             <CancelIcon />

@@ -7,9 +7,10 @@
  */
 
 import Box from '@mui/material/Box';
-import { memo, ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { memo } from 'react';
 import { CustomTooltip } from '@/base/components/CustomTooltip.tsx';
-import { ReaderProgressBarSlotProps } from '@/features/reader/overlay/progress-bar/ReaderProgressBar.types.ts';
+import type { ReaderProgressBarSlotProps } from '@/features/reader/overlay/progress-bar/ReaderProgressBar.types.ts';
 
 import { READER_PROGRESS_BAR_POSITION_TO_PLACEMENT } from '@/features/reader/settings/ReaderSettings.constants.tsx';
 
@@ -19,6 +20,7 @@ export const ReaderProgressBarSlot = memo(
             {...slotProps?.tooltip}
             title={pageName}
             placement={READER_PROGRESS_BAR_POSITION_TO_PLACEMENT[progressBarPosition]}
+            disableTouchListener
         >
             <Box {...slotProps?.box} sx={{ width: '100%', height: '100%', ...slotProps?.box?.sx }}>
                 {children}

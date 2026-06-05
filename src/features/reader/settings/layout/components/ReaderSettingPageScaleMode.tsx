@@ -6,29 +6,34 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { useTranslation } from 'react-i18next';
-import { IReaderSettings, IReaderSettingsWithDefaultFlag, ReadingDirection } from '@/features/reader/Reader.types.ts';
+import { useLingui } from '@lingui/react/macro';
+import type {
+    IReaderSettings,
+    IReaderSettingsWithDefaultFlag,
+    ReadingDirection,
+} from '@/features/reader/Reader.types.ts';
 import {
     PAGE_SCALE_VALUE_TO_DISPLAY_DATA,
     READER_PAGE_SCALE_MODE_VALUES,
 } from '@/features/reader/settings/ReaderSettings.constants.tsx';
 import { ButtonSelectInput } from '@/base/components/inputs/ButtonSelectInput.tsx';
-import { MultiValueButtonDefaultableProps } from '@/base/Base.types.ts';
+
+import type { SelectButtonDefaultableProps } from '@/base/components/buttons/SelectButton.tsx';
 
 export const ReaderSettingPageScaleMode = ({
     pageScaleMode,
     setPageScaleMode,
     ...buttonSelectInputProps
 }: Pick<IReaderSettingsWithDefaultFlag, 'pageScaleMode'> &
-    Pick<MultiValueButtonDefaultableProps<ReadingDirection>, 'isDefaultable' | 'onDefault'> & {
+    Pick<SelectButtonDefaultableProps<ReadingDirection>, 'isDefaultable' | 'onDefault'> & {
         setPageScaleMode: (mode: IReaderSettings['pageScaleMode']) => void;
     }) => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
     return (
         <ButtonSelectInput
             {...buttonSelectInputProps}
-            label={t('reader.settings.page_scale.title')}
+            label={t`Scale type`}
             value={pageScaleMode.isDefault ? undefined : pageScaleMode.value}
             defaultValue={pageScaleMode.isDefault ? pageScaleMode.value : undefined}
             values={READER_PAGE_SCALE_MODE_VALUES}

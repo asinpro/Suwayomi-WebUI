@@ -7,15 +7,15 @@
  */
 
 import Stack from '@mui/material/Stack';
-import { useTranslation } from 'react-i18next';
 import IconButton from '@mui/material/IconButton';
 import PushPinIcon from '@mui/icons-material/PushPin';
 import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined';
 import Divider from '@mui/material/Divider';
 import { memo, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import Drawer from '@mui/material/Drawer';
+import { useLingui } from '@lingui/react/macro';
 import { CustomTooltip } from '@/base/components/CustomTooltip.tsx';
-import { ReaderNavBarDesktopProps } from '@/features/reader/overlay/ReaderOverlay.types.ts';
+import type { ReaderNavBarDesktopProps } from '@/features/reader/overlay/ReaderOverlay.types.ts';
 import { ReaderNavContainer } from '@/features/reader/overlay/navigation/desktop/components/ReaderNavContainer.tsx';
 import { ReaderNavBarDesktopMetadata } from '@/features/reader/overlay/navigation/desktop/components/ReaderNavBarDesktopMetadata.tsx';
 import { ReaderNavBarDesktopPageNavigation } from '@/features/reader/overlay/navigation/desktop/components/ReaderNavBarDesktopPageNavigation.tsx';
@@ -24,16 +24,16 @@ import { ReaderNavBarDesktopQuickSettings } from '@/features/reader/overlay/navi
 import { ReaderNavBarDesktopActions } from '@/features/reader/overlay/navigation/desktop/components/ReaderNavBarDesktopActions.tsx';
 import { useNavBarContext } from '@/features/navigation-bar/NavbarContext.tsx';
 import { useResizeObserver } from '@/base/hooks/useResizeObserver.tsx';
-import { useReaderStateMangaContext } from '@/features/reader/contexts/state/ReaderStateMangaContext.tsx';
-import { userReaderStatePagesContext } from '@/features/reader/contexts/state/ReaderStatePagesContext.tsx';
-import { useReaderStateChaptersContext } from '@/features/reader/contexts/state/ReaderStateChaptersContext.tsx';
 import { ReaderService } from '@/features/reader/services/ReaderService.ts';
 import { LoadingPlaceholder } from '@/base/components/feedback/LoadingPlaceholder.tsx';
-import { NavbarContextType } from '@/features/navigation-bar/NavigationBar.types.ts';
-import { IReaderSettings, ReaderStateChapters, TReaderStateMangaContext } from '@/features/reader/Reader.types.ts';
+import type { NavbarContextType } from '@/features/navigation-bar/NavigationBar.types.ts';
 import { withPropsFrom } from '@/base/hoc/withPropsFrom.tsx';
-import { FALLBACK_MANGA } from '@/features/manga/Manga.constants.ts';
 import { ReaderExitButton } from '@/features/reader/overlay/navigation/components/ReaderExitButton.tsx';
+import {
+    useReaderChaptersStore,
+    useReaderSettingsStore,
+    useReaderStore,
+} from '@/features/reader/stores/ReaderStore.ts';
 
 const useGetPreviousNavBarStaticValue = (isVisible: boolean, isStaticNav: boolean) => {
     const wasNavBarStaticRef = useRef(isStaticNav);
@@ -57,20 +57,27 @@ const BaseReaderNavBarDesktop = ({
     isVisible,
     openSettings,
     setReaderNavBarWidth,
-    manga,
-    chapters,
-    currentChapter,
-    previousChapter,
-    nextChapter,
-    isStaticNav,
-}: ReaderNavBarDesktopProps &
-    Pick<NavbarContextType, 'setReaderNavBarWidth'> &
-    Pick<TReaderStateMangaContext, 'manga'> &
-    Pick<ReaderStateChapters, 'currentChapter' | 'previousChapter' | 'nextChapter' | 'chapters'> &
-    Pick<IReaderSettings, 'isStaticNav'>) => {
-    const { t } = useTranslation();
-
-    const updateReaderSettings = ReaderService.useCreateUpdateSetting(manga ?? FALLBACK_MANGA);
+}: ReaderNavBarDesktopProps & Pick<NavbarContextType, 'setReaderNavBarWidth'>) => {
+    const { t } = useLingui();
+    const manga = useReaderStore('manga');
+    const {
+        chapters,
+        currentChapterId,
+        currentChapterName,
+        currentChapterNumber,
+        currentChapterScanlator,
+        previousChapter,
+        nextChapter,
+    } = useReaderChaptersStore((state) => ({
+        chapters: state.chapters,
+        currentChapterId: state.currentChapter?.id,
+        currentChapterName: state.currentChapter?.name,
+        currentChapterNumber: state.currentChapter?.chapterNumber,
+        currentChapterScanlator: state.currentChapter?.scanlator,
+        previousChapter: state.previousChapter,
+        nextChapter: state.nextChapter,
+    }));
+    const isStaticNav = useReaderSettingsStore('isStaticNav');
 
     const [navBarElement, setNavBarElement] = useState<HTMLDivElement | null>();
     useResizeObserver(
@@ -94,22 +101,24 @@ const BaseReaderNavBarDesktop = ({
             variant={isStaticNav ? 'permanent' : 'persistent'}
             open={isVisible || isStaticNav}
             transitionDuration={drawerTransitionDuration}
-            SlideProps={{
-                unmountOnExit: true,
-            }}
-            PaperProps={{
-                ref: (ref: HTMLDivElement | null) => setNavBarElement(ref),
+            slotProps={{
+                paper: {
+                    ref: (ref: HTMLDivElement | null) => setNavBarElement(ref),
+                },
+                transition: {
+                    unmountOnExit: true,
+                },
             }}
         >
             <ReaderNavContainer sx={{ backgroundColor: 'background.paper', pointerEvents: 'all' }}>
                 <Stack sx={{ p: 2, gap: 2, backgroundColor: 'action.hover' }}>
                     <Stack sx={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                         <ReaderExitButton />
-                        <CustomTooltip title={t('reader.settings.label.static_navigation')}>
+                        <CustomTooltip title={t`Static navigation`}>
                             <IconButton
                                 onClick={() => {
                                     setReaderNavBarWidth(0);
-                                    updateReaderSettings('isStaticNav', !isStaticNav);
+                                    ReaderService.updateSetting('isStaticNav', !isStaticNav);
                                 }}
                                 color={isStaticNav ? 'primary' : 'inherit'}
                             >
@@ -117,13 +126,13 @@ const BaseReaderNavBarDesktop = ({
                             </IconButton>
                         </CustomTooltip>
                     </Stack>
-                    {manga && currentChapter ? (
+                    {manga && currentChapterId !== undefined ? (
                         <>
                             <ReaderNavBarDesktopMetadata
                                 mangaId={manga.id}
                                 mangaTitle={manga.title}
-                                chapterTitle={currentChapter.name}
-                                scanlator={currentChapter.scanlator}
+                                chapterTitle={currentChapterName ?? ''}
+                                scanlator={currentChapterScanlator}
                             />
                             <ReaderNavBarDesktopActions />
                         </>
@@ -136,7 +145,9 @@ const BaseReaderNavBarDesktop = ({
                         <ReaderNavBarDesktopPageNavigation />
                         <ReaderNavBarDesktopChapterNavigation
                             chapters={chapters}
-                            currentChapter={currentChapter}
+                            currentChapterId={currentChapterId}
+                            currentChapterName={currentChapterName}
+                            currentChapterNumber={currentChapterNumber}
                             nextChapter={nextChapter}
                             previousChapter={previousChapter}
                         />
@@ -151,12 +162,6 @@ const BaseReaderNavBarDesktop = ({
 
 export const ReaderNavBarDesktop = withPropsFrom(
     memo(BaseReaderNavBarDesktop),
-    [
-        useNavBarContext,
-        useReaderStateMangaContext,
-        useReaderStateChaptersContext,
-        userReaderStatePagesContext,
-        ReaderService.useSettingsWithoutDefaultFlag,
-    ],
-    ['setReaderNavBarWidth', 'manga', 'chapters', 'currentChapter', 'previousChapter', 'nextChapter', 'isStaticNav'],
+    [useNavBarContext],
+    ['setReaderNavBarWidth'],
 );

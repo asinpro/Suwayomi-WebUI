@@ -7,8 +7,8 @@
  */
 
 import Stack from '@mui/material/Stack';
-import { useTranslation } from 'react-i18next';
-import { IReaderSettings } from '@/features/reader/Reader.types.ts';
+import { useLingui } from '@lingui/react/macro';
+import type { IReaderSettings } from '@/features/reader/Reader.types.ts';
 import { CheckboxInput } from '@/base/components/inputs/CheckboxInput.tsx';
 
 export const ReaderSettingSepia = ({
@@ -17,15 +17,11 @@ export const ReaderSettingSepia = ({
 }: Pick<IReaderSettings['customFilter'], 'sepia'> & {
     updateSetting: (sepia: boolean) => void;
 }) => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
     return (
         <Stack>
-            <CheckboxInput
-                label={t('reader.settings.custom_filter.sepia')}
-                checked={sepia}
-                onChange={(_, checked) => updateSetting(checked)}
-            />
+            <CheckboxInput label={t`Sepia`} checked={sepia} onChange={(_, checked) => updateSetting(checked)} />
         </Stack>
     );
 };

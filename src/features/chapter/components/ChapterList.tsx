@@ -10,8 +10,10 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import { styled } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
-import { ComponentProps, useCallback, useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import type { ComponentProps } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { useLingui } from '@lingui/react/macro';
+import { plural } from '@lingui/core/macro';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { ResumeFab } from '@/features/manga/components/ResumeFAB.tsx';
 import {
@@ -21,21 +23,21 @@ import {
 } from '@/features/chapter/utils/ChapterList.util.tsx';
 import { EmptyViewAbsoluteCentered } from '@/base/components/feedback/EmptyViewAbsoluteCentered.tsx';
 import { ChaptersToolbarMenu } from '@/features/chapter/components/ChaptersToolbarMenu.tsx';
-import { SelectionFAB } from '@/features/collection/components/SelectionFAB.tsx';
+import { SelectionFAB } from '@/base/collection/components/SelectionFAB.tsx';
 import { DEFAULT_FULL_FAB_HEIGHT } from '@/base/components/buttons/StyledFab.tsx';
-import {
+import type {
     ChapterListFieldsFragment,
     GetChaptersMangaQuery,
     GetChaptersMangaQueryVariables,
     MangaScreenFieldsFragment,
 } from '@/lib/graphql/generated/graphql.ts';
-import { useSelectableCollection } from '@/features/collection/hooks/useSelectableCollection.ts';
-import { SelectableCollectionSelectAll } from '@/features/collection/components/SelectableCollectionSelectAll.tsx';
+import { useSelectableCollection } from '@/base/collection/hooks/useSelectableCollection.ts';
+import { SelectableCollectionSelectAll } from '@/base/collection/components/SelectableCollectionSelectAll.tsx';
 import { Chapters } from '@/features/chapter/services/Chapters.ts';
 import { ChapterActionMenuItems } from '@/features/chapter/components/actions/ChapterActionMenuItems.tsx';
 import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
 import { LoadingPlaceholder } from '@/base/components/feedback/LoadingPlaceholder.tsx';
-import { GET_CHAPTERS_MANGA } from '@/lib/graphql/queries/ChapterQuery.ts';
+import { GET_CHAPTERS_MANGA } from '@/lib/graphql/chapter/ChapterQuery.ts';
 import { useNavBarContext } from '@/features/navigation-bar/NavbarContext.tsx';
 import { useResizeObserver } from '@/base/hooks/useResizeObserver.tsx';
 import { MediaQuery } from '@/base/utils/MediaQuery.tsx';
@@ -44,6 +46,7 @@ import { getErrorMessage } from '@/lib/HelperFunctions.ts';
 import { makeToast } from '@/base/utils/Toast.ts';
 import { ChapterListCard } from '@/features/chapter/components/cards/ChapterListCard.tsx';
 import { VirtuosoPersisted } from '@/lib/virtuoso/Component/VirtuosoPersisted.tsx';
+import { STABLE_EMPTY_ARRAY } from '@/base/Base.constants.ts';
 
 type ChapterListHeaderProps = {
     scrollbarWidth: number;
@@ -82,7 +85,7 @@ const ChapterListFAB = ({
 }) => {
     if (selectedChapters.length) {
         return (
-            <SelectionFAB selectedItemsCount={selectedChapters.length} title="chapter.title_one">
+            <SelectionFAB title={plural(selectedChapters.length, { one: '# chapter', other: '# chapters' })}>
                 {(handleClose) => (
                     <ChapterActionMenuItems
                         selectedChapters={selectedChapters}
@@ -110,7 +113,7 @@ export const ChapterList = ({
     manga: Pick<MangaScreenFieldsFragment, 'id' | 'firstUnreadChapter' | 'chapters' | 'unreadCount' | 'downloadCount'>;
     isRefreshing: boolean;
 }) => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
     const { appBarHeight } = useNavBarContext();
 
     const isMobileWidth = MediaQuery.useIsBelowWidth('md');
@@ -126,7 +129,7 @@ export const ChapterList = ({
 
     const options = useChapterListOptions(manga);
     const updateOption = updateChapterListOptions(manga, (e) =>
-        makeToast(t('global.error.label.failed_to_save_changes'), 'error', getErrorMessage(e)),
+        makeToast(t`Failed to save changes`, 'error', getErrorMessage(e)),
     );
     const {
         data: chaptersData,
@@ -136,9 +139,8 @@ export const ChapterList = ({
     } = requestManager.useGetMangaChapters<GetChaptersMangaQuery, GetChaptersMangaQueryVariables>(
         GET_CHAPTERS_MANGA,
         manga.id,
-        { notifyOnNetworkStatusChange: true },
     );
-    const chapters = useMemo(() => chaptersData?.chapters.nodes ?? [], [chaptersData?.chapters.nodes]);
+    const chapters = chaptersData?.chapters.nodes ?? STABLE_EMPTY_ARRAY;
 
     const visibleChapters = useMemo(() => filterAndSortChapters(chapters, options), [chapters, options]);
     const visibleChapterIds = useMemo(() => Chapters.getIds(visibleChapters), [visibleChapters]);
@@ -173,7 +175,7 @@ export const ChapterList = ({
         return (
             <Stack sx={{ justifyContent: 'center', position: 'relative', flexGrow: 1 }}>
                 <EmptyViewAbsoluteCentered
-                    message={t('global.error.label.failed_to_load_data')}
+                    message={t`Unable to load data`}
                     messageExtra={getErrorMessage(error)}
                     retry={() => refetch().catch(defaultPromiseErrorHandler('ChapterList::refetch'))}
                 />
@@ -186,20 +188,26 @@ export const ChapterList = ({
             <Stack direction="column" sx={{ position: 'relative', flexBasis: '60%' }}>
                 <ChapterListHeader
                     ref={setChapterListHeaderRef}
-                    direction="row"
-                    alignItems="center"
-                    justifyContent="space-between"
+                    sx={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                    }}
                     scrollbarWidth={scrollbarWidth}
                 >
                     <Stack>
                         <Typography variant="h5" component="h3">
-                            {t('chapter.value', { count: visibleChapters.length })}
+                            {plural(visibleChapters.length, {
+                                one: '# chapter',
+                                other: '# chapters',
+                            })}
                         </Typography>
                         {!!missingChapterCount && (
                             <Typography variant="body2" color="warning">
-                                {`${t('chapter.missing', {
-                                    count: missingChapterCount,
-                                })}`}
+                                {plural(missingChapterCount, {
+                                    one: 'Missing # chapter',
+                                    other: 'Missing # chapters',
+                                })}
                             </Typography>
                         )}
                     </Stack>
@@ -225,10 +233,8 @@ export const ChapterList = ({
                     </Stack>
                 </ChapterListHeader>
 
-                {noChaptersFound && <EmptyViewAbsoluteCentered message={t('chapter.error.label.no_chapter_found')} />}
-                {noChaptersMatchingFilter && (
-                    <EmptyViewAbsoluteCentered message={t('chapter.error.label.no_matches')} />
-                )}
+                {noChaptersFound && <EmptyViewAbsoluteCentered message={t`No chapters found`} />}
+                {noChaptersMatchingFilter && <EmptyViewAbsoluteCentered message={t`No chapters matching filter`} />}
 
                 <StyledVirtuoso
                     persistKey={`manga-${manga.id}-chapter-list`}

@@ -14,15 +14,15 @@ import Stack from '@mui/material/Stack';
 import Card from '@mui/material/Card';
 import IconButton from '@mui/material/IconButton';
 import { useTheme } from '@mui/material/styles';
-import React, { memo, MouseEvent, TouchEvent, useRef } from 'react';
+import type { MouseEvent, TouchEvent } from 'react';
+import React, { memo, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
 import PopupState, { bindMenu, bindTrigger } from 'material-ui-popup-state';
 import { useLongPress } from 'use-long-press';
+import { useLingui } from '@lingui/react/macro';
 import { CustomTooltip } from '@/base/components/CustomTooltip.tsx';
 import { getDateString } from '@/base/utils/DateHelper.ts';
 import { DownloadStateIndicator } from '@/base/components/downloads/DownloadStateIndicator.tsx';
-import { ChapterType } from '@/lib/graphql/generated/graphql.ts';
 import { ChapterActionMenuItems } from '@/features/chapter/components/actions/ChapterActionMenuItems.tsx';
 import { Menu } from '@/base/components/menu/Menu.tsx';
 import { Chapters } from '@/features/chapter/services/Chapters.ts';
@@ -30,16 +30,19 @@ import { applyStyles } from '@/base/utils/ApplyStyles.ts';
 import { ChapterCardMetadata } from '@/features/chapter/components/cards/ChapterCardMetadata.tsx';
 import { MUIUtil } from '@/lib/mui/MUI.util.ts';
 import { ListCardContent } from '@/base/components/lists/cards/ListCardContent.tsx';
-import {
+import type {
     ChapterBookmarkInfo,
     ChapterDownloadInfo,
     ChapterIdInfo,
     ChapterMangaInfo,
+    ChapterNameInfo,
     ChapterNumberInfo,
     ChapterReadInfo,
     ChapterScanlatorInfo,
+    ChapterSourceOrderInfo,
 } from '@/features/chapter/Chapter.types.ts';
 import { MediaQuery } from '@/base/utils/MediaQuery.tsx';
+import type { ChapterType } from '@/lib/graphql/generated/graphql-base.types.ts';
 
 type TChapter = ChapterIdInfo &
     ChapterMangaInfo &
@@ -48,7 +51,9 @@ type TChapter = ChapterIdInfo &
     ChapterBookmarkInfo &
     ChapterNumberInfo &
     ChapterScanlatorInfo &
-    Pick<ChapterType, 'name' | 'sourceOrder' | 'uploadDate'>;
+    ChapterNameInfo &
+    ChapterSourceOrderInfo &
+    Pick<ChapterType, 'uploadDate'>;
 
 interface IProps {
     mode?: 'manga.page' | 'reader';
@@ -60,8 +65,17 @@ interface IProps {
     isActiveChapter?: boolean; // reader
 }
 
+const handleClickOpenMenu = (
+    event: React.MouseEvent | React.TouchEvent,
+    openMenu?: (e: React.SyntheticEvent) => void,
+) => {
+    event.stopPropagation();
+    event.preventDefault();
+    openMenu?.(event);
+};
+
 export const ChapterCard = memo((props: IProps) => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
     const theme = useTheme();
     const preventMobileContextMenu = MediaQuery.usePreventMobileContextMenu();
 
@@ -81,20 +95,13 @@ export const ChapterCard = memo((props: IProps) => {
     const { isDownloaded } = chapter;
 
     const handleClick = (event: MouseEvent | TouchEvent) => {
-        if (!isSelecting) return;
+        if (!isSelecting) {
+            return;
+        }
 
         event.preventDefault();
         event.stopPropagation();
         onSelect(chapter.id, !selected, event.shiftKey);
-    };
-
-    const handleClickOpenMenu = (
-        event: React.MouseEvent | React.TouchEvent,
-        openMenu?: (e: React.SyntheticEvent) => void,
-    ) => {
-        event.stopPropagation();
-        event.preventDefault();
-        openMenu?.(event);
     };
 
     const longPressBind = useLongPress((event, { context: openMenu }) => {
@@ -103,7 +110,7 @@ export const ChapterCard = memo((props: IProps) => {
             return;
         }
 
-        // eslint-disable-next-line no-param-reassign
+        // oxlint-disable-next-line no-param-reassign
         event.shiftKey = true;
         handleClick(event);
     });
@@ -134,13 +141,11 @@ export const ChapterCard = memo((props: IProps) => {
                         >
                             <ListCardContent>
                                 <ChapterCardMetadata
-                                    title={
-                                        showChapterNumber
-                                            ? `${t('chapter.title_one')} ${chapter.chapterNumber}`
-                                            : chapter.name
-                                    }
+                                    title={showChapterNumber ? `${t`Chapter`} ${chapter.chapterNumber}` : chapter.name}
                                     secondaryText={chapter.scanlator}
-                                    ternaryText={`${getDateString(Number(chapter.uploadDate ?? 0), true)}${isDownloaded ? ` • ${t('chapter.status.label.downloaded')}` : ''}`}
+                                    ternaryText={`${getDateString(Number(chapter.uploadDate ?? 0), true)}${
+                                        isDownloaded ? ` • ${t`Downloaded`}` : ''
+                                    }`}
                                     infoIcons={
                                         chapter.isBookmarked && (
                                             <BookmarkIcon
@@ -150,8 +155,7 @@ export const ChapterCard = memo((props: IProps) => {
                                     }
                                     slotProps={{
                                         title: {
-                                            variant: 'h6',
-                                            component: 'h3',
+                                            variant: 'subtitle1',
                                             sx: applyStyles(mode === 'reader' && isActiveChapter, {
                                                 color: theme.palette.primary.contrastText,
                                             }),
@@ -180,7 +184,7 @@ export const ChapterCard = memo((props: IProps) => {
 
                                 <Stack sx={{ minHeight: '48px' }}>
                                     {selected === null ? (
-                                        <CustomTooltip title={t('global.button.options')}>
+                                        <CustomTooltip title={t`Options`}>
                                             <IconButton
                                                 ref={menuButtonRef}
                                                 {...MUIUtil.preventRippleProp(bindTrigger(popupState), {
@@ -198,9 +202,7 @@ export const ChapterCard = memo((props: IProps) => {
                                             </IconButton>
                                         </CustomTooltip>
                                     ) : (
-                                        <CustomTooltip
-                                            title={t(selected ? 'global.button.deselect' : 'global.button.select')}
-                                        >
+                                        <CustomTooltip title={selected ? t`Deselect` : t`Select`}>
                                             <Checkbox checked={selected} />
                                         </CustomTooltip>
                                     )}

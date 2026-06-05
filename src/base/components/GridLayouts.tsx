@@ -13,9 +13,8 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Radio from '@mui/material/Radio';
 import React from 'react';
 import ViewModuleIcon from '@mui/icons-material/ViewModule';
-import { useTranslation } from 'react-i18next';
+import { useLingui } from '@lingui/react/macro';
 import { CustomTooltip } from '@/base/components/CustomTooltip.tsx';
-
 import { GridLayout } from '@/base/Base.types.ts';
 
 // TODO: clean up this to use a FormControl, and remove dependency on name o radio button
@@ -26,7 +25,7 @@ export function GridLayouts({
     gridLayout: GridLayout;
     onChange: (gridLayout: GridLayout) => void;
 }) {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
     const [anchorEl, setAnchorEl] = React.useState(null);
     const open = Boolean(anchorEl);
@@ -43,7 +42,7 @@ export function GridLayouts({
 
     return (
         <>
-            <CustomTooltip title={t('global.label.display')}>
+            <CustomTooltip title={t`Display`}>
                 <IconButton
                     onClick={handleClick}
                     size="small"
@@ -60,11 +59,13 @@ export function GridLayouts({
                 anchorEl={anchorEl}
                 open={open}
                 onClose={handleClose}
-                MenuListProps={{ 'aria-labelledby': 'basic-button' }}
+                slotProps={{
+                    list: { 'aria-labelledby': 'basic-button' },
+                }}
             >
                 <MenuItem onClick={handleClose}>
                     <FormControlLabel
-                        label={t('global.grid_layout.label.compact_grid')}
+                        label={t`Compact grid`}
                         value={GridLayout.Compact}
                         control={
                             <Radio
@@ -77,7 +78,7 @@ export function GridLayouts({
                 </MenuItem>
                 <MenuItem onClick={handleClose}>
                     <FormControlLabel
-                        label={t('global.grid_layout.label.comfortable_grid')}
+                        label={t`Comfortable grid`}
                         control={
                             <Radio
                                 name={GridLayout.Comfortable.toString()}
@@ -89,7 +90,7 @@ export function GridLayouts({
                 </MenuItem>
                 <MenuItem onClick={handleClose}>
                     <FormControlLabel
-                        label={t('global.grid_layout.label.list')}
+                        label={t`List`}
                         control={
                             <Radio
                                 name={GridLayout.List.toString()}

@@ -12,7 +12,7 @@ import Card from '@mui/material/Card';
 import { Link } from 'react-router-dom';
 import { memo } from 'react';
 import { DownloadStateIndicator } from '@/base/components/downloads/DownloadStateIndicator.tsx';
-import { ChapterUpdateListFieldsFragment } from '@/lib/graphql/generated/graphql.ts';
+import type { ChapterUpdateListFieldsFragment } from '@/lib/graphql/generated/graphql.ts';
 import { AppRoutes } from '@/base/AppRoute.constants.ts';
 import { ChapterCardThumbnail } from '@/features/chapter/components/cards/ChapterCardThumbnail.tsx';
 import { ChapterCardMetadata } from '@/features/chapter/components/cards/ChapterCardMetadata.tsx';
@@ -38,6 +38,7 @@ export const ChapterUpdateCard = memo(({ chapter }: { chapter: ChapterUpdateList
                     <Box sx={{ display: 'flex', flexGrow: 1, gap: 1 }}>
                         <ChapterCardThumbnail
                             mangaId={manga.id}
+                            sourceId={manga.sourceId}
                             mangaTitle={manga.title}
                             thumbnailUrl={manga.thumbnailUrl}
                             thumbnailUrlLastFetched={manga.thumbnailUrlLastFetched}

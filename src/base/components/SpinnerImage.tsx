@@ -6,20 +6,25 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { useState, useEffect, forwardRef, ForwardedRef, useCallback, useRef } from 'react';
+import type { Ref } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { STABLE_EMPTY_OBJECT } from '@/base/Base.constants.ts';
 import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import BrokenImageIcon from '@mui/icons-material/BrokenImage';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { useTranslation } from 'react-i18next';
 import ImageIcon from '@mui/icons-material/Image';
-import { SxProps, Theme } from '@mui/material/styles';
+import type { SxProps, Theme } from '@mui/material/styles';
+import { useLingui } from '@lingui/react/macro';
+import { usePrevious } from '@mantine/hooks';
+import type { ImageRequest } from '@/lib/requests/RequestManager.ts';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
-import { Priority } from '@/lib/Queue.ts';
+import type { Priority } from '@/lib/Queue.ts';
 import { applyStyles } from '@/base/utils/ApplyStyles.ts';
 import { useIntersectionObserver } from '@/base/hooks/useIntersectionObserver.tsx';
+import { noOp } from '@/lib/HelperFunctions.ts';
 
 export interface SpinnerImageProps {
     shouldLoad?: boolean;
@@ -37,189 +42,205 @@ export interface SpinnerImageProps {
     shouldDecode?: boolean;
     useFetchApi?: boolean;
     disableCors?: boolean;
+    ignoreQueue?: boolean;
 
     priority?: Priority;
 
     retryKeyPrefix?: string;
+
+    ref?: Ref<HTMLImageElement | HTMLDivElement | null>;
 }
 
-export const SpinnerImage = forwardRef(
-    (props: SpinnerImageProps, imgRef: ForwardedRef<HTMLImageElement | HTMLDivElement | null>) => {
-        const {
-            shouldLoad = true,
-            shouldDecode,
-            useFetchApi,
-            disableCors,
-            src,
-            alt,
-            onLoad,
-            onError,
-            spinnerStyle: { small, ...spinnerStyle } = {},
-            imgStyle,
-            hideImgStyle,
-            priority,
-            retryKeyPrefix,
-        } = props;
+export const SpinnerImage = ({ ref, ...props }: SpinnerImageProps) => {
+    const {
+        shouldLoad = true,
+        shouldDecode,
+        useFetchApi,
+        disableCors,
+        ignoreQueue,
+        src,
+        alt,
+        onLoad,
+        onError,
+        spinnerStyle: { small, ...spinnerStyle } = STABLE_EMPTY_OBJECT,
+        imgStyle,
+        hideImgStyle,
+        priority,
+        retryKeyPrefix,
+    } = props;
 
-        const { t } = useTranslation();
+    const { t } = useLingui();
 
-        const loadingIndicatorRef = useRef<HTMLDivElement | null>(null);
+    const loadingIndicatorRef = useRef<HTMLDivElement | null>(null);
 
-        const showMissingImageIcon = !src.length;
+    const showMissingImageIcon = !src.length;
 
-        const [imageSourceUrl, setImageSourceUrl] = useState<string>();
-        const [imgLoadRetryKey, setImgLoadRetryKey] = useState(0);
-        const [isLoading, setIsLoading] = useState<boolean>();
-        const [hasError, setHasError] = useState(false);
-        const [isVisible, setIsVisible] = useState(false);
+    const [imageSourceUrl, setImageSourceUrl] = useState<string>();
+    const [imgLoadRetryKey, setImgLoadRetryKey] = useState(0);
+    const [isLoading, setIsLoading] = useState<boolean>();
+    const [hasError, setHasError] = useState(false);
+    const [isVisible, setIsVisible] = useState(false);
 
-        const updateImageState = (loading: boolean, error: boolean = false, aborted: boolean = false) => {
-            setIsLoading(loading);
-            setHasError(error);
+    const previousSrc = usePrevious(src);
+    const previousImgLoadRetryKey = usePrevious(imgLoadRetryKey);
+    const previousRetryKeyPrefix = usePrevious(retryKeyPrefix);
 
-            if (error && !loading && !aborted) {
-                onError?.();
-            }
+    const updateImageState = (loading: boolean, error: boolean = false, aborted: boolean = false) => {
+        setIsLoading(loading);
+        setHasError(error);
 
-            if (!loading && !error && !aborted) {
-                onLoad?.();
+        if (error && !loading && !aborted) {
+            onError?.();
+        }
+
+        if (!loading && !error && !aborted) {
+            onLoad?.();
+        }
+    };
+
+    useIntersectionObserver(
+        loadingIndicatorRef,
+        useCallback((entries) => setIsVisible(entries[0].isIntersecting), []),
+    );
+
+    useEffect(() => {
+        const didSrcChange = previousSrc !== src;
+        const isLoadedAndSrcUnchanged = !!imageSourceUrl && !didSrcChange;
+
+        const isLocalRetry =
+            hasError && previousImgLoadRetryKey !== undefined && previousImgLoadRetryKey !== imgLoadRetryKey;
+        const isGlobalRetry =
+            hasError && previousRetryKeyPrefix !== undefined && previousRetryKeyPrefix !== retryKeyPrefix;
+        const isRetry = isLocalRetry || isGlobalRetry;
+
+        const finalShouldLoad = shouldLoad || isRetry;
+
+        if (showMissingImageIcon || !finalShouldLoad || isLoadedAndSrcUnchanged) {
+            return () => {};
+        }
+
+        let isAborted = false;
+        let imageRequest: ImageRequest = {
+            response: Promise.resolve(''),
+            cleanup: noOp,
+            abortRequest: noOp,
+            fromCache: false,
+        };
+        const abortRequest = () => {
+            isAborted = true;
+            imageRequest.cleanup();
+            imageRequest.abortRequest(new Error('Component was unmounted'));
+        };
+        const fetchImage = async () => {
+            try {
+                imageRequest = await requestManager.requestImage(src, {
+                    priority,
+                    shouldDecode,
+                    useFetchApi,
+                    disableCors,
+                    ignoreQueue,
+                });
+
+                // In case the request got aborted before it was queued, the abort was called against the "default noop" function and did nothing.
+                // Thus, abort again to ensure that the actual queued request gets aborted.
+                if (isAborted) {
+                    abortRequest();
+                }
+
+                if (!imageRequest.fromCache) {
+                    updateImageState(true);
+                }
+
+                const image = await imageRequest.response;
+
+                updateImageState(false);
+                setImageSourceUrl(image);
+            } catch (e) {
+                const wasAborted =
+                    e instanceof Error && (e.name === 'AbortError' || e.message === 'Component was unmounted');
+                updateImageState(false, !wasAborted, wasAborted);
             }
         };
 
-        useIntersectionObserver(
-            loadingIndicatorRef,
-            useCallback((entries) => setIsVisible(entries[0].isIntersecting), []),
-        );
+        fetchImage().catch(() => {});
 
-        useEffect(() => {
-            if (showMissingImageIcon || !shouldLoad) {
-                return () => {};
-            }
+        return () => {
+            abortRequest();
+        };
+    }, [src, imgLoadRetryKey, retryKeyPrefix, showMissingImageIcon, shouldLoad]);
 
-            const imageRequest = requestManager.requestImage(src, {
-                priority,
-                shouldDecode,
-                useFetchApi,
-                disableCors,
-            });
-            let cacheTimeout: NodeJS.Timeout;
-
-            const fetchImage = async () => {
-                try {
-                    const updateImage = async () => {
-                        const image = await imageRequest.response;
-
-                        updateImageState(false);
-                        setImageSourceUrl(image);
-                    };
-
-                    const checkCache = await Promise.race([
-                        imageRequest.response,
-                        new Promise((resolve) => {
-                            cacheTimeout = setTimeout(resolve, 50);
-                        }),
-                    ]);
-                    const isImageCached = !!checkCache;
-
-                    if (isImageCached) {
-                        await updateImage();
-                        return;
-                    }
-
-                    updateImageState(true);
-                    await updateImage();
-                } catch (e) {
-                    const wasAborted =
-                        e instanceof Error && (e.name === 'AbortError' || e.message === 'Component was unmounted');
-                    updateImageState(false, !wasAborted, wasAborted);
-                }
-            };
-
-            fetchImage().catch(() => {});
-
-            return () => {
-                imageRequest.cleanup();
-                clearTimeout(cacheTimeout);
-                imageRequest.abortRequest(new Error('Component was unmounted'));
-            };
-        }, [src, imgLoadRetryKey, retryKeyPrefix, showMissingImageIcon, shouldLoad]);
-
-        return (
-            <>
-                {showMissingImageIcon ? (
-                    <Stack
-                        ref={imgRef}
-                        sx={{
-                            height: '100%',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            background: (theme) => theme.palette.background.default,
-                            ...spinnerStyle,
-                        }}
-                    >
-                        <ImageIcon fontSize="large" />
-                    </Stack>
-                ) : (
-                    <Box
-                        component="img"
-                        key={`${src}_${imgLoadRetryKey}_${retryKeyPrefix}`}
-                        sx={[
-                            ...(Array.isArray(imgStyle) ? (imgStyle ?? []) : [imgStyle]),
-                            applyStyles(!imageSourceUrl || isLoading || hasError, {
-                                ...hideImgStyle,
-                                ...applyStyles(!hideImgStyle, {
-                                    display: 'none',
-                                }),
+    return (
+        <>
+            {showMissingImageIcon ? (
+                <Stack
+                    ref={ref}
+                    sx={{
+                        height: '100%',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: (theme) => theme.palette.background.default,
+                        ...spinnerStyle,
+                    }}
+                >
+                    <ImageIcon fontSize="large" />
+                </Stack>
+            ) : (
+                <Box
+                    component="img"
+                    key={`${src}_${imgLoadRetryKey}_${retryKeyPrefix}`}
+                    sx={[
+                        ...(Array.isArray(imgStyle) ? (imgStyle ?? []) : [imgStyle]),
+                        applyStyles(!imageSourceUrl || isLoading || hasError, {
+                            ...hideImgStyle,
+                            ...applyStyles(!hideImgStyle, {
+                                display: 'none',
                             }),
-                        ]}
-                        ref={imgRef}
-                        crossOrigin={disableCors ? undefined : 'anonymous'}
-                        src={imageSourceUrl}
-                        alt={alt}
-                        draggable={false}
-                    />
-                )}
-
-                {(isLoading || (src && !imageSourceUrl) || hasError) && (
+                        }),
+                    ]}
+                    ref={ref}
+                    crossOrigin={disableCors ? undefined : 'anonymous'}
+                    src={imageSourceUrl}
+                    alt={alt}
+                    draggable={false}
+                />
+            )}
+            {(!!isLoading || (src && !imageSourceUrl) || hasError) && (
+                <Stack
+                    ref={loadingIndicatorRef}
+                    sx={{
+                        height: '100%',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        ...spinnerStyle,
+                    }}
+                >
                     <Stack
-                        ref={loadingIndicatorRef}
                         sx={{
                             height: '100%',
-                            justifyContent: 'center',
                             alignItems: 'center',
-                            ...spinnerStyle,
+                            justifyContent: 'center',
                         }}
                     >
-                        <Stack
-                            sx={{
-                                height: '100%',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            }}
-                        >
-                            {isVisible && (isLoading || (src && !imageSourceUrl && !hasError)) && (
-                                <CircularProgress thickness={5} />
-                            )}
-                            {hasError && isLoading === false && (
-                                <>
-                                    <BrokenImageIcon />
-                                    <Button
-                                        startIcon={!small && <RefreshIcon />}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            e.preventDefault();
-                                            setImgLoadRetryKey((prevState) => (prevState + 1) % 100);
-                                        }}
-                                        size={small ? 'small' : 'large'}
-                                    >
-                                        {small ? <RefreshIcon /> : t('global.button.retry')}
-                                    </Button>
-                                </>
-                            )}
-                        </Stack>
+                        {isVisible && !!isLoading && <CircularProgress thickness={5} />}
+                        {hasError && isLoading === false && (
+                            <>
+                                <BrokenImageIcon />
+                                <Button
+                                    startIcon={!small && <RefreshIcon />}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        setImgLoadRetryKey((prevState) => (prevState + 1) % 100);
+                                    }}
+                                    size={small ? 'small' : 'large'}
+                                >
+                                    {small ? <RefreshIcon /> : t`Retry`}
+                                </Button>
+                            </>
+                        )}
                     </Stack>
-                )}
-            </>
-        );
-    },
-);
+                </Stack>
+            )}
+        </>
+    );
+};

@@ -6,8 +6,8 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+import { STABLE_EMPTY_ARRAY } from '@/base/Base.constants.ts';
 import Stack from '@mui/material/Stack';
-import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import MenuItem from '@mui/material/MenuItem';
 import { memo, useLayoutEffect } from 'react';
@@ -16,79 +16,73 @@ import { bindPopover, bindTrigger, usePopupState } from 'material-ui-popup-state
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import { Link } from 'react-router-dom';
+import { useLingui } from '@lingui/react/macro';
 import { Select } from '@/base/components/inputs/Select.tsx';
 import { ReaderChapterList } from '@/features/reader/overlay/navigation/components/ReaderChapterList.tsx';
 import { ReaderNavBarDesktopNextPreviousButton } from '@/features/reader/overlay/navigation/desktop/components/ReaderNavBarDesktopNextPreviousButton.tsx';
 import { getOptionForDirection } from '@/features/theme/services/ThemeCreator.ts';
 import { ReaderService } from '@/features/reader/services/ReaderService.ts';
 import { ReaderControls } from '@/features/reader/services/ReaderControls.ts';
-import { ReaderStateChapters } from '@/features/reader/Reader.types.ts';
+import type { ReaderStateChapters } from '@/features/reader/Reader.types.ts';
 import { withPropsFrom } from '@/base/hoc/withPropsFrom.tsx';
+import type { ChapterIdInfo } from '@/features/chapter/Chapter.types.ts';
 
 const BaseReaderNavBarDesktopChapterNavigation = ({
-    currentChapter,
+    currentChapterId,
+    currentChapterName,
+    currentChapterNumber,
     previousChapter,
     nextChapter,
-    chapters = [],
+    chapters = STABLE_EMPTY_ARRAY,
     readerThemeDirection,
-    openChapter,
-}: Pick<ReaderStateChapters, 'chapters' | 'currentChapter' | 'previousChapter' | 'nextChapter'> & {
-    readerThemeDirection: ReturnType<typeof ReaderService.useGetThemeDirection>;
-    openChapter: ReturnType<typeof ReaderControls.useOpenChapter>;
-}) => {
-    const { t } = useTranslation();
+}: {
+    currentChapterId: ChapterIdInfo['id'] | undefined;
+    currentChapterName: string | undefined;
+    currentChapterNumber: number | undefined;
+} & Pick<ReaderStateChapters, 'chapters' | 'previousChapter' | 'nextChapter'> & {
+        readerThemeDirection: ReturnType<typeof ReaderService.useGetThemeDirection>;
+    }) => {
+    const { t } = useLingui();
 
     const popupState = usePopupState({ variant: 'popover', popupId: 'reader-nav-bar-desktop-chapter-list' });
 
     useLayoutEffect(() => {
         popupState.close();
-    }, [currentChapter?.id]);
+    }, [currentChapterId]);
 
     return (
         <Stack sx={{ flexDirection: 'row', gap: 1 }} dir="ltr">
             <ReaderNavBarDesktopNextPreviousButton
                 type="previous"
-                title={t(
-                    getOptionForDirection(
-                        'reader.button.previous_chapter',
-                        'reader.button.next_chapter',
-                        readerThemeDirection,
-                    ),
-                )}
+                title={getOptionForDirection(t`Previous chapter`, t`Next chapter`, readerThemeDirection)}
                 onClick={() => {
-                    openChapter(getOptionForDirection('previous', 'next', readerThemeDirection));
+                    ReaderControls.openChapter(getOptionForDirection('previous', 'next', readerThemeDirection));
                 }}
                 disabled={getOptionForDirection(!previousChapter, !nextChapter, readerThemeDirection)}
             />
             <FormControl sx={{ flexBasis: '70%', flexGrow: 0, flexShrink: 0 }}>
-                <InputLabel id="reader-nav-bar-desktop-chapter-select">{t('chapter.title_one')}</InputLabel>
+                <InputLabel id="reader-nav-bar-desktop-chapter-select">{t`Chapter`}</InputLabel>
                 <Select
                     {...bindTrigger(popupState)}
                     open={popupState.isOpen}
-                    value={currentChapter?.id ?? 0}
+                    value={currentChapterId ?? 0}
                     // hide actual select menu
                     MenuProps={{ sx: { visibility: 'hidden' } }}
-                    label={t('chapter.title_one')}
+                    label={t`Chapter`}
                     labelId="reader-nav-bar-desktop-chapter-select"
                 >
                     {/* hacky way to use the select component with a custom menu, the only possible value that is needed is the current chapter */}
-                    <MenuItem key={currentChapter?.id} value={currentChapter?.id ?? 0}>
-                        {currentChapter ? `#${currentChapter.chapterNumber} ${currentChapter.name}` : ''}
+                    <MenuItem key={currentChapterId} value={currentChapterId ?? 0}>
+                        {currentChapterNumber !== undefined ? `#${currentChapterNumber} ${currentChapterName}` : ''}
                     </MenuItem>
                 </Select>
             </FormControl>
             <ReaderNavBarDesktopNextPreviousButton
                 component={Link}
                 type="next"
-                title={t(
-                    getOptionForDirection(
-                        'reader.button.next_chapter',
-                        'reader.button.previous_chapter',
-                        readerThemeDirection,
-                    ),
-                )}
+                title={getOptionForDirection(t`Next chapter`, t`Previous chapter`, readerThemeDirection)}
                 onClick={() => {
-                    openChapter(getOptionForDirection('next', 'previous', readerThemeDirection));
+                    ReaderControls.openChapter(getOptionForDirection('next', 'previous', readerThemeDirection));
                 }}
                 disabled={getOptionForDirection(!nextChapter, !previousChapter, readerThemeDirection)}
             />
@@ -107,7 +101,7 @@ const BaseReaderNavBarDesktopChapterNavigation = ({
                             minHeight: '150px',
                             maxHeight: '300px',
                         }}
-                        currentChapter={currentChapter}
+                        currentChapterId={currentChapterId}
                         chapters={chapters}
                     />
                 </Box>
@@ -122,9 +116,6 @@ export const ReaderNavBarDesktopChapterNavigation = withPropsFrom(
         () => ({
             readerThemeDirection: ReaderService.useGetThemeDirection(),
         }),
-        () => ({
-            openChapter: ReaderControls.useOpenChapter(),
-        }),
     ],
-    ['readerThemeDirection', 'openChapter'],
+    ['readerThemeDirection'],
 );

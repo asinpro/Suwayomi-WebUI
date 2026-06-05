@@ -6,15 +6,17 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import Chip, { ChipProps } from '@mui/material/Chip';
+import type { ChipProps } from '@mui/material/Chip';
+import Chip from '@mui/material/Chip';
 import Tab from '@mui/material/Tab';
-import { styled } from '@mui/material/styles';
+import { styled, useTheme } from '@mui/material/styles';
 import { useCallback, useMemo, useState } from 'react';
 import { useQueryParam, NumberParam, StringParam } from 'use-query-params';
-import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import { Link } from 'react-router-dom';
 import Box from '@mui/material/Box';
+import { useLingui } from '@lingui/react/macro';
+import { plural } from '@lingui/core/macro';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { EmptyViewAbsoluteCentered } from '@/base/components/feedback/EmptyViewAbsoluteCentered.tsx';
 import { LoadingPlaceholder } from '@/base/components/feedback/LoadingPlaceholder.tsx';
@@ -23,31 +25,32 @@ import { LibraryToolbarMenu } from '@/features/library/components/LibraryToolbar
 import { LibraryMangaGrid } from '@/features/library/components/LibraryMangaGrid.tsx';
 import { AppbarSearch } from '@/base/components/AppbarSearch.tsx';
 import { UpdateChecker } from '@/features/updates/components/UpdateChecker.tsx';
-import { useSelectableCollection } from '@/features/collection/hooks/useSelectableCollection.ts';
-import { SelectableCollectionSelectMode } from '@/features/collection/components/SelectableCollectionSelectMode.tsx';
+import { useSelectableCollection } from '@/base/collection/hooks/useSelectableCollection.ts';
+import { SelectableCollectionSelectMode } from '@/base/collection/components/SelectableCollectionSelectMode.tsx';
 import { useGetVisibleLibraryMangas } from '@/features/library/hooks/useGetVisibleLibraryMangas.ts';
-import { SelectionFAB } from '@/features/collection/components/SelectionFAB.tsx';
+import { SelectionFAB } from '@/base/collection/components/SelectionFAB.tsx';
 import { MangaActionMenuItems } from '@/features/manga/components/MangaActionMenuItems.tsx';
 import { TabsMenu } from '@/base/components/tabs/TabsMenu.tsx';
 import { TabsWrapper } from '@/base/components/tabs/TabsWrapper.tsx';
 import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
-import {
+import type {
     GetCategoriesLibraryQuery,
     GetCategoriesLibraryQueryVariables,
     GetLibraryMangaCountQuery,
     GetLibraryMangaCountQueryVariables,
     MangaChapterStatFieldsFragment,
-    MangaType,
 } from '@/lib/graphql/generated/graphql.ts';
-import { GET_CATEGORIES_LIBRARY } from '@/lib/graphql/queries/CategoryQuery.ts';
+import { GET_CATEGORIES_LIBRARY } from '@/lib/graphql/category/CategoryQuery.ts';
 import { Mangas } from '@/features/manga/services/Mangas.ts';
-import { MANGA_CHAPTER_STAT_FIELDS } from '@/lib/graphql/fragments/MangaFragments.ts';
+import { MANGA_CHAPTER_STAT_FIELDS } from '@/lib/graphql/manga/MangaFragments.ts';
 import { useMetadataServerSettings } from '@/features/settings/services/ServerSettingsMetadata.ts';
-import { GET_LIBRARY_MANGA_COUNT } from '@/lib/graphql/queries/MangaQuery.ts';
+import { GET_LIBRARY_MANGA_COUNT } from '@/lib/graphql/manga/MangaQuery.ts';
 import { useAppTitle } from '@/features/navigation-bar/hooks/useAppTitle.ts';
 import { useAppAction } from '@/features/navigation-bar/hooks/useAppAction.ts';
 import { AppRoutes } from '@/base/AppRoute.constants.ts';
 import { SearchParam } from '@/base/Base.types.ts';
+import { STABLE_EMPTY_ARRAY } from '@/base/Base.constants.ts';
+import type { MangaIdInfo } from '@/features/manga/Manga.types.ts';
 
 const TitleWithSizeTag = styled('span')({
     display: 'flex',
@@ -59,7 +62,8 @@ const TitleSizeTag = ({ sx, ...props }: ChipProps) => (
 );
 
 export function Library() {
-    const { t } = useTranslation();
+    const { t } = useLingui();
+    const theme = useTheme();
 
     const {
         settings: { showTabSize },
@@ -72,14 +76,11 @@ export function Library() {
         refetch: refetchCategories,
     } = requestManager.useGetCategories<GetCategoriesLibraryQuery, GetCategoriesLibraryQueryVariables>(
         GET_CATEGORIES_LIBRARY,
-        {
-            notifyOnNetworkStatusChange: true,
-        },
     );
     const tabsData = categoriesResponse?.categories.nodes.filter(
         (category) => category.id !== 0 || (category.id === 0 && category.mangas.totalCount),
     );
-    const tabs = tabsData ?? [];
+    const tabs = tabsData ?? STABLE_EMPTY_ARRAY;
 
     const librarySizeResponse = requestManager.useGetMangas<
         GetLibraryMangaCountQuery,
@@ -98,8 +99,8 @@ export function Library() {
         error: mangaError,
         loading: mangaLoading,
         refetch: refetchCategoryMangas,
-    } = requestManager.useGetCategoryMangas(activeTab?.id, { skip: !activeTab, notifyOnNetworkStatusChange: true });
-    const categoryMangas = categoryMangaResponse?.mangas.nodes ?? [];
+    } = requestManager.useGetCategoryMangas(activeTab?.id, { skip: !activeTab });
+    const categoryMangas = categoryMangaResponse?.mangas.nodes ?? STABLE_EMPTY_ARRAY;
     const {
         visibleMangas: mangas,
         showFilteredOutMessage,
@@ -121,9 +122,10 @@ export function Library() {
         handleSelectAll,
         handleSelection,
         clearSelection,
-    } = useSelectableCollection<MangaType['id'], string>(mangas.length, {
+    } = useSelectableCollection<MangaIdInfo['id'], string>(mangas.length, {
         itemIds: mangaIds,
         currentKey: activeTab?.id.toString(),
+        initialState: undefined,
     });
 
     const handleSelect: typeof handleSelection = useCallback(
@@ -154,7 +156,7 @@ export function Library() {
         }
 
         return (
-            <SelectionFAB selectedItemsCount={selectedItemIds.length} title="manga.title">
+            <SelectionFAB title={plural(selectedItemIds.length, { one: '# manga', other: '# manga' })}>
                 {(handleClose, setHideMenu) => (
                     <MangaActionMenuItems
                         selectedMangas={selectedMangas}
@@ -177,10 +179,10 @@ export function Library() {
                     <Button
                         size="large"
                         component={Link}
-                        to={AppRoutes.sources.childRoutes.searchAll.path(query)}
+                        to={AppRoutes.sources.children.searchAll.path(query)}
                         sx={{ textTransform: 'none', width: '100%' }}
                     >
-                        {t('library.action.label.search_globally', { query })}
+                        {t`Search for "${query}" globally`}
                     </Button>
                 </Box>
             ),
@@ -189,10 +191,15 @@ export function Library() {
 
     useAppTitle(
         <TitleWithSizeTag>
-            {t('library.title')}
-            {showTabSize && <TitleSizeTag sx={{ color: 'inherit' }} label={librarySize} />}
+            {t`Library`}
+            {showTabSize && (
+                <TitleSizeTag
+                    sx={{ ...theme.applyStyles('light', { backgroundColor: 'background.paper' }) }}
+                    label={librarySize}
+                />
+            )}
         </TitleWithSizeTag>,
-        t('library.title'),
+        t`Library`,
         [t, showTabSize, librarySize],
     );
     useAppAction(
@@ -234,7 +241,7 @@ export function Library() {
     if (tabsError != null || librarySizeResponse.error) {
         return (
             <EmptyViewAbsoluteCentered
-                message={t('global.error.label.failed_to_load_data')}
+                message={t`Unable to load data`}
                 messageExtra={tabsError?.message ?? librarySizeResponse.error?.message}
                 retry={() => {
                     if (tabsError) {
@@ -254,7 +261,7 @@ export function Library() {
     }
 
     if (tabs.length === 0) {
-        return <EmptyViewAbsoluteCentered message={t('library.error.label.empty')} />;
+        return <EmptyViewAbsoluteCentered message={t`Your library is empty`} />;
     }
 
     if (tabs.length === 1) {
@@ -265,7 +272,7 @@ export function Library() {
                     // the key needs to include filters and query to force a re-render of the virtuoso grid to prevent https://github.com/petyosi/react-virtuoso/issues/1242
                     key={filterKey}
                     mangas={mangas}
-                    message={mangaError ? t('manga.error.label.request_failure') : t('library.error.label.empty')}
+                    message={mangaError ? t`Could not load manga` : t`Your library is empty`}
                     messageExtra={mangaError?.message}
                     isLoading={mangaLoading}
                     selectedMangaIds={selectedItemIds}
@@ -304,9 +311,7 @@ export function Library() {
                             // the key needs to include filters and query to force a re-render of the virtuoso grid to prevent https://github.com/petyosi/react-virtuoso/issues/1242
                             key={filterKey}
                             mangas={mangas}
-                            message={
-                                mangaError ? t('manga.error.label.request_failure') : t('category.error.label.empty')
-                            }
+                            message={mangaError ? t`Could not load manga` : t`The category is empty`}
                             messageExtra={mangaError?.message}
                             isLoading={mangaLoading}
                             selectedMangaIds={selectedItemIds}

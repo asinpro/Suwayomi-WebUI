@@ -7,7 +7,6 @@
  */
 
 import { useCallback, useEffect, useMemo } from 'react';
-import { ReaderControls } from '@/features/reader/services/ReaderControls.ts';
 import { ReadingDirection, ReadingMode } from '@/features/reader/Reader.types.ts';
 import {
     isContinuousReadingMode,
@@ -16,6 +15,8 @@ import {
 import { READING_DIRECTION_TO_THEME_DIRECTION } from '@/features/reader/settings/ReaderSettings.constants.tsx';
 import { getOptionForDirection } from '@/features/theme/services/ThemeCreator.ts';
 import { useIntersectionObserver } from '@/base/hooks/useIntersectionObserver.tsx';
+import { getReaderScrollbarStore, useReaderSettingsStore } from '@/features/reader/stores/ReaderStore.ts';
+import { ReaderControls } from '@/features/reader/services/ReaderControls.ts';
 
 interface ElementIntersection {
     start: boolean;
@@ -241,16 +242,18 @@ export const useReaderInfiniteScrollUpdateChapter = (
     chapterToOpenId: number | undefined,
     isCurrentChapter: boolean,
     isChapterToOpenVisible: boolean,
-    readingMode: ReadingMode,
-    readingDirection: ReadingDirection,
-    shouldUseInfiniteScroll: boolean,
-    openChapter: ReturnType<typeof ReaderControls.useOpenChapter>,
     image: HTMLElement | null,
-    scrollbarXSize: number,
-    scrollbarYSize: number,
     scrollElement: HTMLElement | null,
-    shouldShowTransitionPage: boolean,
 ) => {
+    const { readingMode, readingDirection, shouldUseInfiniteScroll, shouldShowTransitionPage } = useReaderSettingsStore(
+        (state) => ({
+            readingMode: state.readingMode.value,
+            readingDirection: state.readingDirection.value,
+            shouldUseInfiniteScroll: state.shouldUseInfiniteScroll,
+            shouldShowTransitionPage: state.shouldShowTransitionPage,
+        }),
+    );
+
     useEffect(() => {
         const isContinuousReadingModeActive = isContinuousReadingMode(readingMode);
         const isContinuousVerticalReadingModeActive = isContinuousVerticalReadingMode(readingMode);
@@ -268,11 +271,19 @@ export const useReaderInfiniteScrollUpdateChapter = (
         }
 
         const onScroll = () => {
+            const THRESHOLD = 2;
+
             const isAtStartX = scrollElement.scrollLeft === 0;
-            const isAtEndX = scrollElement.scrollLeft === scrollElement.scrollWidth - scrollElement.clientWidth;
+            const distanceEndX = Math.abs(
+                Math.abs(scrollElement.scrollLeft) - (scrollElement.scrollWidth - scrollElement.clientWidth),
+            );
+            const isAtEndX = distanceEndX >= 0 && distanceEndX <= THRESHOLD;
 
             const isAtStartY = scrollElement.scrollTop === 0;
-            const isAtEndY = scrollElement.scrollTop === scrollElement.scrollHeight - scrollElement.clientHeight;
+            const distanceStartY = Math.abs(
+                Math.abs(scrollElement.scrollTop) - (scrollElement.scrollHeight - scrollElement.clientHeight),
+            );
+            const isAtEndY = distanceStartY >= 0 && distanceStartY <= THRESHOLD;
 
             const isAtStart = isContinuousVerticalReadingModeActive ? isAtStartY : isAtStartX;
             const isAtEnd = isContinuousVerticalReadingModeActive ? isAtEndY : isAtEndX;
@@ -282,11 +293,11 @@ export const useReaderInfiniteScrollUpdateChapter = (
 
             const loadChapter = loadPreviousChapter || loadNextChapter;
             if (loadChapter) {
-                openChapter(chapterToOpenId, undefined, false);
+                ReaderControls.openChapter(chapterToOpenId, undefined, false);
             }
         };
 
-        scrollElement.addEventListener('scroll', onScroll);
+        scrollElement.addEventListener('scroll', onScroll, { passive: true });
         return () => scrollElement.removeEventListener('scroll', onScroll);
     }, [
         readingMode,
@@ -296,7 +307,6 @@ export const useReaderInfiniteScrollUpdateChapter = (
         isCurrentChapter,
         isChapterToOpenVisible,
         chapterToOpenId,
-        openChapter,
     ]);
 
     useIntersectionObserver(
@@ -304,7 +314,6 @@ export const useReaderInfiniteScrollUpdateChapter = (
         useCallback(
             (entries) => {
                 if (
-                    // !shouldShowTransitionPage ||
                     !shouldUseInfiniteScroll ||
                     !isContinuousReadingMode(readingMode) ||
                     chapterToOpenId === undefined
@@ -321,8 +330,8 @@ export const useReaderInfiniteScrollUpdateChapter = (
                 const elementIntersectionInfo = getElementIntersectionInfo(
                     readingDirection,
                     entry.target.getBoundingClientRect(),
-                    scrollbarXSize,
-                    scrollbarYSize,
+                    getReaderScrollbarStore().xSize,
+                    getReaderScrollbarStore().ySize,
                 );
                 const { start: isStartIntersecting, end: isEndIntersecting } = getElementIntersection(
                     elementIntersectionInfo,
@@ -343,12 +352,12 @@ export const useReaderInfiniteScrollUpdateChapter = (
 
                 const openChapterToOpen = initialOpenPreviousChapter || openNextChapter;
                 if (openChapterToOpen) {
-                    openChapter(chapterToOpenId, !isChapterToOpenVisible, false);
+                    ReaderControls.openChapter(chapterToOpenId, !isChapterToOpenVisible, false);
                     return;
                 }
 
                 if (openPreviousChapter) {
-                    openChapter(chapterId, false, false);
+                    ReaderControls.openChapter(chapterId, false, false);
                 }
             },
             [
@@ -361,9 +370,6 @@ export const useReaderInfiniteScrollUpdateChapter = (
                 readingDirection,
                 shouldUseInfiniteScroll,
                 shouldShowTransitionPage,
-                openChapter,
-                scrollbarXSize,
-                scrollbarYSize,
             ],
         ),
         useMemo(

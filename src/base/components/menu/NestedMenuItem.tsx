@@ -12,26 +12,27 @@
  * with a few changes to fix a bug on mobile devices where opening the sub menu immediately triggered the on click of the underlying menu item
  */
 
-import Menu, { MenuProps as MuiMenuProps } from '@mui/material/Menu';
-import { MenuItemProps as MuiMenuItemProps } from '@mui/material/MenuItem';
-import {
+import { STABLE_EMPTY_OBJECT } from '@/base/Base.constants.ts';
+import type { MenuProps as MuiMenuProps } from '@mui/material/Menu';
+import Menu from '@mui/material/Menu';
+import type { MenuItemProps as MuiMenuItemProps } from '@mui/material/MenuItem';
+import type {
     ElementType,
-    forwardRef,
     HTMLAttributes,
     KeyboardEvent,
     FocusEvent,
     MouseEvent,
     ReactNode,
     RefAttributes,
-    useRef,
-    useState,
+    Ref,
 } from 'react';
+import { useRef, useState } from 'react';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import Box from '@mui/material/Box';
 
-import { OverridableComponent } from '@mui/material/OverridableComponent';
-import { SvgIconTypeMap } from '@mui/material/SvgIcon';
+import type { OverridableComponent } from '@mui/material/OverridableComponent';
+import type { SvgIconTypeMap } from '@mui/material/SvgIcon';
 import { useMergedRef } from '@mantine/hooks';
 import { IconMenuItem } from '@/base/components/menu/IconMenuItem.tsx';
 import { getOptionForDirection } from '@/features/theme/services/ThemeCreator.ts';
@@ -51,9 +52,10 @@ export type NestedMenuItemProps = Omit<MuiMenuItemProps, 'button'> & {
     ContainerProps?: HTMLAttributes<HTMLElement> & RefAttributes<HTMLElement>;
     MenuProps?: Partial<Omit<MuiMenuProps, 'children'>>;
     button?: true | undefined;
+    ref?: Ref<HTMLLIElement | null>;
 };
 
-const NestedMenuItem = forwardRef<HTMLLIElement | null, NestedMenuItemProps>((props, ref) => {
+export const NestedMenuItem = ({ ref, ...props }: NestedMenuItemProps) => {
     const {
         parentMenuOpen,
         label,
@@ -63,7 +65,7 @@ const NestedMenuItem = forwardRef<HTMLLIElement | null, NestedMenuItemProps>((pr
         children,
         className,
         tabIndex: tabIndexProp,
-        ContainerProps: ContainerPropsProp = {},
+        ContainerProps: ContainerPropsProp = STABLE_EMPTY_OBJECT,
         MenuProps,
         ...MenuItemProps
     } = props;
@@ -229,7 +231,4 @@ const NestedMenuItem = forwardRef<HTMLLIElement | null, NestedMenuItemProps>((pr
             </Menu>
         </Box>
     );
-});
-
-NestedMenuItem.displayName = 'NestedMenuItem';
-export { NestedMenuItem };
+};

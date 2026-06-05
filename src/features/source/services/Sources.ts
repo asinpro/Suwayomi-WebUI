@@ -6,9 +6,9 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { useTranslation } from 'react-i18next';
 import { useCallback } from 'react';
-import {
+import { useLingui } from '@lingui/react/macro';
+import type {
     SourceDisplayNameInfo,
     SourceIdInfo,
     SourceLanguageInfo,
@@ -30,9 +30,32 @@ import {
 } from '@/features/settings/services/ServerSettingsMetadata.ts';
 import { makeToast } from '@/base/utils/Toast.ts';
 import { getErrorMessage } from '@/lib/HelperFunctions.ts';
+import type { SourceBaseFieldsFragment } from '@/lib/graphql/generated/graphql.ts';
+import { requestManager } from '@/lib/requests/RequestManager.ts';
+import type { DocumentNode, Unmasked } from '@apollo/client';
+import { SOURCE_BASE_FIELDS } from '@/lib/graphql/source/SourceFragments.ts';
 
 export class Sources {
     static readonly LOCAL_SOURCE_ID = '0';
+
+    static getIds(sources: SourceIdInfo[]): SourceIdInfo['id'][] {
+        return sources.map((source) => source.id);
+    }
+
+    static getFromCache<T = SourceBaseFieldsFragment>(
+        id: SourceIdInfo['id'],
+        fragment: DocumentNode = SOURCE_BASE_FIELDS,
+        fragmentName: string = 'SOURCE_BASE_FIELDS',
+    ): Unmasked<T> | null {
+        return requestManager.graphQLClient.client.cache.readFragment<T>({
+            id: requestManager.graphQLClient.client.cache.identify({
+                __typename: 'SourceType',
+                id,
+            }),
+            fragment,
+            fragmentName,
+        });
+    }
 
     static isLocalSource(source: SourceIdInfo): boolean {
         return source.id === Sources.LOCAL_SOURCE_ID;
@@ -46,15 +69,23 @@ export class Sources {
         return source.lang;
     }
 
-    static getLanguages(sources: (SourceIdInfo & SourceLanguageInfo)[]): string[] {
-        return [...new Set(sources.map(Sources.getLanguage))];
+    static getLanguages(
+        sources: (SourceIdInfo & SourceLanguageInfo)[],
+        { excludeLocalSource = false }: { excludeLocalSource?: boolean } = {},
+    ): string[] {
+        const filteredSources = excludeLocalSource
+            ? sources.filter((source) => !Sources.isLocalSource(source))
+            : sources;
+
+        return [...new Set(filteredSources.map(Sources.getLanguage))];
     }
 
     static groupByLanguage<Source extends SourceIdInfo & SourceLanguageInfo & SourceDisplayNameInfo & SourceMetaInfo>(
         sources: Source[],
+        { withPinnedGroup = false }: { withPinnedGroup?: boolean } = {},
     ): Record<string, Source[]> {
         const sourcesByLanguage = Object.groupBy(sources, (source) => {
-            if (getSourceMetadata(source).isPinned) {
+            if (withPinnedGroup && getSourceMetadata(source).isPinned) {
                 return DefaultLanguage.PINNED;
             }
 
@@ -64,11 +95,11 @@ export class Sources {
             const isAPinned = a === DefaultLanguage.PINNED;
             const isBPinned = b === DefaultLanguage.PINNED;
 
-            if (isAPinned) {
+            if (withPinnedGroup && isAPinned) {
                 return -1;
             }
 
-            if (isBPinned) {
+            if (withPinnedGroup && isBPinned) {
                 return 1;
             }
 
@@ -85,49 +116,45 @@ export class Sources {
     static filter<Source extends SourceIdInfo & SourceLanguageInfo & SourceNsfwInfo>(
         sources: Source[],
         {
-            showNsfw,
+            isNsfw,
             languages,
             keepLocalSource,
             pinned,
             enabled,
+            removeLocalSource,
         }: {
-            showNsfw?: boolean;
+            isNsfw?: boolean;
             languages?: string[];
             keepLocalSource?: boolean;
             pinned?: boolean;
             enabled?: boolean;
+            removeLocalSource?: boolean;
         } = {},
     ): Source[] {
         const normalizedLanguages = toComparableLanguages(toUniqueLanguageCodes(languages ?? []));
 
-        return sources
-            .filter(
+        const filters: [Condition: any, CheckKeepLocalSource: boolean, Filter: (source: Source) => boolean][] = [
+            [isNsfw, true, (source: Source) => source.isNsfw === isNsfw],
+            [
+                languages,
+                true,
+                (source: Source) => normalizedLanguages.includes(toComparableLanguage(Sources.getLanguage(source))),
+            ],
+            [pinned, true, (source: Source) => getSourceMetadata(source).isPinned === pinned],
+            [enabled, true, (source: Source) => getSourceMetadata(source).isEnabled === enabled],
+            [removeLocalSource, false, (source: Source) => !removeLocalSource || !Sources.isLocalSource(source)],
+        ];
+
+        return filters.reduce((sourcesToFilter, [condition, checkKeepLocalSource, filter]) => {
+            if (condition === undefined) {
+                return sourcesToFilter;
+            }
+
+            return sourcesToFilter.filter(
                 (source) =>
-                    showNsfw === undefined ||
-                    showNsfw ||
-                    !source.isNsfw ||
-                    (keepLocalSource && Sources.isLocalSource(source)),
-            )
-            .filter(
-                (source) =>
-                    !languages ||
-                    normalizedLanguages.includes(toComparableLanguage(Sources.getLanguage(source))) ||
-                    (keepLocalSource && Sources.isLocalSource(source)),
-            )
-            .filter(
-                (source) =>
-                    pinned === undefined ||
-                    !pinned ||
-                    getSourceMetadata(source).isPinned ||
-                    (keepLocalSource && Sources.isLocalSource(source)),
-            )
-            .filter(
-                (source) =>
-                    enabled === undefined ||
-                    !enabled ||
-                    getSourceMetadata(source).isEnabled ||
-                    (keepLocalSource && Sources.isLocalSource(source)),
+                    filter(source) || (checkKeepLocalSource && keepLocalSource && Sources.isLocalSource(source)),
             );
+        }, sources);
     }
 
     static areFromMultipleRepos<Source extends SourceIdInfo & SourceRepoInfo>(sources: Source[]): boolean {
@@ -149,20 +176,20 @@ export class Sources {
 
     static useLanguages(): {
         languages: string[];
-        setLanguages: (languages: string[]) => void;
+        setLanguages: (languages: string[]) => Promise<void>;
     } {
-        const { t } = useTranslation();
+        const { t } = useLingui();
         const {
-            settings: { sourceLanguages },
+            settings: { browseLanguages },
         } = useMetadataServerSettings();
 
-        const updateSetting = createUpdateMetadataServerSettings<'sourceLanguages'>((e) =>
-            makeToast(t('global.error.label.failed_to_save_changes', getErrorMessage(e)), 'error'),
+        const updateSetting = createUpdateMetadataServerSettings<'browseLanguages'>((e) =>
+            makeToast(t`Failed to save changes`, 'error', getErrorMessage(e)),
         );
-        const setLanguages = useCallback((languages: string[]) => updateSetting('sourceLanguages', languages), []);
+        const setLanguages = useCallback((languages: string[]) => updateSetting('browseLanguages', languages), []);
 
         return {
-            languages: sourceLanguages,
+            languages: browseLanguages,
             setLanguages,
         };
     }

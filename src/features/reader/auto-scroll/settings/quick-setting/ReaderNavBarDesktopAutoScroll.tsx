@@ -6,7 +6,6 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import PauseCircleFilledIcon from '@mui/icons-material/PauseCircleFilled';
 import PlayCircleFilledIcon from '@mui/icons-material/PlayCircleFilled';
@@ -14,10 +13,13 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import InputAdornment from '@mui/material/InputAdornment';
 import { useRef } from 'react';
-import { useReaderAutoScrollContext } from '@/features/reader/auto-scroll/ReaderAutoScrollContext.tsx';
-import { IReaderSettings } from '@/features/reader/Reader.types.ts';
+import { d } from 'koration';
+import { useLingui } from '@lingui/react/macro';
+import { plural } from '@lingui/core/macro';
+import type { IReaderSettings } from '@/features/reader/Reader.types.ts';
 import { AUTO_SCROLL_SPEED } from '@/features/reader/settings/ReaderSettings.constants.tsx';
 import { coerceIn } from '@/lib/HelperFunctions.ts';
+import { getReaderAutoScrollStore, useReaderAutoScrollStore } from '@/features/reader/stores/ReaderStore.ts';
 
 export const ReaderNavBarDesktopAutoScroll = ({
     autoScroll,
@@ -25,8 +27,8 @@ export const ReaderNavBarDesktopAutoScroll = ({
 }: Pick<IReaderSettings, 'autoScroll'> & {
     setAutoScroll: (newAutoScroll: IReaderSettings['autoScroll'], commit: boolean) => void;
 }) => {
-    const { t } = useTranslation();
-    const { isActive, toggleActive } = useReaderAutoScrollContext();
+    const { t } = useLingui();
+    const isActive = useReaderAutoScrollStore('isActive');
 
     const updateTimeout = useRef<NodeJS.Timeout>(undefined);
 
@@ -35,12 +37,12 @@ export const ReaderNavBarDesktopAutoScroll = ({
             <Button
                 sx={{ justifyContent: 'start', textTransform: 'unset', flexGrow: 1 }}
                 size="large"
-                onClick={toggleActive}
+                onClick={() => getReaderAutoScrollStore().toggleActive()}
                 color={isActive ? 'secondary' : 'primary'}
                 variant="contained"
                 startIcon={isActive ? <PauseCircleFilledIcon /> : <PlayCircleFilledIcon />}
             >
-                {t('reader.settings.auto_scroll.title')}
+                {t`Auto scroll`}
             </Button>
             <TextField
                 value={autoScroll.value}
@@ -59,14 +61,20 @@ export const ReaderNavBarDesktopAutoScroll = ({
                     setAutoScroll({ ...autoScroll, value }, false);
 
                     clearTimeout(updateTimeout.current);
-                    updateTimeout.current = setTimeout(() => setAutoScroll({ ...autoScroll, value }, true), 1000);
+                    updateTimeout.current = setTimeout(
+                        () => setAutoScroll({ ...autoScroll, value }, true),
+                        d(1).seconds.inWholeMilliseconds,
+                    );
                 }}
                 slotProps={{
                     input: {
                         inputProps: AUTO_SCROLL_SPEED,
                         endAdornment: (
                             <InputAdornment position="end">
-                                {t('global.time.seconds.second', { count: autoScroll.value })}
+                                {plural(autoScroll.value, {
+                                    one: 'Second',
+                                    other: 'Seconds',
+                                })}
                             </InputAdornment>
                         ),
                     },

@@ -6,7 +6,6 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -14,27 +13,40 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
+import { useLingui } from '@lingui/react/macro';
 import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
-import { UpdateState, WebUiChannel, WebUiUpdateStatus } from '@/lib/graphql/generated/graphql.ts';
-import { useLocalStorage } from '@/base/hooks/useStorage.tsx';
+import type { WebUiUpdateStatus } from '@/lib/graphql/generated/graphql-base.types.ts';
+import { UpdateState, WebUiChannel } from '@/lib/graphql/generated/graphql-base.types.ts';
+import { useLocalStorage, useSessionStorage } from '@/base/hooks/useStorage.tsx';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { makeToast } from '@/base/utils/Toast.ts';
-import { ABOUT_WEBUI, WEBUI_UPDATE_CHECK } from '@/lib/graphql/fragments/InfoFragments.ts';
+import { ABOUT_WEBUI, WEBUI_UPDATE_CHECK } from '@/lib/graphql/server/InfoFragments.ts';
 import { VersionUpdateInfoDialog } from '@/features/app-updates/components/VersionUpdateInfoDialog.tsx';
 import { useUpdateChecker } from '@/features/app-updates/hooks/useUpdateChecker.tsx';
 import { useMetadataServerSettings } from '@/features/settings/services/ServerSettingsMetadata.ts';
-import { getErrorMessage } from '@/lib/HelperFunctions.ts';
+import { getErrorMessage, noOp } from '@/lib/HelperFunctions.ts';
+import { AppStorage } from '@/lib/storage/AppStorage.ts';
+import { BrowserUtil } from '@/lib/BrowserUtil.ts';
+import { STABLE_EMPTY_OBJECT } from '@/base/Base.constants.ts';
 
 const disabledUpdateCheck = () => Promise.resolve();
 
+const INITIAL_LOAD_TIMESTAMP_KEY = 'webUIInitialLoadTimestamp';
+
+if (BrowserUtil.isActualPageLoad()) {
+    AppStorage.session.setItem(INITIAL_LOAD_TIMESTAMP_KEY, Date.now());
+}
+
 export const WebUIUpdateChecker = () => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
     const [webUIVersion, setWebUIVersion] = useLocalStorage<string>('webUIVersion');
+    const [initialLoadTimestamp] = useSessionStorage<number>(INITIAL_LOAD_TIMESTAMP_KEY, Date.now());
     const [open, setOpen] = useState(false);
 
     const {
-        settings: { webUIInformAvailableUpdate },
+        settings: { webUIInformAvailableUpdate, webUIInformVersionUpdated },
+        loading: areMetadataServerSettingsLoading,
     } = useMetadataServerSettings();
     const serverSettings = requestManager.useGetServerSettings();
     const isAutoUpdateEnabled = !!serverSettings.data?.settings.webUIUpdateCheckInterval;
@@ -42,10 +54,9 @@ export const WebUIUpdateChecker = () => {
     const shouldCheckForUpdate = !isAutoUpdateEnabled && webUIInformAvailableUpdate;
 
     const { data: aboutData } = requestManager.useGetAbout();
-    const { aboutWebUI } = aboutData ?? {};
+    const { aboutWebUI } = aboutData ?? STABLE_EMPTY_OBJECT;
 
     const { data: webUIUpdateData, refetch: checkForUpdate } = requestManager.useCheckForWebUIUpdate({
-        notifyOnNetworkStatusChange: true,
         fetchPolicy: 'cache-only',
     });
 
@@ -64,25 +75,31 @@ export const WebUIUpdateChecker = () => {
 
     const changelogUrl =
         updateStatus.info?.channel === WebUiChannel.Stable
-            ? `https://github.com/Suwayomi/Suwayomi-WebUI/releases/latest`
-            : `https://github.com/Suwayomi/Suwayomi-WebUI/issues/749`;
+            ? 'https://github.com/Suwayomi/Suwayomi-WebUI/releases/latest'
+            : 'https://github.com/Suwayomi/Suwayomi-WebUI/blob/master/CHANGELOG.md';
 
     const newVersion = aboutWebUI?.tag;
     const isSameAsCurrent = !newVersion || !webUIVersion || webUIVersion === newVersion;
+
+    const shouldForceRefresh = initialLoadTimestamp < Number(aboutWebUI?.updateTimestamp);
 
     const saveInitialVersion = !webUIVersion && !!newVersion;
     if (saveInitialVersion) {
         setWebUIVersion(newVersion);
     }
 
-    if (!isSameAsCurrent && !open) {
-        setOpen(true);
+    if (!areMetadataServerSettingsLoading && !isSameAsCurrent && !open) {
+        if (webUIInformVersionUpdated) {
+            setOpen(true);
+        } else {
+            setWebUIVersion(newVersion);
+        }
     }
 
     useEffect(() => {
         const isError = webUIUpdateState === UpdateState.Error;
         if (isError) {
-            makeToast(t('settings.about.webui.label.update_failure'), 'error');
+            makeToast(t`Could not update WebUI`, 'error');
         }
 
         const updateFinished = webUIUpdateState === UpdateState.Finished;
@@ -108,6 +125,7 @@ export const WebUIUpdateChecker = () => {
                 __typename: 'AboutWebUI',
                 channel: webUIUpdateStatusData!.getWebUIUpdateStatus.info.channel,
                 tag: webUIUpdateStatusData!.getWebUIUpdateStatus.info.tag,
+                updateTimestamp: Date.now(),
             },
         });
         requestManager.graphQLClient.client.cache.writeFragment({
@@ -128,24 +146,15 @@ export const WebUIUpdateChecker = () => {
 
         return (
             <VersionUpdateInfoDialog
-                info={t('settings.about.webui.label.info', {
-                    version: webUIUpdateData?.checkForWebUIUpdate.tag,
-                    channel: webUIUpdateData?.checkForWebUIUpdate.channel,
-                })}
+                info={t`WebUI version ${webUIUpdateData?.checkForWebUIUpdate.tag} (${webUIUpdateData?.checkForWebUIUpdate.channel}) available for download`}
                 changelogUrl={changelogUrl}
                 disabled={isUpdateInProgress}
                 onAction={() =>
                     requestManager
                         .updateWebUI()
-                        .response.catch((e) =>
-                            makeToast(t('settings.about.webui.label.update_failure'), 'error', getErrorMessage(e)),
-                        )
+                        .response.catch((e) => makeToast(t`Could not update WebUI`, 'error', getErrorMessage(e)))
                 }
-                actionTitle={
-                    isUpdateInProgress
-                        ? t('global.update.label.updating', { progress: updateStatus.progress })
-                        : t('extension.action.label.update')
-                }
+                actionTitle={isUpdateInProgress ? t`${updateStatus.progress}% | Updating…` : t`Update`}
                 updateCheckerProps={[
                     'webUI',
                     isAutoUpdateEnabled ? disabledUpdateCheck : checkForUpdate,
@@ -160,30 +169,27 @@ export const WebUIUpdateChecker = () => {
     }
 
     return (
-        <Dialog open={open}>
-            <DialogTitle>{t('settings.about.webui.label.updated')}</DialogTitle>
+        <Dialog open={open} onClose={shouldForceRefresh ? () => setOpen(false) : noOp}>
+            <DialogTitle>{t`Updated version`}</DialogTitle>
             <DialogContent>
-                <DialogContentText>
-                    {t('global.update.label.update_success', {
-                        name: t('settings.webui.title.webui'),
-                        version: newVersion,
-                        channel: aboutWebUI?.channel,
-                    })}
-                </DialogContentText>
+                <DialogContentText>{t`WebUI was updated to version ${newVersion} (${aboutWebUI?.channel})`}</DialogContentText>
             </DialogContent>
             <DialogActions>
                 <Button href={changelogUrl} target="_blank" rel="noreferrer">
-                    {t('global.button.changelog')}
+                    {t`Changelog`}
                 </Button>
                 <Button
                     onClick={() => {
                         setWebUIVersion(newVersion);
                         setOpen(false);
-                        window.location.reload();
+
+                        if (shouldForceRefresh) {
+                            window.location.reload();
+                        }
                     }}
                     variant="contained"
                 >
-                    {t('global.button.refresh')}
+                    {shouldForceRefresh ? t`Refresh` : t`Ok`}
                 </Button>
             </DialogActions>
         </Dialog>

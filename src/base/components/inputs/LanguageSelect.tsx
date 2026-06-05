@@ -17,42 +17,48 @@ import IconButton from '@mui/material/IconButton';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import ListItemText from '@mui/material/ListItemText';
 import ListItem from '@mui/material/ListItem';
-import { useTranslation } from 'react-i18next';
 import { Virtuoso } from 'react-virtuoso';
+import { useLingui } from '@lingui/react/macro';
 import { CustomTooltip } from '@/base/components/CustomTooltip.tsx';
 import { translateExtensionLanguage } from '@/features/extension/Extensions.utils.ts';
 import { languageSortComparator, toUniqueLanguageCodes } from '@/base/utils/Languages.ts';
+import { usePrevious } from '@mantine/hooks';
+import { AwaitableComponent, type AwaitableComponentProps } from 'awaitable-component';
 
-interface IProps {
+const LanguageSelectDialog = ({
+    isVisible,
+    onDismiss,
+    onSubmit,
+    onExitComplete,
+    selectedLanguages,
+    languages,
+}: AwaitableComponentProps<string[]> & {
     selectedLanguages: string[];
-    setSelectedLanguages: (languages: string[]) => void;
     languages: string[];
-}
+}) => {
+    const { t } = useLingui();
 
-export function LanguageSelect(props: IProps) {
-    const { t } = useTranslation();
-
-    const { selectedLanguages, setSelectedLanguages, languages } = props;
     const [tmpSelectedLanguages, setTmpSelectedLanguages] = useState(toUniqueLanguageCodes(selectedLanguages));
-    const [open, setOpen] = useState<boolean>(false);
+
+    const previousSelectedLanguages = usePrevious(selectedLanguages);
+
+    if (previousSelectedLanguages && previousSelectedLanguages !== selectedLanguages) {
+        setTmpSelectedLanguages(toUniqueLanguageCodes(selectedLanguages));
+    }
 
     const languagesSortedBySelectState = useMemo(
         () =>
             toUniqueLanguageCodes([
-                ...tmpSelectedLanguages.toSorted(languageSortComparator),
+                ...tmpSelectedLanguages
+                    .filter((language) => languages.includes(language))
+                    .toSorted(languageSortComparator),
                 ...languages.toSorted(languageSortComparator),
             ]),
         [languages, tmpSelectedLanguages],
     );
 
-    const handleCancel = () => {
-        setOpen(false);
-        setTmpSelectedLanguages(toUniqueLanguageCodes(selectedLanguages));
-    };
-
     const handleOk = () => {
-        setOpen(false);
-        setSelectedLanguages(toUniqueLanguageCodes(tmpSelectedLanguages));
+        onSubmit(toUniqueLanguageCodes(tmpSelectedLanguages));
     };
 
     const handleChange = (language: string, selected: boolean) => {
@@ -64,45 +70,70 @@ export function LanguageSelect(props: IProps) {
     };
 
     return (
-        <>
-            <CustomTooltip title={t('settings.title')}>
-                <IconButton onClick={() => setOpen(true)} aria-label="display more actions" edge="end" color="inherit">
-                    <FilterListIcon />
-                </IconButton>
-            </CustomTooltip>
-            <Dialog fullWidth maxWidth="xs" open={open} onClose={handleCancel}>
-                <DialogTitle>{t('global.language.title.enabled_languages')}</DialogTitle>
-                <DialogContent dividers sx={{ padding: 0 }}>
-                    <Virtuoso
-                        style={{
-                            height: languagesSortedBySelectState.length * 54,
-                            minHeight: '25vh',
-                            maxHeight: '50vh',
-                        }}
-                        data={languagesSortedBySelectState}
-                        increaseViewportBy={400}
-                        computeItemKey={(index) => languagesSortedBySelectState[index]}
-                        itemContent={(_index, language) => (
-                            <ListItem>
-                                <ListItemText primary={translateExtensionLanguage(language)} />
+        <Dialog fullWidth maxWidth="xs" open={isVisible} onClose={onDismiss} onTransitionExited={onExitComplete}>
+            <DialogTitle>{t`Allowed Languages`}</DialogTitle>
+            <DialogContent dividers sx={{ padding: 0 }}>
+                <Virtuoso
+                    style={{
+                        height: languagesSortedBySelectState.length * 54,
+                        minHeight: '25vh',
+                        maxHeight: '50vh',
+                    }}
+                    data={languagesSortedBySelectState}
+                    increaseViewportBy={400}
+                    computeItemKey={(index) => languagesSortedBySelectState[index]}
+                    itemContent={(_index, language) => (
+                        <ListItem>
+                            <ListItemText primary={translateExtensionLanguage(language)} />
 
-                                <Switch
-                                    checked={tmpSelectedLanguages.includes(language)}
-                                    onChange={(e) => handleChange(language, e.target.checked)}
-                                />
-                            </ListItem>
-                        )}
-                    />
-                </DialogContent>
-                <DialogActions>
-                    <Button autoFocus onClick={handleCancel} color="primary">
-                        {t('global.button.cancel')}
-                    </Button>
-                    <Button onClick={handleOk} color="primary">
-                        {t('global.button.ok')}
-                    </Button>
-                </DialogActions>
-            </Dialog>
-        </>
+                            <Switch
+                                checked={tmpSelectedLanguages.includes(language)}
+                                onChange={(e) => handleChange(language, e.target.checked)}
+                            />
+                        </ListItem>
+                    )}
+                />
+            </DialogContent>
+            <DialogActions>
+                <Button autoFocus onClick={onDismiss} color="primary">
+                    {t`Cancel`}
+                </Button>
+                <Button onClick={handleOk} color="primary">
+                    {t`Ok`}
+                </Button>
+            </DialogActions>
+        </Dialog>
+    );
+};
+
+export function LanguageSelect({
+    setSelectedLanguages,
+    ...props
+}: {
+    selectedLanguages: string[];
+    setSelectedLanguages: (languages: string[]) => void;
+    languages: string[];
+}) {
+    const { t } = useLingui();
+
+    return (
+        <CustomTooltip title={t`Settings`}>
+            <IconButton
+                onClick={async () => {
+                    try {
+                        const updatedSelectedLanguages = await AwaitableComponent.show(LanguageSelectDialog, props);
+
+                        setSelectedLanguages(updatedSelectedLanguages);
+                    } catch (e) {
+                        // ignore
+                    }
+                }}
+                aria-label="display more actions"
+                edge="end"
+                color="inherit"
+            >
+                <FilterListIcon />
+            </IconButton>
+        </CustomTooltip>
     );
 }

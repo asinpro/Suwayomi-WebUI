@@ -8,13 +8,13 @@
 
 import { useEffect, useMemo } from 'react';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
-import { requestUpdateServerMetadata } from '@/features/metadata/services/MetadataUpdater.ts';
+import { requestServerMetadataUpdate } from '@/features/metadata/services/MetadataUpdater.ts';
 import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
 import { SERVER_SETTINGS_METADATA_DEFAULT } from '@/features/settings/Settings.constants.ts';
-import { MetadataServerSettingKeys, MetadataServerSettings } from '@/features/settings/Settings.types.ts';
+import type { MetadataServerSettingKeys, MetadataServerSettings } from '@/features/settings/Settings.types.ts';
 import { convertFromGqlMeta } from '@/features/metadata/services/MetadataConverter.ts';
 import { getMetadataFrom } from '@/features/metadata/services/MetadataReader.ts';
-import { AllowedMetadataValueTypes, Metadata } from '@/features/metadata/Metadata.types.ts';
+import type { AllowedMetadataValueTypes, Metadata } from '@/features/metadata/Metadata.types.ts';
 
 export const convertSettingsToMetadata = (
     settings: Partial<MetadataServerSettings>,
@@ -23,8 +23,7 @@ export const convertSettingsToMetadata = (
     devices: JSON.stringify(settings.devices),
     customThemes: JSON.stringify(settings.customThemes),
     migrateSortSettings: JSON.stringify(settings.migrateSortSettings),
-    extensionLanguages: JSON.stringify(settings.extensionLanguages),
-    sourceLanguages: JSON.stringify(settings.sourceLanguages),
+    browseLanguages: JSON.stringify(settings.browseLanguages),
 });
 
 const getMetadataServerSettingsWithDefaultFallback = (
@@ -39,7 +38,7 @@ export const useMetadataServerSettings = (): {
     loading: boolean;
     request: ReturnType<typeof requestManager.useGetGlobalMeta>;
 } => {
-    const request = requestManager.useGetGlobalMeta({ notifyOnNetworkStatusChange: true });
+    const request = requestManager.useGetGlobalMeta();
     const { data, loading } = request;
     const metadata = useMemo(() => convertFromGqlMeta(data?.metas.nodes), [data?.metas.nodes]);
     const tmpSettings = getMetadataServerSettingsWithDefaultFallback(metadata, undefined, useEffect);
@@ -65,12 +64,12 @@ export const updateMetadataServerSettings = async <
 >(
     setting: Setting,
     value: MetadataServerSettings[Setting],
-): Promise<void[]> =>
-    requestUpdateServerMetadata([[setting, convertSettingsToMetadata({ [setting]: value })[setting]]]);
+): Promise<void> =>
+    requestServerMetadataUpdate({ update: [[setting, convertSettingsToMetadata({ [setting]: value })[setting]]] });
 
 export const createUpdateMetadataServerSettings =
     <Settings extends MetadataServerSettingKeys>(
         handleError: (error: any) => void = defaultPromiseErrorHandler('createUpdateMetadataServerSettings'),
-    ): ((...args: Parameters<typeof updateMetadataServerSettings<Settings>>) => Promise<void | void[]>) =>
+    ): ((...args: Parameters<typeof updateMetadataServerSettings<Settings>>) => Promise<void>) =>
     (setting, value) =>
         updateMetadataServerSettings(setting, value).catch(handleError);

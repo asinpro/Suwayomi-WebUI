@@ -6,21 +6,102 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { SortBy, SortOrder } from '@/features/migration/Migration.types.ts';
+import type { MessageDescriptor } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
+import type { MigrationState } from '@/features/migration/Migration.types.ts';
+import { MigrationEntryStatus, MigrationPhase, SortBy, SortOrder } from '@/features/migration/Migration.types.ts';
 
-import { TranslationKey } from '@/base/Base.types.ts';
-
-export const sortByToTranslationKey: Record<SortBy, TranslationKey> = {
-    [SortBy.SOURCE_NAME]: 'migrate.sort.by_source_name',
-    [SortBy.MANGA_COUNT]: 'migrate.sort.by_manga_count',
+export const sortByToTranslation: Record<SortBy, MessageDescriptor> = {
+    [SortBy.SOURCE_NAME]: msg`By source name`,
+    [SortBy.MANGA_COUNT]: msg`By manga count`,
 };
 
-export const sortOrderToTranslationKey: Record<SortBy, TranslationKey> = {
-    [SortOrder.ASC]: 'global.sort.label.asc',
-    [SortOrder.DESC]: 'global.sort.label.desc',
+export const sortOrderToTranslation: Record<SortBy, MessageDescriptor> = {
+    [SortOrder.ASC]: msg`Ascending`,
+    [SortOrder.DESC]: msg`Descending`,
 };
 
 export const DEFAULT_SORT_SETTINGS = {
     sortBy: SortBy.SOURCE_NAME,
     sortOrder: SortOrder.ASC,
+};
+
+export const MIGRATION_LOCAL_STORAGE_KEY = 'migration_state';
+
+export const MAX_MANGAS_IN_PARALLEL = 5;
+
+export const MAX_SOURCES_IN_PARALLEL = 6;
+
+export const DEFAULT_MIGRATION_STATE: MigrationState = {
+    phase: MigrationPhase.IDLE,
+    sourceIds: null,
+    entries: {},
+    destinationSourceIds: [],
+    searchOptions: null,
+    migrateOptions: null,
+    searchProgress: { total: 0, completed: 0, success: 0, failed: 0 },
+    migrationProgress: { total: 0, completed: 0, success: 0, failed: 0 },
+    startedAt: null,
+    lastUpdatedAt: null,
+    groupExpandState: {},
+    isAborted: false,
+};
+
+export const ENTRY_STATUS_TRANSLATION: Record<MigrationEntryStatus, MessageDescriptor> = {
+    [MigrationEntryStatus.SEARCH_PENDING]: msg`Pending…`,
+    [MigrationEntryStatus.SEARCHING]: msg`Searching…`,
+    [MigrationEntryStatus.SEARCH_COMPLETE]: msg`Match found`,
+    [MigrationEntryStatus.SEARCH_FAILED]: msg`Search failed`,
+    [MigrationEntryStatus.NO_MATCH]: msg`No match found`,
+    [MigrationEntryStatus.OUTDATED]: msg`Only outdated matches found`,
+    [MigrationEntryStatus.MIGRATION_PENDING]: msg`Pending…`,
+    [MigrationEntryStatus.MIGRATING]: msg`Migrating…`,
+    [MigrationEntryStatus.MIGRATION_COMPLETE]: msg`Successfully migrated`,
+    [MigrationEntryStatus.MIGRATION_FAILED]: msg`Migration failed`,
+    [MigrationEntryStatus.EXCLUDED]: msg`Excluded`,
+    [MigrationEntryStatus.ABORTED]: msg`Aborted`,
+};
+
+export const MIGRATE_SEARCH_ENTRY_GROUPS = [
+    MigrationEntryStatus.SEARCHING,
+    MigrationEntryStatus.SEARCH_FAILED,
+    MigrationEntryStatus.ABORTED,
+    MigrationEntryStatus.NO_MATCH,
+    MigrationEntryStatus.OUTDATED,
+    MigrationEntryStatus.SEARCH_COMPLETE,
+] as const satisfies readonly MigrationEntryStatus[];
+
+export const MIGRATE_SEARCH_ENTRY_GROUP_EXPAND_DEFAULT_STATE: Record<
+    (typeof MIGRATE_SEARCH_ENTRY_GROUPS)[number],
+    boolean
+> = {
+    [MigrationEntryStatus.SEARCHING]: true,
+    [MigrationEntryStatus.SEARCH_FAILED]: false,
+    [MigrationEntryStatus.ABORTED]: false,
+    [MigrationEntryStatus.NO_MATCH]: false,
+    [MigrationEntryStatus.OUTDATED]: false,
+    [MigrationEntryStatus.SEARCH_COMPLETE]: false,
+};
+
+export const MIGRATE_EXECUTE_ENTRY_GROUPS = [
+    MigrationEntryStatus.MIGRATING,
+    MigrationEntryStatus.MIGRATION_FAILED,
+    MigrationEntryStatus.ABORTED,
+    MigrationEntryStatus.NO_MATCH,
+    MigrationEntryStatus.OUTDATED,
+    MigrationEntryStatus.EXCLUDED,
+    MigrationEntryStatus.MIGRATION_COMPLETE,
+] as const satisfies readonly MigrationEntryStatus[];
+
+export const MIGRATE_EXECUTE_ENTRY_GROUP_EXPAND_DEFAULT_STATE: Record<
+    (typeof MIGRATE_EXECUTE_ENTRY_GROUPS)[number],
+    boolean
+> = {
+    [MigrationEntryStatus.MIGRATING]: true,
+    [MigrationEntryStatus.MIGRATION_FAILED]: false,
+    [MigrationEntryStatus.ABORTED]: false,
+    [MigrationEntryStatus.NO_MATCH]: false,
+    [MigrationEntryStatus.OUTDATED]: false,
+    [MigrationEntryStatus.EXCLUDED]: false,
+    [MigrationEntryStatus.MIGRATION_COMPLETE]: false,
 };

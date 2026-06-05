@@ -11,39 +11,34 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import Stack from '@mui/material/Stack';
 import AppSettingsAltIcon from '@mui/icons-material/AppSettingsAlt';
 import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
-import { alpha } from '@mui/material/styles';
 import { bindDialog, bindTrigger, usePopupState } from 'material-ui-popup-state/hooks';
 import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
-import { useTranslation } from 'react-i18next';
 import Slide from '@mui/material/Slide';
 import { memo, useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useLingui } from '@lingui/react/macro';
 import { CustomTooltip } from '@/base/components/CustomTooltip.tsx';
-import { ReaderBottomBarMobileProps } from '@/features/reader/overlay/ReaderOverlay.types.ts';
+import type { ReaderBottomBarMobileProps } from '@/features/reader/overlay/ReaderOverlay.types.ts';
 import { MobileReaderProgressBar } from '@/features/reader/overlay/progress-bar/mobile/MobileReaderProgressBar.tsx';
 import { ReaderChapterList } from '@/features/reader/overlay/navigation/components/ReaderChapterList.tsx';
 import { ReaderBottomBarMobileQuickSettings } from '@/features/reader/overlay/navigation/mobile/quick-settings/ReaderBottomBarMobileQuickSettings.tsx';
-import { useReaderStateChaptersContext } from '@/features/reader/contexts/state/ReaderStateChaptersContext.tsx';
-import { useReaderScrollbarContext } from '@/features/reader/contexts/ReaderScrollbarContext.tsx';
-import { ReaderStateChapters, TReaderScrollbarContext } from '@/features/reader/Reader.types.ts';
-import { withPropsFrom } from '@/base/hoc/withPropsFrom.tsx';
 import { useResizeObserver } from '@/base/hooks/useResizeObserver.tsx';
+import { useReaderChaptersStore, useReaderScrollbarStore } from '@/features/reader/stores/ReaderStore.ts';
 
 const BaseReaderBottomBarMobile = ({
     openSettings,
     isVisible,
-    currentChapter,
-    chapters,
-    scrollbarXSize,
-    scrollbarYSize,
     topOffset = 0,
-}: ReaderBottomBarMobileProps &
-    Pick<ReaderStateChapters, 'currentChapter' | 'chapters'> &
-    Pick<TReaderScrollbarContext, 'scrollbarXSize' | 'scrollbarYSize'> & { topOffset?: number }) => {
-    const { t } = useTranslation();
+}: ReaderBottomBarMobileProps & { topOffset?: number }) => {
+    const { t } = useLingui();
+    const { currentChapterId, chapters } = useReaderChaptersStore((state) => ({
+        currentChapterId: state.currentChapter?.id,
+        chapters: state.chapters,
+    }));
 
     const chapterListPopupState = usePopupState({ variant: 'dialog', popupId: 'reader-chapter-list-dialog' });
     const quickSettingsPopupState = usePopupState({ variant: 'dialog', popupId: 'reader-quick-settings-dialog' });
+    const scrollbar = useReaderScrollbarStore((state) => state);
 
     const [bottomBarRefHeight, setBottomBarRefHeight] = useState(0);
     const bottomBarRef = useRef<HTMLDivElement>(null);
@@ -54,14 +49,14 @@ const BaseReaderBottomBarMobile = ({
 
     useLayoutEffect(() => {
         chapterListPopupState.close();
-    }, [currentChapter?.id]);
+    }, [currentChapterId]);
 
     return (
         <>
             <Stack
                 sx={{
                     position: 'fixed',
-                    right: `${scrollbarYSize}px`,
+                    right: `${scrollbar.ySize}px`,
                     bottom: 0,
                     left: 0,
                     height: `calc(100% - ${topOffset}px)`,
@@ -73,8 +68,8 @@ const BaseReaderBottomBarMobile = ({
                         ref={bottomBarRef}
                         sx={{
                             alignItems: 'center',
-                            backgroundColor: (theme) => alpha(theme.palette.background.paper, 0.95),
-                            pb: `max(${scrollbarXSize}px, env(safe-area-inset-bottom))`,
+                            backgroundColor: (theme) => theme.alpha(theme.palette.background.paper, 0.95),
+                            pb: `max(${scrollbar.xSize}px, env(safe-area-inset-bottom))`,
                             boxShadow: 2,
                             pointerEvents: 'all',
                         }}
@@ -89,17 +84,17 @@ const BaseReaderBottomBarMobile = ({
                                 alignItems: 'center',
                             }}
                         >
-                            <CustomTooltip title={t('reader.button.chapter_list')}>
+                            <CustomTooltip title={t`Chapter list`}>
                                 <IconButton {...bindTrigger(chapterListPopupState)} color="inherit">
                                     <FormatListBulletedIcon />
                                 </IconButton>
                             </CustomTooltip>
-                            <CustomTooltip title={t('reader.settings.title.quick_settings')}>
+                            <CustomTooltip title={t`Quick settings`}>
                                 <IconButton {...bindTrigger(quickSettingsPopupState)} color="inherit">
                                     <AppSettingsAltIcon />
                                 </IconButton>
                             </CustomTooltip>
-                            <CustomTooltip title={t('settings.title')}>
+                            <CustomTooltip title={t`Settings`}>
                                 <IconButton onClick={openSettings} color="inherit">
                                     <SettingsIcon />
                                 </IconButton>
@@ -116,7 +111,7 @@ const BaseReaderBottomBarMobile = ({
                                 minHeight: '15vh',
                                 maxHeight: '75vh',
                             }}
-                            currentChapter={currentChapter}
+                            currentChapterId={currentChapterId}
                             chapters={chapters}
                         />
                     </DialogContent>
@@ -133,8 +128,4 @@ const BaseReaderBottomBarMobile = ({
     );
 };
 
-export const ReaderBottomBarMobile = withPropsFrom(
-    memo(BaseReaderBottomBarMobile),
-    [useReaderStateChaptersContext, useReaderScrollbarContext],
-    ['currentChapter', 'chapters', 'scrollbarXSize', 'scrollbarYSize'],
-);
+export const ReaderBottomBarMobile = memo(BaseReaderBottomBarMobile);

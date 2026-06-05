@@ -7,13 +7,15 @@
  */
 
 import React, { useLayoutEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import { IMangaGridProps, MangaGrid } from '@/features/manga/components/MangaGrid.tsx';
+import { useLingui } from '@lingui/react/macro';
+import type { IMangaGridProps } from '@/features/manga/components/MangaGrid.tsx';
+import { MangaGrid } from '@/features/manga/components/MangaGrid.tsx';
 import { GridLayout } from '@/base/Base.types.ts';
 import { useMetadataServerSettings } from '@/features/settings/services/ServerSettingsMetadata.ts';
 
 interface LibraryMangaGridProps
-    extends Required<Pick<IMangaGridProps, 'isSelectModeActive' | 'selectedMangaIds' | 'handleSelection' | 'mangas'>>,
+    extends
+        Required<Pick<IMangaGridProps, 'isSelectModeActive' | 'selectedMangaIds' | 'handleSelection' | 'mangas'>>,
         Pick<IMangaGridProps, 'retry' | 'message' | 'messageExtra'> {
     showFilteredOutMessage: boolean;
     isLoading: boolean;
@@ -27,7 +29,7 @@ export const LibraryMangaGrid: React.FC<LibraryMangaGridProps> = ({
     messageExtra,
     ...gridProps
 }) => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
     const {
         settings: { gridLayout },
@@ -46,7 +48,7 @@ export const LibraryMangaGrid: React.FC<LibraryMangaGridProps> = ({
             {...gridProps}
             hasNextPage={false}
             loadMore={loadMoreNoop}
-            message={showFilteredOutMessage ? t('library.error.label.no_matches') : message}
+            message={showFilteredOutMessage ? t`No manga matches this filter` : message}
             messageExtra={showFilteredOutMessage ? undefined : messageExtra}
             gridLayout={gridLayout}
         />

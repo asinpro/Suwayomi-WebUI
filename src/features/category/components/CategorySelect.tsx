@@ -13,33 +13,32 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Dialog from '@mui/material/Dialog';
 import FormGroup from '@mui/material/FormGroup';
-import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import Stack from '@mui/material/Stack';
+import type { AwaitableComponentProps } from 'awaitable-component';
+import { useLingui } from '@lingui/react/macro';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { Mangas } from '@/features/manga/services/Mangas.ts';
-import { useSelectableCollection } from '@/features/collection/hooks/useSelectableCollection.ts';
+import { useSelectableCollection } from '@/base/collection/hooks/useSelectableCollection.ts';
 import { ThreeStateCheckboxInput } from '@/base/components/inputs/ThreeStateCheckboxInput.tsx';
 import { Categories } from '@/features/category/services/Categories.ts';
 import { CheckboxInput } from '@/base/components/inputs/CheckboxInput.tsx';
 import { makeToast } from '@/base/utils/Toast.ts';
 import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
 import { updateMetadataServerSettings } from '@/features/settings/services/ServerSettingsMetadata.ts';
-import {
+import { STABLE_EMPTY_ARRAY } from '@/base/Base.constants.ts';
+import type {
     GetCategoriesBaseQuery,
     GetCategoriesBaseQueryVariables,
     GetMangaCategoriesQuery,
     GetMangaCategoriesQueryVariables,
 } from '@/lib/graphql/generated/graphql.ts';
-import { GET_CATEGORIES_BASE } from '@/lib/graphql/queries/CategoryQuery.ts';
-import { GET_MANGA_CATEGORIES } from '@/lib/graphql/queries/MangaQuery.ts';
+import { GET_CATEGORIES_BASE } from '@/lib/graphql/category/CategoryQuery.ts';
+import { GET_MANGA_CATEGORIES } from '@/lib/graphql/manga/MangaQuery.ts';
 import { AppRoutes } from '@/base/AppRoute.constants.ts';
 import { getErrorMessage } from '@/lib/HelperFunctions.ts';
 
-type BaseProps = {
-    open: boolean;
-    onClose: (didUpdateCategories: boolean, addToCategories?: number[], removeFromCategories?: number[]) => void;
-};
+type BaseProps = AwaitableComponentProps<{ addToCategories?: number[]; removeFromCategories?: number[] }>;
 
 type SingleMangaModeProps = {
     mangaId: number;
@@ -92,9 +91,17 @@ const getCategoryCheckedState = (
 };
 
 export function CategorySelect(props: CategorySelectProps) {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
-    const { open, onClose, mangaId, mangaIds: passedMangaIds, addToLibrary = false } = props;
+    const {
+        onDismiss,
+        onSubmit,
+        isVisible,
+        onExitComplete,
+        mangaId,
+        mangaIds: passedMangaIds,
+        addToLibrary = false,
+    } = props;
 
     const isSingleSelectionMode = mangaId !== undefined;
     const mangaIds = passedMangaIds ?? [mangaId];
@@ -106,9 +113,9 @@ export function CategorySelect(props: CategorySelectProps) {
     const { data } = requestManager.useGetCategories<GetCategoriesBaseQuery, GetCategoriesBaseQueryVariables>(
         GET_CATEGORIES_BASE,
     );
-    const categoriesData = data?.categories.nodes;
+    const categoriesData = data?.categories.nodes ?? STABLE_EMPTY_ARRAY;
 
-    const allCategories = useMemo(() => Categories.getUserCreated(categoriesData ?? []), [categoriesData]);
+    const allCategories = useMemo(() => Categories.getUserCreated(categoriesData), [categoriesData]);
 
     const defaultCategoryIds = useMemo(
         () => (addToLibrary ? Categories.getIds(Categories.getDefaults(allCategories)) : []),
@@ -120,10 +127,13 @@ export function CategorySelect(props: CategorySelectProps) {
         'categoriesToAdd' | 'categoriesToRemove'
     >(allCategories.length, {
         currentKey: 'categoriesToAdd',
-        initialState: {
-            categoriesToAdd: [...mangaCategoryIds, ...defaultCategoryIds],
-            categoriesToRemove: [],
-        },
+        initialState: useMemo(
+            () => ({
+                categoriesToAdd: [...mangaCategoryIds, ...defaultCategoryIds],
+                categoriesToRemove: [],
+            }),
+            [mangaCategoryIds, defaultCategoryIds],
+        ),
     });
 
     useEffect(() => {
@@ -137,7 +147,7 @@ export function CategorySelect(props: CategorySelectProps) {
     const handleCancel = () => {
         setSelectionForKey('categoriesToAdd', mangaCategoryIds);
         setSelectionForKey('categoriesToRemove', []);
-        onClose(false);
+        onDismiss();
     };
 
     const handleOk = () => {
@@ -148,11 +158,14 @@ export function CategorySelect(props: CategorySelectProps) {
             ? mangaCategoryIds.filter((categoryId) => !categoriesToAdd.includes(categoryId))
             : categoriesToRemove;
 
-        onClose(true, addToCategories, removeFromCategories);
+        onSubmit({
+            addToCategories,
+            removeFromCategories,
+        });
 
         if (doNotShowAddToLibraryDialogAgain) {
             updateMetadataServerSettings('showAddToLibraryCategorySelectDialog', false).catch((e) =>
-                makeToast(t('search.error.label.failed_to_save_settings'), 'error', getErrorMessage(e)),
+                makeToast(t`Could not save the default search settings to the server`, 'error', getErrorMessage(e)),
             );
         }
 
@@ -183,13 +196,14 @@ export function CategorySelect(props: CategorySelectProps) {
                 },
             }}
             maxWidth="xs"
-            open={open}
+            open={isVisible}
+            onTransitionExited={onExitComplete}
             onClose={handleCancel}
         >
-            <DialogTitle>{t('category.title.set_categories')}</DialogTitle>
+            <DialogTitle>{t`Set categories`}</DialogTitle>
             <DialogContent dividers>
                 <FormGroup>
-                    {allCategories.length === 0 && <span>{t('category.error.no_categories_found.label.info')}</span>}
+                    {allCategories.length === 0 && <span>{t`You don't have any categories yet.`}</span>}
                     {allCategories.map((category) => (
                         <ThreeStateCheckboxInput
                             checked={getCategoryCheckedState(
@@ -222,7 +236,7 @@ export function CategorySelect(props: CategorySelectProps) {
                         <CheckboxInput
                             sx={{ margin: 0 }}
                             size="small"
-                            label={t('global.button.dont_show_dialog_again')}
+                            label={t`Don't show this dialog again`}
                             onChange={(e) => setDoNotShowAddToLibraryDialogAgain(e.target.checked)}
                         />
                     )}
@@ -234,16 +248,16 @@ export function CategorySelect(props: CategorySelectProps) {
                             width: '100%',
                         }}
                     >
-                        <Button component={Link} to={AppRoutes.settings.childRoutes.categories.path}>
-                            {t(allCategories.length ? 'global.button.edit' : 'global.button.create')}
+                        <Button component={Link} to={AppRoutes.settings.children.categories.path} onClick={onDismiss}>
+                            {allCategories.length ? t`Edit` : t`Create`}
                         </Button>
                         <Stack direction="row">
                             <Button autoFocus onClick={handleCancel} color="primary">
-                                {t('global.button.cancel')}
+                                {t`Cancel`}
                             </Button>
                             {!!allCategories.length && (
                                 <Button onClick={handleOk} color="primary">
-                                    {t('global.button.ok')}
+                                    {t`Ok`}
                                 </Button>
                             )}
                         </Stack>

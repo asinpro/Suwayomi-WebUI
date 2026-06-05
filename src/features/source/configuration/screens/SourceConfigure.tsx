@@ -9,7 +9,7 @@
 import { createElement } from 'react';
 import { useParams } from 'react-router-dom';
 import List from '@mui/material/List';
-import { useTranslation } from 'react-i18next';
+import { useLingui } from '@lingui/react/macro';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { cloneObject } from '@/base/utils/cloneObject.tsx';
 import {
@@ -22,12 +22,13 @@ import { MultiSelectListPreference } from '@/features/source/configuration/compo
 import { LoadingPlaceholder } from '@/base/components/feedback/LoadingPlaceholder.tsx';
 import { EmptyViewAbsoluteCentered } from '@/base/components/feedback/EmptyViewAbsoluteCentered.tsx';
 import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
-import { GetCategoriesSettingsQueryVariables, GetSourceSettingsQuery } from '@/lib/graphql/generated/graphql.ts';
-import { GET_SOURCE_SETTINGS } from '@/lib/graphql/queries/SourceQuery.ts';
+import type { GetCategoriesSettingsQueryVariables, GetSourceSettingsQuery } from '@/lib/graphql/generated/graphql.ts';
+import { GET_SOURCE_SETTINGS } from '@/lib/graphql/source/SourceQuery.ts';
 import { makeToast } from '@/base/utils/Toast.ts';
-import { PreferenceProps } from '@/features/source/Source.types.ts';
+import type { PreferenceProps } from '@/features/source/Source.types.ts';
 import { getErrorMessage } from '@/lib/HelperFunctions.ts';
 import { useAppTitle } from '@/features/navigation-bar/hooks/useAppTitle.ts';
+import { STABLE_EMPTY_ARRAY } from '@/base/Base.constants.ts';
 
 function getPrefComponent(type: string) {
     switch (type) {
@@ -47,27 +48,23 @@ function getPrefComponent(type: string) {
 }
 
 export function SourceConfigure() {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
-    useAppTitle(t('source.configuration.title'));
+    useAppTitle(t`Source Configuration`);
 
     const { sourceId } = useParams<{ sourceId: string }>();
     const { data, loading, error, refetch } = requestManager.useGetSource<
         GetSourceSettingsQuery,
         GetCategoriesSettingsQueryVariables
-    >(GET_SOURCE_SETTINGS, sourceId, {
-        notifyOnNetworkStatusChange: true,
-    });
-    const sourcePreferences = data?.source.preferences ?? [];
+    >(GET_SOURCE_SETTINGS, sourceId);
+    const sourcePreferences = data?.source.preferences ?? STABLE_EMPTY_ARRAY;
 
     const updateValue =
         (position: number): PreferenceProps['updateValue'] =>
         (type, value) => {
             requestManager
                 .setSourcePreferences(sourceId, { position, [type]: value })
-                .response.catch((e) =>
-                    makeToast(t('global.error.label.failed_to_save_changes'), 'error', getErrorMessage(e)),
-                );
+                .response.catch((e) => makeToast(t`Failed to save changes`, 'error', getErrorMessage(e)));
         };
 
     if (loading) {
@@ -77,7 +74,7 @@ export function SourceConfigure() {
     if (error) {
         return (
             <EmptyViewAbsoluteCentered
-                message={t('global.error.label.failed_to_load_data')}
+                message={t`Unable to load data`}
                 messageExtra={getErrorMessage(error)}
                 retry={() => refetch().catch(defaultPromiseErrorHandler('SourceConfigure::refetch'))}
             />

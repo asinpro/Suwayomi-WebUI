@@ -6,30 +6,29 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { t as translate } from 'i18next';
-import { DocumentNode, MaybeMasked, Unmasked, useFragment } from '@apollo/client';
+import type { DocumentNode, MaybeMasked, Unmasked } from '@apollo/client';
+import { useFragment } from '@apollo/client/react';
+import { t } from '@lingui/core/macro';
 import { makeToast } from '@/base/utils/Toast.ts';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { getMetadataServerSettings } from '@/features/settings/services/ServerSettingsMetadata.ts';
-import {
-    ChapterListFieldsFragment,
-    ChapterType,
-    DownloadState,
-    DownloadTypeFieldsFragment,
-} from '@/lib/graphql/generated/graphql.ts';
-import { CHAPTER_LIST_FIELDS } from '@/lib/graphql/fragments/ChapterFragments.ts';
+import type { ChapterListFieldsFragment, DownloadTypeFieldsFragment } from '@/lib/graphql/generated/graphql.ts';
+import type { ChapterType } from '@/lib/graphql/generated/graphql-base.types.ts';
+import { DownloadState } from '@/lib/graphql/generated/graphql-base.types.ts';
+import { CHAPTER_LIST_FIELDS } from '@/lib/graphql/chapter/ChapterFragments.ts';
+import type { MangaIdInfo } from '@/features/manga/Manga.types.ts';
 
-import { MangaIdInfo } from '@/features/manga/Manga.types.ts';
-import { ReaderOpenChapterLocationState, ReaderResumeMode } from '@/features/reader/Reader.types.ts';
+import type { RouteStateReader } from '@/features/reader/Reader.types.ts';
+import { ReaderResumeMode } from '@/features/reader/Reader.types.ts';
 import { AppRoutes } from '@/base/AppRoute.constants.ts';
 import { getErrorMessage } from '@/lib/HelperFunctions.ts';
-import { DOWNLOAD_TYPE_FIELDS } from '@/lib/graphql/fragments/DownloadFragments.ts';
+import { DOWNLOAD_TYPE_FIELDS } from '@/lib/graphql/download/DownloadFragments.ts';
 import { epochToDate, getDateString } from '@/base/utils/DateHelper.ts';
 import {
     CHAPTER_ACTION_TO_CONFIRMATION_REQUIRED,
     CHAPTER_ACTION_TO_TRANSLATION,
 } from '@/features/chapter/Chapter.constants.ts';
-import {
+import type {
     ChapterAction,
     ChapterBookmarkInfo,
     ChapterDownloadInfo,
@@ -41,8 +40,9 @@ import {
     ChapterSourceOrderInfo,
 } from '@/features/chapter/Chapter.types.ts';
 import { assertIsDefined } from '@/base/Asserts.ts';
-import { awaitConfirmation } from '@/base/utils/AwaitableDialog.tsx';
 import { DirectionOffset } from '@/base/Base.types.ts';
+import { Confirmation } from '@/base/AppAwaitableComponent.ts';
+import { i18n } from '@/i18n';
 
 export class Chapters {
     static getIds(chapters: { id: number }[]): number[] {
@@ -171,10 +171,10 @@ export class Chapters {
         return chapters.filter((chapter) => !Chapters.isRead(chapter));
     }
 
-    static getMatchingChapterNumberChapters<Chapter extends ChapterNumberInfo>(
-        chaptersA: Chapter[],
-        chaptersB: Chapter[],
-    ): [ChapterA: Chapter, ChapterB: Chapter][] {
+    static getMatchingChapterNumberChapters<ChapterA extends ChapterNumberInfo, ChapterB extends ChapterNumberInfo>(
+        chaptersA: ChapterA[],
+        chaptersB: ChapterB[],
+    ): [ChapterA: ChapterA, ChapterB: ChapterB][] {
         return chaptersA
             .map((chapterA) => {
                 const matchingChapter = chaptersB.find((chapterB) => chapterA.chapterNumber === chapterB.chapterNumber);
@@ -185,7 +185,7 @@ export class Chapters {
 
                 return [chapterA, matchingChapter];
             })
-            .filter((matchingChapters): matchingChapters is [Chapter, Chapter] => matchingChapters !== null);
+            .filter((matchingChapters): matchingChapters is [ChapterA, ChapterB] => matchingChapters !== null);
     }
 
     static async download(chapterIds: number[], disableConfirmation?: boolean): Promise<void> {
@@ -275,12 +275,13 @@ export class Chapters {
                 assertIsDefined(confirmationMessage);
 
                 try {
-                    await awaitConfirmation({
-                        title: translate('global.label.are_you_sure'),
-                        message: translate(confirmationMessage, { count: itemCount }),
+                    await Confirmation.show({
+                        title: t`Are you sure?`,
+                        /* lingui-extract-ignore */
+                        message: i18n.t({ ...confirmationMessage, values: { count: itemCount } }),
                         actions: {
                             confirm: {
-                                title: translate('global.button.ok'),
+                                title: t`Ok`,
                             },
                         },
                     });
@@ -290,10 +291,15 @@ export class Chapters {
             }
 
             await fnToExecute();
-            makeToast(translate(CHAPTER_ACTION_TO_TRANSLATION[action].success, { count: itemCount }), 'success');
+            makeToast(
+                /* lingui-extract-ignore */
+                i18n.t({ ...CHAPTER_ACTION_TO_TRANSLATION[action].success, values: { count: itemCount } }),
+                'success',
+            );
         } catch (e) {
             makeToast(
-                translate(CHAPTER_ACTION_TO_TRANSLATION[action].error, { count: itemCount }),
+                /* lingui-extract-ignore */
+                i18n.t({ ...CHAPTER_ACTION_TO_TRANSLATION[action].error, values: { count: itemCount } }),
                 'error',
                 getErrorMessage(e),
             );
@@ -347,9 +353,9 @@ export class Chapters {
     ): T[] {
         const chapterNumberToChapters = Object.groupBy(allChapters, ({ chapterNumber }) => chapterNumber);
 
-        return uniqueChapters
-            .map((uniqueChapter) => chapterNumberToChapters[uniqueChapter.chapterNumber] ?? [uniqueChapter])
-            .flat();
+        return uniqueChapters.flatMap(
+            (uniqueChapter) => chapterNumberToChapters[uniqueChapter.chapterNumber] ?? [uniqueChapter],
+        );
     }
 
     static removeDuplicates<T extends ChapterIdInfo & ChapterScanlatorInfo & ChapterNumberInfo>(
@@ -425,11 +431,11 @@ export class Chapters {
     static getReaderOpenChapterLocationState(
         chapter: ChapterReadInfo,
         updateInitialChapter?: boolean,
-    ): ReaderOpenChapterLocationState {
-        return {
+    ): RouteStateReader {
+        return AppRoutes.reader.state({
             resumeMode: Chapters.getReaderResumeMode(chapter),
             updateInitialChapter,
-        };
+        });
     }
 
     /**

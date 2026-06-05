@@ -6,31 +6,28 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { onError } from '@apollo/client/link/error';
-import { setContext } from '@apollo/client/link/context';
-import {
-    ApolloClient,
-    ApolloClientOptions,
-    ApolloLink,
-    InMemoryCache,
-    NormalizedCacheObject,
-    split,
-    from,
-    fromPromise,
-} from '@apollo/client';
-import createUploadLink from 'apollo-upload-client/createUploadLink.mjs';
+import { ErrorLink } from '@apollo/client/link/error';
+import { SetContextLink } from '@apollo/client/link/context';
+import type { ErrorLike } from '@apollo/client';
+import { ApolloClient, ApolloLink, CombinedGraphQLErrors, InMemoryCache, ServerError } from '@apollo/client';
+import { from, filter, map, switchMap, firstValueFrom } from 'rxjs';
+import UploadHttpLink from 'apollo-upload-client/UploadHttpLink.mjs';
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
-import { Client, createClient } from 'graphql-ws';
+import type { Client } from 'graphql-ws';
+import { createClient } from 'graphql-ws';
 import { getMainDefinition } from '@apollo/client/utilities';
-import { TypePolicies } from '@apollo/client/cache';
-import { removeTypenameFromVariables } from '@apollo/client/link/remove-typename';
+import type { TypePolicies } from '@apollo/client/cache';
+import { RemoveTypenameFromVariablesLink } from '@apollo/client/link/remove-typename';
+import { d } from 'koration';
+import { useId } from '@mantine/hooks';
+import { useEffect } from 'react';
+import type { GraphQLFormattedError } from 'graphql';
 import { BaseClient } from '@/lib/requests/client/BaseClient.ts';
-import { StrictTypedTypePolicies } from '@/lib/graphql/generated/apollo-helpers.ts';
+import type { StrictTypedTypePolicies } from '@/lib/graphql/generated/apollo-helpers.ts';
 import { AuthManager } from '@/features/authentication/AuthManager.ts';
-import { UserRefreshMutation } from '@/lib/graphql/generated/graphql.ts';
-import { AbortableApolloMutationResponse } from '@/lib/requests/RequestManager.ts';
+import type { UserRefreshMutation } from '@/lib/graphql/generated/graphql.ts';
+import type { AbortableApolloMutationResponse } from '@/lib/requests/RequestManager.ts';
 
-/* eslint-disable no-underscore-dangle */
 const typePolicies: StrictTypedTypePolicies = {
     MangaType: {
         fields: {
@@ -75,6 +72,7 @@ const typePolicies: StrictTypedTypePolicies = {
     UpdaterJobsInfoType: { keyFields: [] },
     WebUIUpdateStatus: { keyFields: [] },
     UpdateStatus: { keyFields: [] },
+    KoSyncStatusPayload: { keyFields: [] },
     Query: {
         fields: {
             manga(_, { args, toReference }) {
@@ -180,18 +178,17 @@ const typePolicies: StrictTypedTypePolicies = {
         },
     },
 };
-/* eslint-enable no-underscore-dangle */
 
-export class GraphQLClient extends BaseClient<
-    ApolloClient<NormalizedCacheObject>,
-    ApolloClientOptions<NormalizedCacheObject>,
-    null
-> {
+export class GraphQLClient extends BaseClient<ApolloClient, ApolloClient.Options, null> {
     readonly fetcher = null;
 
-    public client!: ApolloClient<NormalizedCacheObject>;
+    public client!: ApolloClient;
 
     private wsClient!: Client;
+
+    private wsClientAliveCheckInterval: NodeJS.Timeout | undefined = undefined;
+
+    private activeConnectionSubscriptions = new Map<string, () => void>();
 
     constructor(handleRefreshToken: (refreshToken: string) => AbortableApolloMutationResponse<UserRefreshMutation>) {
         super(handleRefreshToken);
@@ -203,31 +200,120 @@ export class GraphQLClient extends BaseClient<
         return `${super.getBaseUrl()}/api/graphql`;
     }
 
-    public terminateSubscriptions(): void {
+    override reset(): void {
+        super.reset();
+
+        this.client.clearStore();
+        this.client.stop();
+
+        this.resetWsClient(false);
+        this.createClient();
+    }
+
+    private resetWsClient(recreateClient: boolean): void {
+        this.wsClient.dispose();
         this.wsClient.terminate();
+
+        if (!recreateClient) {
+            return;
+        }
+
+        this.createWSClient(false);
+        this.client.setLink(this.createLink());
+
+        this.restartAllSubscriptions();
+    }
+
+    private restartAllSubscriptions(): void {
+        this.activeConnectionSubscriptions.forEach((callback) => callback());
+    }
+
+    protected override shouldQueueRequest(operationName: string | undefined): boolean {
+        const authOperations = ['GET_ABOUT', 'USER_LOGIN', 'USER_REFRESH'];
+        if (authOperations.includes(operationName!)) {
+            return false;
+        }
+
+        return super.shouldQueueRequest();
+    }
+
+    private createAuthGuardLink() {
+        return new ApolloLink((operation, forward) => {
+            const { operationName } = operation;
+
+            if (this.shouldQueueRequest(operationName)) {
+                return from(this.enqueueRequest(() => firstValueFrom(forward(operation)), operationName));
+            }
+
+            return forward(operation);
+        });
+    }
+
+    protected override getOriginFromUrl(operation: string): string {
+        return operation;
+    }
+
+    private getRateLimitOrigin(operation: ApolloLink.Operation): string {
+        return `${operation.operationName}::${JSON.stringify(operation.variables)}`;
+    }
+
+    private isRateLimitError(error: ErrorLike): boolean {
+        if (CombinedGraphQLErrors.is(error)) {
+            return error.errors.some(
+                (gqlError) =>
+                    gqlError.message.toLowerCase().includes('http 429') ||
+                    gqlError.message.toLowerCase().includes('http error 429') ||
+                    gqlError.message.toLowerCase().includes('too many requests'),
+            );
+        }
+
+        if (ServerError.is(error)) {
+            return error.statusCode === 429;
+        }
+
+        return false;
+    }
+
+    private isAuthError(errors: readonly GraphQLFormattedError[]): boolean {
+        return errors.some((graphQLError) =>
+            graphQLError.message.includes('suwayomi.tachidesk.server.user.UnauthorizedException'),
+        );
     }
 
     private createErrorLink() {
-        return onError(({ graphQLErrors, operation, forward }) => {
-            if (!graphQLErrors) {
+        return new ErrorLink(({ error, operation, forward }) => {
+            if (this.isRateLimitError(error)) {
+                this.addRateLimit(
+                    this.getRateLimitOrigin(operation),
+                    operation.getContext()?.headers?.get?.('Retry-After'),
+                );
+
+                return from(this.awaitRateLimit(this.getRateLimitOrigin(operation))).pipe(
+                    switchMap(() => forward(operation)),
+                );
+            }
+
+            if (!CombinedGraphQLErrors.is(error)) {
                 return undefined;
             }
 
-            const isAuthError = graphQLErrors.some((graphQLError) =>
-                graphQLError.message.includes('suwayomi.tachidesk.server.user.UnauthorizedException'),
+            if (!this.isAuthError(error.errors)) {
+                return undefined;
+            }
+
+            return from(BaseClient.refreshAccessToken(this.handleRefreshToken)).pipe(
+                filter(Boolean),
+                map((result) => {
+                    this.restartAllSubscriptions();
+                    return result;
+                }),
+                switchMap(() => forward(operation)),
             );
-            if (!isAuthError) {
-                return undefined;
-            }
-
-            return fromPromise(BaseClient.refreshAccessToken(this.handleRefreshToken))
-                .filter(Boolean)
-                .flatMap(() => forward(operation));
         });
     }
 
     private createAuthLink() {
-        return setContext((_, { headers }) => {
+        return new SetContextLink(({ headers }) => {
             const isAuthRequired = AuthManager.isAuthRequired();
             const accessToken = AuthManager.getAccessToken();
 
@@ -242,7 +328,7 @@ export class GraphQLClient extends BaseClient<
     }
 
     private createUploadLink() {
-        return createUploadLink({ uri: () => this.getBaseUrl() });
+        return new UploadHttpLink({ uri: () => this.getBaseUrl() });
     }
 
     private createWSLink() {
@@ -250,31 +336,40 @@ export class GraphQLClient extends BaseClient<
     }
 
     private createLink() {
-        const removeTypenameLink = removeTypenameFromVariables();
+        const removeTypenameLink = new RemoveTypenameFromVariablesLink();
 
-        return split(
+        return ApolloLink.split(
             ({ query }) => {
                 const definition = getMainDefinition(query);
                 return definition.kind === 'OperationDefinition' && definition.operation === 'subscription';
             },
             this.createWSLink(),
-            from([
+            ApolloLink.from([
+                this.createAuthGuardLink(),
                 this.createErrorLink(),
                 this.createAuthLink(),
                 removeTypenameLink,
-                // apollo-upload-client dependency is outdated (see 134e47763faae9e62db4d4e3a8387a74e32e5568) and thus types are not matching, but they are still correct
-                this.createUploadLink() as unknown as ApolloLink,
+                this.createUploadLink(),
             ]),
         );
     }
 
-    protected createClient() {
-        const heartbeatInterval = 1000 * 20;
+    private createWSClient(lazy: boolean = true): void {
+        const heartbeatInterval = d(20).seconds.inWholeMilliseconds;
 
         this.wsClient = createClient({
-            url: () => this.getBaseUrl().replace(/http(|s)/g, 'ws'),
+            lazy,
+            url: () => this.getBaseUrl().replaceAll(/http(|s)/g, 'ws'),
             keepAlive: heartbeatInterval,
-            retryAttempts: 10,
+            retryAttempts: Number.MAX_SAFE_INTEGER,
+            shouldRetry: () => true,
+            retryWait: async (retries) => {
+                const delay = Math.min(d(1).seconds.inWholeMilliseconds * 2 ** retries, heartbeatInterval);
+
+                return new Promise((resolve) => {
+                    setTimeout(resolve, delay);
+                });
+            },
             connectionParams: () => {
                 const isAuthRequired = AuthManager.isAuthRequired();
                 const accessToken = AuthManager.getAccessToken();
@@ -285,23 +380,48 @@ export class GraphQLClient extends BaseClient<
             },
         });
 
-        let lastHeartbeat: number = 0;
-        this.wsClient.on('connected', () => {
+        let triedForcedReconnection = false;
+        let lastHeartbeat: number = Date.now();
+        this.wsClient.on('message', async (e) => {
             lastHeartbeat = Date.now();
-        });
-        this.wsClient.on('pong', () => {
-            lastHeartbeat = Date.now();
-        });
+            triedForcedReconnection = false;
 
-        const checkHeartbeatInterval = heartbeatInterval + 1000 * 10;
-        setInterval(() => {
-            const isHeartbeatMissing = Date.now() - lastHeartbeat > checkHeartbeatInterval * 1.1;
-            if (isHeartbeatMissing) {
-                // force a reconnect
-                this.wsClient.terminate();
+            if (e.type !== 'error') {
+                return;
             }
-        }, checkHeartbeatInterval);
 
+            if (!AuthManager.isRefreshingToken() && this.isAuthError(e.payload)) {
+                try {
+                    await BaseClient.refreshAccessToken(this.handleRefreshToken);
+                    this.resetWsClient(true);
+                } catch (_) {
+                    // Ignore
+                }
+            }
+        });
+
+        const checkHeartbeatInterval = heartbeatInterval + d(30).seconds.inWholeMilliseconds;
+        clearInterval(this.wsClientAliveCheckInterval);
+        this.wsClientAliveCheckInterval = setInterval(() => {
+            const isHeartbeatMissing = Date.now() - lastHeartbeat > checkHeartbeatInterval * 1.1;
+            if (!isHeartbeatMissing) {
+                return;
+            }
+
+            if (!triedForcedReconnection) {
+                triedForcedReconnection = true;
+                this.wsClient.terminate();
+
+                return;
+            }
+
+            clearInterval(this.wsClientAliveCheckInterval);
+            this.resetWsClient(true);
+        }, checkHeartbeatInterval);
+    }
+
+    protected createClient(createWsClientLazily?: boolean) {
+        this.createWSClient(createWsClientLazily);
         this.client = new ApolloClient({
             cache: new InMemoryCache({
                 // for whatever reason there is some weird TypeError complaining that
@@ -311,10 +431,25 @@ export class GraphQLClient extends BaseClient<
                 // the TypeError can just be ignored
                 typePolicies: typePolicies as TypePolicies,
             }),
-            connectToDevTools: true,
+            devtools: { enabled: true },
             link: this.createLink(),
         });
     }
 
     public override updateConfig() {}
+
+    public useRestartSubscription(restart: () => void) {
+        const id = useId();
+
+        this.activeConnectionSubscriptions.set(id, () => {
+            restart();
+        });
+
+        useEffect(
+            () => () => {
+                this.activeConnectionSubscriptions.delete(id);
+            },
+            [id],
+        );
+    }
 }

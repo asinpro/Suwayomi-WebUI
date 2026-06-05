@@ -24,7 +24,11 @@ type NullAndUndefined<T> = T | null | undefined;
 
 type NonNullableProperties<T> = { [P in keyof T]-?: NonNullable<T[P]> };
 
+type NonNullableProperty<T, K> = Omit<T, K> & NonNullableProperties<Pick<T, K>>;
+
 type OptionalProperty<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
+
+type RequiredProperty<T, K extends keyof T> = Omit<T, K> & Required<Pick<T, K>>;
 
 type PropertiesNever<T> = { [key in keyof T]?: never };
 
@@ -34,13 +38,17 @@ type TupleUnion<U extends string | number | symbol, R extends any[] = []> = {
     [S in U]: Exclude<U, S> extends never ? [...R, S] : TupleUnion<Exclude<U, S>, [...R, S]>;
 }[U];
 
+type ValueWithDefaultFlag<T> = { value: T; isDefault: boolean };
+
 type TransformRecordToWithDefaultFlag<T extends Record<string, any>> = {
-    [K in keyof T]: { value: T[K]; isDefault: boolean };
+    [K in keyof T]: ValueWithDefaultFlag<T[K]>;
 };
+
+type ExtractValueWithDefaultFlag<T extends ValueWithDefaultFlag<any>> = T extends ValueWithDefaultFlag<infer V> ? V : T;
 
 type MergeObjectsArray<T extends object[]> = T extends [infer F, ...infer R]
     ? F & MergeObjectsArray<R extends object[] ? R : []>
-    : {};
+    : Record<string, never>;
 
 type OmitNotMatching<T, K extends keyof T> = {
     [P in K]: T[K];
@@ -49,3 +57,13 @@ type OmitNotMatching<T, K extends keyof T> = {
 type ExtractCommon<T, U> = {
     [K in keyof T & keyof U]: T[K] extends U[K] ? T[K] : never;
 };
+
+type HasRequiredKeys<T> =
+    Exclude<
+        {
+            [K in keyof T]: T extends Record<K, T[K]> ? K : never;
+        }[keyof T],
+        undefined
+    > extends never
+        ? false
+        : true;

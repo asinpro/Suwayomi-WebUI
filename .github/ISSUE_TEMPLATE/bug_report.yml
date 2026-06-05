@@ -37,22 +37,63 @@ body:
     required: true
 
 - type: input
-  id: suwayomi-webui-version
-  attributes:
-    label: Suwayomi-WebUI version
-    description: You can find your Suwayomi-WebUI version in **More → About**.
-    placeholder: |
-      Example: "r1689 STABLE | r2401 PREVIEW"
-  validations:
-    required: true
-
-- type: input
   id: suwayomi-server-version
   attributes:
     label: Suwayomi-Server version
     description: You can find your Suwayomi-Server version in **More → About**.
     placeholder: |
       Example: "v1.1.1 | v1.1.1-r1701"
+  validations:
+    required: true
+    
+- type: dropdown
+  id: database
+  attributes:
+    label: Used database
+    description: H2 is the default database
+    options:
+      - H2
+      - PostgreSQL
+  validations:
+    required: true
+
+- type: input
+  id: server-os
+  attributes:
+    label: Server operating system
+    description: The operating system on which Suwayomi-Server is running on
+    placeholder: |
+      Example: "Windows 11 Pro 24H2 | Ubuntu 24.04.2 LTS"
+  validations:
+    required: true
+
+- type: input
+  id: server-desktop-environment
+  attributes:
+    label: Server Desktop Environment
+    description:
+    placeholder: |
+      Example: "Gnome 40"
+  validations:
+    required: false
+
+- type: input
+  id: server-jvm-version
+  attributes:
+    label: Server JVM version
+    description: The java version used to run Suwayomi-Server
+    placeholder: |
+      Example: "openjdk 21.0.5 2024-10-15 LTS"
+  validations:
+    required: true
+
+- type: input
+  id: suwayomi-webui-version
+  attributes:
+    label: Suwayomi-WebUI version
+    description: You can find your Suwayomi-WebUI version in **More → About**.
+    placeholder: |
+      Example: "r1689 STABLE | r2401 PREVIEW"
   validations:
     required: true
 
@@ -76,26 +117,6 @@ body:
   validations:
     required: true
 
-- type: input
-  id: server-os
-  attributes:
-    label: Server operating system
-    description: The operating system on which Suwayomi-Server is running on
-    placeholder: |
-      Example: "Windows 11 Pro 24H2 | Ubuntu 24.04.2 LTS"
-  validations:
-    required: true
-
-- type: input
-  id: server-jvm-version
-  attributes:
-    label: Server JVM version
-    description: The java version used to run Suwayomi-Server
-    placeholder: |
-      Example: "openjdk 21.0.5 2024-10-15 LTS"
-  validations:
-    required: true
-
 - type: textarea
   id: other-details
   attributes:
@@ -112,7 +133,7 @@ body:
     options:
     - label: I have searched the existing issues and this is a new ticket, **NOT** a duplicate or related to another open or closed issue.
       required: true
-    - label: I have checked the [ongoing preview changelog](https://github.com/Suwayomi/Suwayomi-WebUI/issues/749) and this bug has **NOT** been listed as fixed
+    - label: I have checked the [ongoing preview changelog](https://github.com/Suwayomi/Suwayomi-WebUI/blob/master/CHANGELOG.md) and this bug has **NOT** been listed as fixed
       required: true
     - label: This bug is UI related and does not belong to the server. If in doubt, create the request in the [Suwayomi-Server repository](https://github.com/Suwayomi/Suwayomi-Server/issues).
       required: true

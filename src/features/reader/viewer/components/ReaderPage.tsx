@@ -7,13 +7,9 @@
  */
 
 import { memo, useCallback } from 'react';
-import { SpinnerImage, SpinnerImageProps } from '@/base/components/SpinnerImage.tsx';
-import {
-    IReaderSettings,
-    ReaderCustomFilter,
-    ReaderPagerProps,
-    TReaderScrollbarContext,
-} from '@/features/reader/Reader.types.ts';
+import type { SpinnerImageProps } from '@/base/components/SpinnerImage.tsx';
+import { SpinnerImage } from '@/base/components/SpinnerImage.tsx';
+import type { IReaderSettings, ReaderCustomFilter, ReaderPagerProps } from '@/features/reader/Reader.types.ts';
 import {
     getImageMarginStyling,
     getImagePlaceholderStyling,
@@ -21,7 +17,10 @@ import {
 } from '@/features/reader/viewer/pager/ReaderPager.utils.tsx';
 import { applyStyles } from '@/base/utils/ApplyStyles.ts';
 import { MediaQuery } from '@/base/utils/MediaQuery.tsx';
-import { NavbarContextType } from '@/features/navigation-bar/NavigationBar.types.ts';
+import type { NavbarContextType } from '@/features/navigation-bar/NavigationBar.types.ts';
+import { useReaderScrollbarStore } from '@/features/reader/stores/ReaderStore.ts';
+import { ScrollDirection } from '@/base/Base.types.ts';
+import { getSafeAreaInsets } from '@/features/reader/settings/ReaderSettings.utils.tsx';
 
 const getCustomFilterString = (customFilter: ReaderCustomFilter): string =>
     Object.keys(customFilter)
@@ -66,8 +65,7 @@ const BaseReaderPage = ({
     pageScaleMode,
     shouldStretchPage,
     readerWidth,
-    scrollbarXSize,
-    scrollbarYSize,
+    safeAreaInset,
     onLoad,
     onError,
     setRef,
@@ -75,8 +73,10 @@ const BaseReaderPage = ({
     isLoaded,
     ...props
 }: Omit<SpinnerImageProps, 'spinnerStyle' | 'imgStyle' | 'onLoad' | 'onError'> &
-    Pick<IReaderSettings, 'readingMode' | 'customFilter' | 'pageScaleMode' | 'shouldStretchPage' | 'readerWidth'> &
-    Pick<TReaderScrollbarContext, 'scrollbarXSize' | 'scrollbarYSize'> &
+    Pick<
+        IReaderSettings,
+        'readingMode' | 'customFilter' | 'pageScaleMode' | 'shouldStretchPage' | 'readerWidth' | 'safeAreaInset'
+    > &
     Pick<NavbarContextType, 'readerNavBarWidth'> & {
         pageIndex: number;
         pagesIndex: number;
@@ -93,6 +93,7 @@ const BaseReaderPage = ({
     const { src } = props;
 
     const isTabletWidth = MediaQuery.useIsTabletWidth();
+    const scrollbar = useReaderScrollbarStore((state) => state);
 
     const handleLoad = useCallback(
         () => onLoad?.(pagesIndex, src, isPrimaryPage),
@@ -120,8 +121,8 @@ const BaseReaderPage = ({
                     shouldStretchPage,
                     pageScaleMode,
                     readerWidth,
-                    readerNavBarWidth + scrollbarYSize,
-                    scrollbarXSize,
+                    [readerNavBarWidth, scrollbar.ySize, ...getSafeAreaInsets(safeAreaInset, ScrollDirection.X)],
+                    [scrollbar.xSize, ...getSafeAreaInsets(safeAreaInset, ScrollDirection.Y)],
                     doublePage,
                     isTabletWidth,
                 ),
@@ -137,8 +138,8 @@ const BaseReaderPage = ({
                     pageScaleMode,
                     doublePage,
                     readerWidth,
-                    readerNavBarWidth + scrollbarYSize,
-                    scrollbarXSize,
+                    [readerNavBarWidth, scrollbar.ySize, ...getSafeAreaInsets(safeAreaInset, ScrollDirection.X)],
+                    [scrollbar.xSize, ...getSafeAreaInsets(safeAreaInset, ScrollDirection.Y)],
                 ),
                 filter: getCustomFilterString(customFilter),
                 objectFit: 'contain',

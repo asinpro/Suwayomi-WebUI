@@ -7,15 +7,15 @@
  */
 
 import Stack from '@mui/material/Stack';
-import { useTranslation } from 'react-i18next';
-import { IReaderSettings } from '@/features/reader/Reader.types.ts';
+import { useLingui } from '@lingui/react/macro';
+import type { IReaderSettings } from '@/features/reader/Reader.types.ts';
 import { CheckboxInput } from '@/base/components/inputs/CheckboxInput.tsx';
-import { ReaderService } from '@/features/reader/services/ReaderService.ts';
+import type { ReaderService } from '@/features/reader/services/ReaderService.ts';
 import { SliderInput } from '@/base/components/inputs/SliderInput.tsx';
 import { DEFAULT_READER_SETTINGS } from '@/features/reader/settings/ReaderSettings.constants.tsx';
 import { isReaderWidthEditable } from '@/features/reader/settings/ReaderSettings.utils.tsx';
-import { MultiValueButtonDefaultableProps } from '@/base/Base.types.ts';
 import { ResetButton } from '@/base/components/buttons/ResetButton.tsx';
+import type { SelectButtonDefaultableProps } from '@/base/components/buttons/SelectButton.tsx';
 
 export const ReaderSettingWidth = ({
     readerWidth,
@@ -25,11 +25,11 @@ export const ReaderSettingWidth = ({
     updateSetting,
     setTransparent,
 }: Pick<IReaderSettings, 'readerWidth' | 'pageScaleMode'> &
-    Pick<MultiValueButtonDefaultableProps<IReaderSettings['readerWidth']['value']>, 'isDefaultable' | 'onDefault'> & {
-        updateSetting: (...args: OmitFirst<Parameters<typeof ReaderService.updateSetting>>) => void;
+    Pick<SelectButtonDefaultableProps<IReaderSettings['readerWidth']['value']>, 'isDefaultable' | 'onDefault'> & {
+        updateSetting: (...args: Parameters<typeof ReaderService.updateSetting>) => void;
         setTransparent?: (transparent: boolean) => void;
     }) => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
     if (!isReaderWidthEditable(pageScaleMode)) {
         return null;
@@ -39,7 +39,7 @@ export const ReaderSettingWidth = ({
         <Stack>
             <Stack sx={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                 <CheckboxInput
-                    label={t('reader.settings.label.limit_reader_width')}
+                    label={t`Limit reader width`}
                     checked={readerWidth.enabled}
                     onChange={(_, checked) => updateSetting('readerWidth', { ...readerWidth, enabled: checked }, true)}
                 />
@@ -47,8 +47,8 @@ export const ReaderSettingWidth = ({
             </Stack>
             {readerWidth.enabled && (
                 <SliderInput
-                    label={t('reader.settings.label.reader_width')}
-                    value={t('global.value', { value: readerWidth.value, unit: '%' })}
+                    label={t`Reader width`}
+                    value={`${readerWidth.value}%`}
                     slotProps={{
                         slider: {
                             defaultValue: DEFAULT_READER_SETTINGS.readerWidth.value,

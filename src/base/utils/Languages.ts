@@ -6,10 +6,13 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { t } from 'i18next';
-import { ISOLanguage, IsoLanguages } from '@/base/IsoLanguages.ts';
+import type { MessageDescriptor } from '@lingui/core';
+import { msg, t } from '@lingui/core/macro';
 
-import { TranslationKey } from '@/base/Base.types.ts';
+import type { LanguageObject } from '@/lib/ISOLanguageUtil.ts';
+import { getISOLanguage, getPreferredISOLanguageCodes } from '@/lib/ISOLanguageUtil.ts';
+
+import { i18n } from '@/i18n';
 
 export enum DefaultLanguage {
     ALL = 'all',
@@ -19,45 +22,13 @@ export enum DefaultLanguage {
     LAST_USED_SOURCE = 'last_used_source',
 }
 
-const DEFAULT_LANGUAGE_TO_TRANSLATION: Record<DefaultLanguage, TranslationKey> = {
-    [DefaultLanguage.ALL]: 'extension.language.all',
-    [DefaultLanguage.OTHER]: 'extension.language.other',
-    [DefaultLanguage.LOCAL_SOURCE]: 'extension.language.other',
-    [DefaultLanguage.PINNED]: 'global.label.pinned',
-    [DefaultLanguage.LAST_USED_SOURCE]: 'global.label.last_used',
+const DEFAULT_LANGUAGE_TO_TRANSLATION: Record<DefaultLanguage, MessageDescriptor> = {
+    [DefaultLanguage.ALL]: msg`Multi`,
+    [DefaultLanguage.OTHER]: msg`Other`,
+    [DefaultLanguage.LOCAL_SOURCE]: msg`Other`,
+    [DefaultLanguage.PINNED]: msg`Pinned`,
+    [DefaultLanguage.LAST_USED_SOURCE]: msg`Last used`,
 };
-
-type LanguageObject = ISOLanguage & { orgCode: string; isoCode: string };
-
-function getISOLanguage(code: string): LanguageObject | null {
-    if (IsoLanguages[code]) {
-        return {
-            ...IsoLanguages[code],
-            orgCode: code,
-            isoCode: code,
-        };
-    }
-
-    if (IsoLanguages[code.toLocaleLowerCase()]) {
-        return {
-            ...IsoLanguages[code.toLocaleLowerCase()],
-            orgCode: code,
-            isoCode: code.toLocaleLowerCase(),
-        };
-    }
-
-    const whereToCut = code.indexOf('-') !== -1 ? code.indexOf('-') : code.length;
-    const processedCode = code.toLocaleLowerCase().substring(0, whereToCut);
-    if (IsoLanguages[processedCode]) {
-        return {
-            ...IsoLanguages[processedCode],
-            orgCode: code,
-            isoCode: processedCode,
-        };
-    }
-
-    return null;
-}
 
 export function getLanguage(code: string): LanguageObject {
     const isoLanguage = getISOLanguage(code);
@@ -69,15 +40,15 @@ export function getLanguage(code: string): LanguageObject {
     return {
         orgCode: code,
         isoCode: code,
-        name: t('global.language.label.language_with_code', { code }),
-        nativeName: t('global.language.label.language_with_code', { code }),
+        name: t`Language with code: ${code}`,
+        nativeName: t`Language with code: ${code}`,
     };
 }
 
 export function languageCodeToName(code: string): string {
     const isCustomLanguage = Object.keys(DEFAULT_LANGUAGE_TO_TRANSLATION).includes(code);
     if (isCustomLanguage) {
-        return t(DEFAULT_LANGUAGE_TO_TRANSLATION[code as DefaultLanguage]);
+        return i18n._(DEFAULT_LANGUAGE_TO_TRANSLATION[code as DefaultLanguage]);
     }
 
     return getLanguage(code).nativeName;
@@ -96,18 +67,8 @@ export const toComparableLanguage = (code: string): string => getLanguage(code).
 
 export const toComparableLanguages = (codes: string[]): string[] => codes.map(toComparableLanguage);
 
-function defaultNativeLang(): readonly string[] {
-    const preferredLanguages = toUniqueLanguageCodes([...navigator.languages]);
-
-    if (!preferredLanguages.length) {
-        return ['en'];
-    }
-
-    return preferredLanguages;
-}
-
 export function getDefaultLanguages(): string[] {
-    return [...defaultNativeLang(), DefaultLanguage.ALL];
+    return [...getPreferredISOLanguageCodes(), DefaultLanguage.ALL];
 }
 
 /**

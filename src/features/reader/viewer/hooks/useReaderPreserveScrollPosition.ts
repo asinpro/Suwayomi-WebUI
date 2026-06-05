@@ -6,23 +6,24 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { RefObject, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
-import { useWindowEvent } from '@mantine/hooks';
-import {
+import type { RefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import type {
+    IReaderSettingsManga,
     ReaderPageScaleMode,
     ReaderStateChapters,
     ReadingDirection,
     ReadingMode,
 } from '@/features/reader/Reader.types.ts';
-import { ReaderStatePages } from '@/features/reader/overlay/progress-bar/ReaderProgressBar.types.ts';
 import {
     isContinuousReadingMode,
     isContinuousVerticalReadingMode,
     isHeightPageScaleMode,
-    isReaderWidthEditable,
+    isWidthPageScaleMode,
 } from '@/features/reader/settings/ReaderSettings.utils.tsx';
 import { getPreviousNextChapterVisibility } from '@/features/reader/Reader.utils.ts';
-import { ChapterIdInfo, TChapterReader } from '@/features/chapter/Chapter.types.ts';
+import type { ChapterIdInfo, TChapterReader } from '@/features/chapter/Chapter.types.ts';
+import { getReaderPagesStore, getReaderSettingsStore } from '@/features/reader/stores/ReaderStore.ts';
 
 const shouldPreserveOnResizeChange = (
     readingMode: ReadingMode,
@@ -30,60 +31,69 @@ const shouldPreserveOnResizeChange = (
     previousWidth: number,
     previousHeight: number,
 ): boolean => {
-    const isEditableReaderWidth = isReaderWidthEditable(pageScaleMode);
+    if (!isContinuousReadingMode(readingMode)) {
+        return false;
+    }
+
+    const isWidthPageScaleModeActive = isWidthPageScaleMode(pageScaleMode);
     const isHeightPageScaleModeActive = isHeightPageScaleMode(pageScaleMode);
 
     const didWidthChange = previousWidth !== window.innerWidth;
     const didHeightChange = previousHeight !== window.innerHeight;
 
-    const handleWidthChange = isEditableReaderWidth && didWidthChange;
+    const handleWidthChange = isWidthPageScaleModeActive && didWidthChange;
     const handleHeightChange = isHeightPageScaleModeActive && didHeightChange;
-
-    if (!isContinuousVerticalReadingMode(readingMode) && didWidthChange) {
-        return true;
-    }
 
     return handleWidthChange || handleHeightChange;
 };
 
-const usePreserveOnValueChange = (
-    value: unknown,
-    currentPageIndex: number,
-    setPageToScrollToIndex: ReaderStatePages['setPageToScrollToIndex'],
-) => {
+const usePreserveOnValueChange = (value: unknown, currentPageIndex: number) => {
     useLayoutEffect(() => {
-        setPageToScrollToIndex(currentPageIndex);
+        getReaderPagesStore().setPageToScrollToIndex(currentPageIndex);
     }, [value]);
 };
 
-const usePreserveOnWindowResize = (
-    readingMode: ReadingMode,
-    pageScaleMode: ReaderPageScaleMode,
-    setPageToScrollToIndex: React.Dispatch<React.SetStateAction<number | null>>,
-    pageIndex: number,
-) => {
+const usePreserveOnWindowResize = (readingMode: ReadingMode, pageScaleMode: ReaderPageScaleMode, pageIndex: number) => {
     const previousDimensionsRef = useRef({ width: window.innerWidth, height: window.innerHeight });
+    const isResizeInProgressRef = useRef(false);
+    const activeResizeTimeoutRef = useRef<NodeJS.Timeout>(undefined);
+    const pageIndexOnResizeStartRef = useRef<number | null>(null);
 
     const handleResize = useCallback(() => {
         const { width, height } = previousDimensionsRef.current;
         previousDimensionsRef.current = { width: window.innerWidth, height: window.innerHeight };
 
+        if (!isResizeInProgressRef.current) {
+            isResizeInProgressRef.current = true;
+            pageIndexOnResizeStartRef.current = pageIndex;
+        }
+
         if (!shouldPreserveOnResizeChange(readingMode, pageScaleMode, width, height)) {
             return;
         }
 
-        setPageToScrollToIndex(pageIndex);
+        getReaderPagesStore().setPageToScrollToIndex(pageIndex);
+
+        clearTimeout(activeResizeTimeoutRef.current);
+        activeResizeTimeoutRef.current = setTimeout(() => {
+            isResizeInProgressRef.current = false;
+            pageIndexOnResizeStartRef.current = null;
+        }, 50);
     }, [readingMode, pageScaleMode, pageIndex]);
 
-    useWindowEvent('resize', handleResize);
+    // TODO - revert back to mantines useWindowEvent hook once the issue of it using a stale callback can be fixed
+    useEffect(() => {
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, [handleResize]);
 };
 
 interface ScrollPreservationInfo {
     left: number;
     top: number;
     visibleElement: HTMLElement | undefined;
-    visibleElementLeft: number;
-    visibleElementTop: number;
+    visibleElementOffsetLeft: number;
+    visibleElementOffsetTop: number;
 }
 
 const useScrollPreservationData = (
@@ -93,8 +103,8 @@ const useScrollPreservationData = (
         left: 0,
         top: 0,
         visibleElement: undefined,
-        visibleElementLeft: 0,
-        visibleElementTop: 0,
+        visibleElementOffsetLeft: 0,
+        visibleElementOffsetTop: 0,
     });
 
     useEffect(() => {
@@ -110,12 +120,12 @@ const useScrollPreservationData = (
                 ...dataRef.current,
                 left: scrollElement.scrollLeft,
                 top: scrollElement.scrollTop,
-                visibleElementLeft: visibleElement?.offsetLeft ?? 0,
-                visibleElementTop: visibleElement?.offsetTop ?? 0,
+                visibleElementOffsetLeft: visibleElement?.offsetLeft ?? 0,
+                visibleElementOffsetTop: visibleElement?.offsetTop ?? 0,
             };
         };
 
-        scrollElement.addEventListener('scroll', onScroll);
+        scrollElement.addEventListener('scroll', onScroll, { passive: true });
 
         return () => scrollElement.removeEventListener('scroll', onScroll);
     }, []);
@@ -144,8 +154,8 @@ const useScrollPreservationData = (
             dataRef.current = {
                 ...dataRef.current,
                 visibleElement: firstVisibleElement.target,
-                visibleElementLeft: firstVisibleElement.target.offsetLeft,
-                visibleElementTop: firstVisibleElement.target.offsetTop,
+                visibleElementOffsetLeft: firstVisibleElement.target.offsetLeft,
+                visibleElementOffsetTop: firstVisibleElement.target.offsetTop,
             };
         });
         const mutationObserver = new MutationObserver((entries) => {
@@ -168,7 +178,7 @@ const useScrollPreservationData = (
 };
 
 const usePreserveOnLeadingPageRender = (scrollElementRef: RefObject<HTMLElement | null>, readingMode: ReadingMode) => {
-    const preservationData = useScrollPreservationData(scrollElementRef);
+    const preservationDataRef = useScrollPreservationData(scrollElementRef);
 
     const isContinuousReadingModeActive = isContinuousReadingMode(readingMode);
     const isContinuousVerticalReadingModeActive = isContinuousVerticalReadingMode(readingMode);
@@ -181,7 +191,8 @@ const usePreserveOnLeadingPageRender = (scrollElementRef: RefObject<HTMLElement 
         }
 
         const preserveScrollPosition: ResizeObserverCallback = (entries) => {
-            const { left, top, visibleElement, visibleElementLeft, visibleElementTop } = preservationData.current;
+            const { left, top, visibleElement, visibleElementOffsetLeft, visibleElementOffsetTop } =
+                preservationDataRef.current;
 
             if (!visibleElement) {
                 return;
@@ -201,7 +212,7 @@ const usePreserveOnLeadingPageRender = (scrollElementRef: RefObject<HTMLElement 
                     return entry.target.offsetTop < top;
                 }
 
-                return Math.abs(entry.target.offsetLeft) < Math.abs(left);
+                return entry.target.offsetLeft < left;
             });
 
             const includesElementsBeforeScrollPosition = !!entriesBeforeScrollPosition.length;
@@ -209,8 +220,8 @@ const usePreserveOnLeadingPageRender = (scrollElementRef: RefObject<HTMLElement 
                 return;
             }
 
-            const newLeft = left - visibleElementLeft + visibleElement.offsetLeft;
-            const newTop = top - visibleElementTop + visibleElement.offsetTop;
+            const newLeft = left - visibleElementOffsetLeft + visibleElement.offsetLeft;
+            const newTop = top - visibleElementOffsetTop + visibleElement.offsetTop;
 
             scrollElement.scrollTo(newLeft, newTop);
         };
@@ -256,9 +267,15 @@ const usePreserveOnInfiniteScrollPreviousChapterInitialRender = (
 
     const preserveScrollPosition = (): boolean => {
         const scrollElement = scrollElementRef.current;
-        const { left, top, visibleElementLeft, visibleElementTop, visibleElement } = preservationDataRef.current;
+        const { left, top, visibleElementOffsetLeft, visibleElementOffsetTop, visibleElement } =
+            preservationDataRef.current;
 
-        if (!scrollElement || !isContinuousReadingModeActive || !visibleElement) {
+        if (
+            !getReaderSettingsStore().shouldUseInfiniteScroll ||
+            !scrollElement ||
+            !isContinuousReadingModeActive ||
+            !visibleElement
+        ) {
             return false;
         }
 
@@ -268,16 +285,18 @@ const usePreserveOnInfiniteScrollPreviousChapterInitialRender = (
             visibleChapters,
         );
 
+        const doesPreviousChapterExist = currentChapterIndex > 0;
         const isRenderOfPreviousChapter = currentPageIndex === 0;
 
         // only relevant when prepending content to the dom due to the resulting layout shift
-        const isFirstRenderOfPreviousChapter = !previousNextChapterVisibility.previous && isRenderOfPreviousChapter;
+        const isFirstRenderOfPreviousChapter =
+            doesPreviousChapterExist && !previousNextChapterVisibility.previous && isRenderOfPreviousChapter;
         if (!isFirstRenderOfPreviousChapter) {
             return false;
         }
 
-        const newLeft = left - visibleElementLeft + visibleElement.offsetLeft;
-        const newTop = top - visibleElementTop + visibleElement.offsetTop;
+        const newLeft = left - visibleElementOffsetLeft + visibleElement.offsetLeft;
+        const newTop = top - visibleElementOffsetTop + visibleElement.offsetTop;
 
         scrollElement.scrollTo(newLeft, newTop);
         return true;
@@ -342,8 +361,9 @@ export const useReaderPreserveScrollPosition = (
     visibleChapters: ReaderStateChapters['visibleChapters'],
     readingMode: ReadingMode,
     readingDirection: ReadingDirection,
-    setPageToScrollToIndex: ReaderStatePages['setPageToScrollToIndex'],
     pageScaleMode: ReaderPageScaleMode,
+    shouldStretchPage: boolean,
+    readerWidth: IReaderSettingsManga['readerWidth'],
 ) => {
     usePreserveOnInfiniteScrollPreviousChapterInitialRender(
         scrollElementRef,
@@ -355,7 +375,10 @@ export const useReaderPreserveScrollPosition = (
         isContinuousReadingMode(readingMode),
     );
     usePreserveOnLeadingPageRender(scrollElementRef, readingMode);
-    usePreserveOnWindowResize(readingMode, pageScaleMode, setPageToScrollToIndex, currentPageIndex);
-    usePreserveOnValueChange(readingDirection, currentPageIndex, setPageToScrollToIndex);
-    usePreserveOnValueChange(readingMode, currentPageIndex, setPageToScrollToIndex);
+    usePreserveOnWindowResize(readingMode, pageScaleMode, currentPageIndex);
+    usePreserveOnValueChange(readingDirection, currentPageIndex);
+    usePreserveOnValueChange(readingMode, currentPageIndex);
+    usePreserveOnValueChange(pageScaleMode, currentPageIndex);
+    usePreserveOnValueChange(shouldStretchPage, currentPageIndex);
+    usePreserveOnValueChange(`${readerWidth.value}_${readerWidth.enabled}`, currentPageIndex);
 };

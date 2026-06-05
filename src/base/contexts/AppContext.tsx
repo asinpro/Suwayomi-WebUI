@@ -12,23 +12,24 @@ import { BrowserRouter as Router } from 'react-router-dom';
 import { QueryParamProvider } from 'use-query-params';
 import { ReactRouter6Adapter } from 'use-query-params/adapters/react-router-6';
 import { SnackbarProvider } from 'notistack';
+import { I18nProvider } from '@lingui/react';
 import { ActiveDeviceContextProvider } from '@/features/device/DeviceContext.tsx';
-import { ReaderContextProvider } from '@/features/reader/contexts/ReaderContextProvider.tsx';
 import { AppHotkeysProvider } from '@/features/hotkeys/AppHotkeysProvider.tsx';
 import { SnackbarWithDescription } from '@/base/components/feedback/SnackbarWithDescription.tsx';
 import { AppPageHistoryContextProvider } from '@/base/contexts/AppPageHistoryContext.tsx';
 import { AppThemeContextProvider } from '@/features/theme/AppThemeContext.tsx';
 import { NavBarContextProvider } from '@/features/navigation-bar/NavbarContext.tsx';
-import { SessionContextProvider } from '@/features/authentication/SessionContext.tsx';
+import { SubpathUtil } from '@/lib/utils/SubpathUtil.ts';
+import { i18n } from '@/i18n';
 
 interface Props {
     children: React.ReactNode;
 }
 
 export const AppContext: React.FC<Props> = ({ children }) => (
-    <SessionContextProvider>
-        <Router>
-            <StyledEngineProvider injectFirst>
+    <Router basename={SubpathUtil.getRouterBasename()}>
+        <StyledEngineProvider injectFirst>
+            <I18nProvider i18n={i18n}>
                 <AppThemeContextProvider>
                     <QueryParamProvider adapter={ReactRouter6Adapter}>
                         <NavBarContextProvider>
@@ -43,16 +44,14 @@ export const AppContext: React.FC<Props> = ({ children }) => (
                                             error: SnackbarWithDescription,
                                         }}
                                     >
-                                        <ReaderContextProvider>
-                                            <AppHotkeysProvider>{children}</AppHotkeysProvider>
-                                        </ReaderContextProvider>
+                                        <AppHotkeysProvider>{children}</AppHotkeysProvider>
                                     </SnackbarProvider>
                                 </ActiveDeviceContextProvider>
                             </AppPageHistoryContextProvider>
                         </NavBarContextProvider>
                     </QueryParamProvider>
                 </AppThemeContextProvider>
-            </StyledEngineProvider>
-        </Router>
-    </SessionContextProvider>
+            </I18nProvider>
+        </StyledEngineProvider>
+    </Router>
 );

@@ -7,16 +7,14 @@
  */
 
 import IconButton from '@mui/material/IconButton';
-import { useTranslation } from 'react-i18next';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import { memo } from 'react';
+import { useLingui } from '@lingui/react/macro';
 import { CustomTooltip } from '@/base/components/CustomTooltip.tsx';
 import { useManageMangaLibraryState } from '@/features/manga/hooks/useManageMangaLibraryState.tsx';
 import { FALLBACK_MANGA } from '@/features/manga/Manga.constants.ts';
-import { TReaderStateMangaContext } from '@/features/reader/Reader.types.ts';
-import { withPropsFrom } from '@/base/hoc/withPropsFrom.tsx';
-import { useReaderStateMangaContext } from '@/features/reader/contexts/state/ReaderStateMangaContext.tsx';
+import { useReaderStore } from '@/features/reader/stores/ReaderStore.ts';
 
 const ACTION_FALLBACK_MANGA = {
     ...FALLBACK_MANGA,
@@ -24,32 +22,19 @@ const ACTION_FALLBACK_MANGA = {
     inLibrary: false,
 };
 
-const BaseReaderLibraryButton = ({ manga }: Pick<TReaderStateMangaContext, 'manga'>) => {
+export const ReaderLibraryButton = memo(() => {
+    const manga = useReaderStore('manga');
+
     const { inLibrary } = manga ?? ACTION_FALLBACK_MANGA;
 
-    const { t } = useTranslation();
-    const { CategorySelectComponent, updateLibraryState } = useManageMangaLibraryState(
-        manga ?? ACTION_FALLBACK_MANGA,
-        true,
-    );
+    const { t } = useLingui();
+    const { updateLibraryState } = useManageMangaLibraryState(manga ?? ACTION_FALLBACK_MANGA, true);
 
     return (
-        <>
-            <CustomTooltip
-                title={inLibrary ? t('manga.action.library.remove.label.action') : t('manga.button.add_to_library')}
-            >
-                <IconButton onClick={updateLibraryState} color="inherit">
-                    {inLibrary ? <FavoriteIcon /> : <FavoriteBorderIcon />}
-                </IconButton>
-            </CustomTooltip>
-
-            {CategorySelectComponent}
-        </>
+        <CustomTooltip title={inLibrary ? t`Remove from the library` : t`Add To Library`}>
+            <IconButton onClick={updateLibraryState} color="inherit">
+                {inLibrary ? <FavoriteIcon /> : <FavoriteBorderIcon />}
+            </IconButton>
+        </CustomTooltip>
     );
-};
-
-export const ReaderLibraryButton = withPropsFrom(
-    memo(BaseReaderLibraryButton),
-    [useReaderStateMangaContext],
-    ['manga'],
-);
+});

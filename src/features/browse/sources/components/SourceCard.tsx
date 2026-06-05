@@ -11,15 +11,14 @@ import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import Typography from '@mui/material/Typography';
 import React from 'react';
-import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import Stack from '@mui/material/Stack';
 import PushPinIcon from '@mui/icons-material/PushPin';
 import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined';
 import IconButton from '@mui/material/IconButton';
+import { useLingui } from '@lingui/react/macro';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
-import { SourceContentType } from '@/features/source/browse/screens/SourceMangas.tsx';
-import { GetSourcesListQuery } from '@/lib/graphql/generated/graphql.ts';
+import type { GetSourcesListQuery } from '@/lib/graphql/generated/graphql.ts';
 import { AppRoutes } from '@/base/AppRoute.constants.ts';
 import { MUIUtil } from '@/lib/mui/MUI.util.ts';
 import { Sources } from '@/features/source/services/Sources.ts';
@@ -30,6 +29,7 @@ import { createUpdateSourceMetadata, useGetSourceMetadata } from '@/features/sou
 import { makeToast } from '@/base/utils/Toast.ts';
 import { getErrorMessage } from '@/lib/HelperFunctions.ts';
 import { languageCodeToName } from '@/base/utils/Languages.ts';
+import { SourceContentType } from '@/features/source/Source.types.ts';
 
 interface IProps {
     source: GetSourcesListQuery['sources']['nodes'][number];
@@ -38,7 +38,7 @@ interface IProps {
 }
 
 export const SourceCard: React.FC<IProps> = (props: IProps) => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
     const { source, showSourceRepo, showLanguage } = props;
     const {
@@ -53,21 +53,32 @@ export const SourceCard: React.FC<IProps> = (props: IProps) => {
 
     const { isPinned } = useGetSourceMetadata(source);
 
-    const sourceName = Sources.isLocalSource(source) ? t('source.local_source.title') : name;
+    const sourceName = Sources.isLocalSource(source) ? t`Local source` : name;
 
     const updateSetting = createUpdateSourceMetadata(source, (e) =>
-        makeToast(t('global.error.label.failed_to_save_changes'), 'error', getErrorMessage(e)),
+        makeToast(t`Failed to save changes`, 'error', getErrorMessage(e)),
     );
 
     return (
         <Card>
             <CardActionArea
                 component={Link}
-                to={AppRoutes.sources.childRoutes.browse.path(id)}
-                state={{ contentType: SourceContentType.POPULAR, clearCache: true }}
+                to={AppRoutes.sources.children.browse.path(id)}
+                state={AppRoutes.sources.children.browse.state({
+                    contentType: SourceContentType.POPULAR,
+                    clearCache: true,
+                })}
             >
                 <ListCardContent>
-                    <ListCardAvatar iconUrl={requestManager.getValidImgUrlFor(iconUrl)} alt={sourceName} />
+                    <ListCardAvatar
+                        iconUrl={requestManager.getValidImgUrlFor(iconUrl)}
+                        alt={sourceName}
+                        slots={{
+                            spinnerImageProps: {
+                                ignoreQueue: true,
+                            },
+                        }}
+                    />
                     <Stack
                         sx={{
                             justifyContent: 'center',
@@ -94,13 +105,16 @@ export const SourceCard: React.FC<IProps> = (props: IProps) => {
                             {...MUIUtil.preventRippleProp()}
                             variant="outlined"
                             component={Link}
-                            to={AppRoutes.sources.childRoutes.browse.path(id)}
-                            state={{ contentType: SourceContentType.LATEST, clearCache: true }}
+                            to={AppRoutes.sources.children.browse.path(id)}
+                            state={AppRoutes.sources.children.browse.state({
+                                contentType: SourceContentType.LATEST,
+                                clearCache: true,
+                            })}
                         >
-                            {t('global.button.latest')}
+                            {t`Latest`}
                         </Button>
                     )}
-                    <CustomTooltip title={t(isPinned ? 'source.pin.remove' : 'source.pin.add')}>
+                    <CustomTooltip title={isPinned ? t`Unpin source` : t`Pin source`}>
                         <IconButton
                             {...MUIUtil.preventRippleProp()}
                             onClick={(e) => {

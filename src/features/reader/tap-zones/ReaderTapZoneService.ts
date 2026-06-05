@@ -6,23 +6,28 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import i18next, { t as translate } from 'i18next';
-import { CSSProperties } from 'react';
-import {
+import type { CSSProperties } from 'react';
+import type {
     ReaderTapZoneRect,
     TapZoneInvertMode,
     TapZoneLayouts,
     TapZoneRegion,
-    TapZoneRegionType,
 } from '@/features/reader/tap-zones/TapZoneLayout.types.ts';
+import { TapZoneRegionType } from '@/features/reader/tap-zones/TapZoneLayout.types.ts';
 import {
     READER_TAP_ZONE_LAYOUTS,
     TAP_ZONE_REGION_TYPE_DATA,
 } from '@/features/reader/tap-zones/ReaderTapZone.constants.ts';
 
+import { i18n } from '@/i18n';
+
 interface InvertMode extends TapZoneInvertMode {
     isRTL: boolean;
 }
+
+const calcActualValue = (value: number, size: number) => (value / 100) * size;
+
+const calcRectCenter = (pos1: number, pos2: number) => (pos1 + pos2) * 0.5 + pos1 * 0.5;
 
 export class ReaderTapZoneService {
     private static layout: TapZoneLayouts | null = null;
@@ -78,7 +83,7 @@ export class ReaderTapZoneService {
         const isSameWidth = this.width === canvasWidth;
         const isSameHeight = this.height === canvasHeight;
         const doesCanvasExist = !!this.canvas;
-        const isSameLanguage = this.language === i18next.language;
+        const isSameLanguage = this.language === i18n.locale;
         const isSameInvertMode =
             this.invertMode?.vertical === invertMode.vertical &&
             this.invertMode.horizontal === invertMode.horizontal &&
@@ -104,21 +109,19 @@ export class ReaderTapZoneService {
         regions: TapZoneRegion[],
     ): void {
         regions.forEach(({ type, rect: [rectX, rectY, rectWidth, rectHeight] }) => {
-            const { text: translationKey, color } = TAP_ZONE_REGION_TYPE_DATA[type];
-            const text = translate(translationKey);
+            const { text: translation, color } = TAP_ZONE_REGION_TYPE_DATA[type];
+            const text = i18n._(translation);
 
-            const calcActualValue = (value: number, size: number) => (value / 100) * size;
             const x = calcActualValue(rectX, canvasWidth);
             const y = calcActualValue(rectY, canvasHeight);
             const width = calcActualValue(rectWidth, canvasWidth);
             const height = calcActualValue(rectHeight, canvasHeight);
-
-            const calcRectCenter = (pos1: number, pos2: number) => (pos1 + pos2) * 0.5 + pos1 * 0.5;
             const rectCenterX = calcRectCenter(x, width);
             const rectCenterY = calcRectCenter(y, height);
 
             context.beginPath();
 
+            /* oxlint-disable no-param-reassign */
             context.rect(x, y, width, height);
             context.fillStyle = color;
             context.strokeStyle = color;
@@ -139,6 +142,7 @@ export class ReaderTapZoneService {
             context.lineWidth = 1;
             context.fillStyle = 'white';
             context.fillText(text, rectCenterX, rectCenterY);
+            /* oxlint-enable no-param-reassign */
         });
     }
 
@@ -166,7 +170,7 @@ export class ReaderTapZoneService {
         this.canvas = canvas;
         this.width = canvasWidth;
         this.height = canvasHeight;
-        this.language = i18next.language;
+        this.language = i18n.locale;
         this.invertMode = invertMode;
         this.regions = regions;
         this.fontStyle = fontStyle;

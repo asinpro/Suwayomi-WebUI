@@ -19,18 +19,21 @@ import GetAppOutlinedIcon from '@mui/icons-material/GetAppOutlined';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import SettingsIcon from '@mui/icons-material/Settings';
 import InfoIcon from '@mui/icons-material/Info';
-import { useTranslation } from 'react-i18next';
-import { NavbarItem, NavBarItemMoreGroup } from '@/features/navigation-bar/NavigationBar.types.ts';
+import { useLingui } from '@lingui/react/macro';
+import { msg, plural } from '@lingui/core/macro';
+import type { NavbarItem } from '@/features/navigation-bar/NavigationBar.types.ts';
+import { NavBarItemMoreGroup } from '@/features/navigation-bar/NavigationBar.types.ts';
 import { AppRoutes } from '@/base/AppRoute.constants.ts';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
-import { DownloaderState } from '@/lib/graphql/generated/graphql.ts';
+import { STABLE_EMPTY_ARRAY } from '@/base/Base.constants.ts';
+import { DownloaderState } from '@/lib/graphql/generated/graphql-base.types.ts';
 
 type RestrictedNavBarItem<Show extends NavbarItem['show']> = Omit<NavbarItem, 'show'> & { show: Show };
 
 const NAVIGATION_BAR_BASE_ITEMS = [
     {
         path: AppRoutes.library.path() as RestrictedNavBarItem<'both'>['path'],
-        title: 'library.title',
+        title: msg`Library`,
         SelectedIconComponent: CollectionsBookmarkIcon,
         IconComponent: CollectionsOutlinedBookmarkIcon,
         show: 'both',
@@ -38,7 +41,7 @@ const NAVIGATION_BAR_BASE_ITEMS = [
     },
     {
         path: AppRoutes.updates.path,
-        title: 'updates.title',
+        title: msg`Updates`,
         SelectedIconComponent: NewReleasesIcon,
         IconComponent: NewReleasesOutlinedIcon,
         show: 'both',
@@ -46,7 +49,7 @@ const NAVIGATION_BAR_BASE_ITEMS = [
     },
     {
         path: AppRoutes.history.path,
-        title: 'history.title',
+        title: msg`History`,
         SelectedIconComponent: HistoryIcon,
         IconComponent: HistoryOutlinedIcon,
         show: 'both',
@@ -54,17 +57,18 @@ const NAVIGATION_BAR_BASE_ITEMS = [
     },
     {
         path: AppRoutes.browse.path() as RestrictedNavBarItem<'both'>['path'],
-        title: 'global.label.browse',
+        title: msg`Browse`,
         SelectedIconComponent: ExploreIcon,
         IconComponent: ExploreOutlinedIcon,
         show: 'both',
         moreGroup: NavBarItemMoreGroup.GENERAL,
         useBadge: () => {
-            const { t } = useTranslation();
-            const { data } = requestManager.useGetExtensionList();
+            const { data } = requestManager.useGetExtensionList({ fetchPolicy: 'cache-only' });
 
-            const extensions = data?.extensions.nodes ?? [];
-            const availableUpdates = extensions.filter((extension) => extension.hasUpdate).length;
+            const extensions = data?.extensions.nodes ?? STABLE_EMPTY_ARRAY;
+            const availableUpdates = extensions.filter(
+                (extension) => extension.hasUpdate && !extension.isObsolete,
+            ).length;
 
             if (!availableUpdates) {
                 return {
@@ -75,7 +79,10 @@ const NAVIGATION_BAR_BASE_ITEMS = [
 
             return {
                 count: availableUpdates,
-                title: t('extension.label.available_updates', { count: availableUpdates }),
+                title: plural(availableUpdates, {
+                    one: '# update available',
+                    other: '# updates available',
+                }),
             };
         },
     },
@@ -84,14 +91,14 @@ const NAVIGATION_BAR_BASE_ITEMS = [
 const NAVIGATION_BAR_DESKTOP_ITEMS = [
     {
         path: AppRoutes.downloads.path,
-        title: 'download.title.download',
-        moreTitle: 'download.title.queue',
+        title: msg`Downloads`,
+        moreTitle: msg`Download queue`,
         SelectedIconComponent: GetAppIcon,
         IconComponent: GetAppOutlinedIcon,
         show: 'desktop',
         moreGroup: NavBarItemMoreGroup.HIDDEN_ITEM,
         useBadge: () => {
-            const { t } = useTranslation();
+            const { t } = useLingui();
             const { data } = requestManager.useGetDownloadStatus();
             const downloadStatus = data?.downloadStatus;
 
@@ -107,13 +114,13 @@ const NAVIGATION_BAR_DESKTOP_ITEMS = [
 
             return {
                 count,
-                title: t(isPaused ? 'download.queue.info.paused' : 'download.queue.info.remaining', { count }),
+                title: isPaused ? t`Paused — ${count} remaining` : t`${count} remaining`,
             };
         },
     },
     {
         path: AppRoutes.settings.path,
-        title: 'settings.title',
+        title: msg`Settings`,
         SelectedIconComponent: SettingsIcon,
         IconComponent: SettingsIcon,
         show: 'desktop',
@@ -121,7 +128,7 @@ const NAVIGATION_BAR_DESKTOP_ITEMS = [
     },
     {
         path: AppRoutes.about.path,
-        title: 'settings.about.title',
+        title: msg`About`,
         SelectedIconComponent: InfoIcon,
         IconComponent: InfoIcon,
         show: 'desktop',
@@ -132,7 +139,7 @@ const NAVIGATION_BAR_DESKTOP_ITEMS = [
 export const NAVIGATION_BAR_MOBILE_ITEMS = [
     {
         path: AppRoutes.more.path,
-        title: 'global.label.more',
+        title: msg`More`,
         SelectedIconComponent: MoreHorizIcon,
         IconComponent: MoreHorizIcon,
         show: 'mobile',

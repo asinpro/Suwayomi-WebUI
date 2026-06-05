@@ -6,18 +6,15 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { Direction, useTheme } from '@mui/material/styles';
-import { forwardRef, Fragment, memo, useMemo } from 'react';
+import type { Direction } from '@mui/material/styles';
+import { useTheme } from '@mui/material/styles';
+import { Fragment, memo, useMemo } from 'react';
 import { BasePager } from '@/features/reader/viewer/pager/components/BasePager.tsx';
-import {
-    IReaderSettings,
-    ReaderPagerProps,
-    ReaderPageScaleMode,
-    ReadingDirection,
-} from '@/features/reader/Reader.types.ts';
+import type { IReaderSettings, ReaderPagerProps } from '@/features/reader/Reader.types.ts';
+import { ReaderPageScaleMode, ReadingDirection } from '@/features/reader/Reader.types.ts';
 import { applyStyles } from '@/base/utils/ApplyStyles.ts';
 import { createReaderPage } from '@/features/reader/viewer/pager/ReaderPager.utils.tsx';
-import { getNextIndexFromPage, getPage } from '@/features/reader/overlay/progress-bar/ReaderProgressBar.utils.tsx';
+import { getIndexOfPage, getPage } from '@/features/reader/overlay/progress-bar/ReaderProgressBar.utils.tsx';
 
 const getPagePosition = (
     pageType: 'first' | 'second',
@@ -41,10 +38,14 @@ const getPagePosition = (
     return isLtrReadingDirection ? 'right' : 'left';
 };
 
-const BaseReaderDoublePagedPager = forwardRef<
-    HTMLDivElement,
-    ReaderPagerProps & Pick<IReaderSettings, 'readingDirection' | 'pageScaleMode'>
->(({ onLoad, onError, pageLoadStates, retryFailedPagesKeyPrefix, isPreloadMode, ...props }, ref) => {
+const BaseReaderDoublePagedPager = ({
+    onLoad,
+    onError,
+    pageLoadStates,
+    retryFailedPagesKeyPrefix,
+    isPreloadMode,
+    ...props
+}: ReaderPagerProps & Pick<IReaderSettings, 'readingDirection' | 'pageScaleMode'>) => {
     const { currentPageIndex, pages, totalPages, readingDirection, pageScaleMode } = props;
 
     const { direction: themeDirection } = useTheme();
@@ -54,12 +55,11 @@ const BaseReaderDoublePagedPager = forwardRef<
 
     return (
         <BasePager
-            ref={ref}
             {...props}
             createPage={(page, pagesIndex, shouldLoad, shouldDisplay, _setRef, ...baseProps) => {
                 const { primary, secondary } = page;
 
-                const currentSecondaryPageIndex = getNextIndexFromPage(currentPage);
+                const currentSecondaryPageIndex = getIndexOfPage(currentPage);
 
                 const hasSecondaryPage = !!secondary;
                 const isPrimaryPage = currentPage.primary.index === primary.index;
@@ -129,6 +129,6 @@ const BaseReaderDoublePagedPager = forwardRef<
             }}
         />
     );
-});
+};
 
 export const ReaderDoublePagedPager = memo(BaseReaderDoublePagedPager);

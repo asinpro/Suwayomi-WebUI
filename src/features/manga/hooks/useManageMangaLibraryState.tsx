@@ -6,47 +6,47 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { useCallback, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
 import gql from 'graphql-tag';
-import { useCategorySelect } from '@/features/category/hooks/useCategorySelect.tsx';
+import { AwaitableComponent } from 'awaitable-component';
+import { useLingui } from '@lingui/react/macro';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { makeToast } from '@/base/utils/Toast.ts';
 import { getMetadataServerSettings } from '@/features/settings/services/ServerSettingsMetadata.ts';
 import { Categories } from '@/features/category/services/Categories.ts';
 import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
 import { Mangas } from '@/features/manga/services/Mangas.ts';
-import { awaitConfirmation } from '@/base/utils/AwaitableDialog.tsx';
-import { GetCategoriesBaseQuery, GetCategoriesBaseQueryVariables, MangaType } from '@/lib/graphql/generated/graphql.ts';
-import { GET_CATEGORIES_BASE } from '@/lib/graphql/queries/CategoryQuery.ts';
+import type { GetCategoriesBaseQuery, GetCategoriesBaseQueryVariables } from '@/lib/graphql/generated/graphql.ts';
+import { GET_CATEGORIES_BASE } from '@/lib/graphql/category/CategoryQuery.ts';
 import { AppRoutes } from '@/base/AppRoute.constants.ts';
 import { getErrorMessage } from '@/lib/HelperFunctions.ts';
+import { CategorySelect } from '@/features/category/components/CategorySelect';
+import { Confirmation } from '@/base/AppAwaitableComponent.ts';
+import type { MangaIdInfo, MangaInLibraryInfo, MangaTitleInfo } from '@/features/manga/Manga.types.ts';
 
 export const useManageMangaLibraryState = (
-    manga: Pick<MangaType, 'id' | 'title'> & Partial<Pick<MangaType, 'inLibrary'>>,
+    manga: MangaIdInfo & MangaTitleInfo & Partial<MangaInLibraryInfo>,
     confirmRemoval: boolean = false,
 ) => {
-    const { t } = useTranslation();
-    const navigate = useNavigate();
+    const { t } = useLingui();
 
     const [isInLibrary, setIsInLibrary] = useState(!!manga.inLibrary);
 
-    const addToLibrary = useCallback(
-        (didSubmit: boolean, addToCategories: number[] = [], removeFromCategories: number[] = []) => {
-            if (!didSubmit) {
-                return;
-            }
+    useEffect(() => {
+        setIsInLibrary(!!manga.inLibrary);
+    }, [manga.id]);
 
+    const addToLibrary = useCallback(
+        (addToCategories: number[] = [], removeFromCategories: number[] = []) => {
             requestManager
                 .updateManga(manga.id, {
                     updateManga: { inLibrary: true },
                     updateMangaCategories: { addToCategories, removeFromCategories },
                 })
-                .response.then(() => makeToast(t('library.info.label.added_to_library'), 'success'))
+                .response.then(() => makeToast(t`Added manga to library!`, 'success'))
                 .then(() => setIsInLibrary(true))
                 .catch((e) => {
-                    makeToast(t('library.error.label.add_to_library'), 'error', getErrorMessage(e));
+                    makeToast(t`Could not add manga to library!`, 'error', getErrorMessage(e));
                 });
         },
         [manga.id],
@@ -54,24 +54,23 @@ export const useManageMangaLibraryState = (
 
     const removeFromLibrary = useCallback(async () => {
         if (confirmRemoval) {
-            await awaitConfirmation({
-                title: t('global.label.are_you_sure'),
-                message: t('manga.action.library.remove.dialog.label.message', { title: manga.title }),
-                actions: {
-                    confirm: { title: t('global.button.remove') },
+            await Confirmation.show(
+                {
+                    title: t`Are you sure?`,
+                    message: t`You are about to remove "${manga.title}" from your library`,
+                    actions: {
+                        confirm: {
+                            title: t`Remove`,
+                        },
+                    },
                 },
-            });
+                { id: `manga-library-state-remove-${manga.id}` },
+            );
         }
 
         await Mangas.removeFromLibrary([manga.id], true);
         setIsInLibrary(false);
     }, [manga.id, confirmRemoval]);
-
-    const { openCategorySelect, CategorySelectComponent } = useCategorySelect({
-        mangaId: manga.id,
-        addToLibrary: true,
-        onClose: addToLibrary,
-    });
 
     const updateLibraryState = useCallback(() => {
         const update = async () => {
@@ -84,10 +83,9 @@ export const useManageMangaLibraryState = (
 
             let showAddToLibraryCategorySelectDialog: boolean;
             try {
-                showAddToLibraryCategorySelectDialog = (await getMetadataServerSettings())
-                    .showAddToLibraryCategorySelectDialog;
+                ({ showAddToLibraryCategorySelectDialog } = await getMetadataServerSettings());
             } catch (e) {
-                makeToast(t('global.error.label.failed_to_load_data'), 'error', getErrorMessage(e));
+                makeToast(t`Unable to load data`, 'error', getErrorMessage(e));
                 return;
             }
 
@@ -102,9 +100,13 @@ export const useManageMangaLibraryState = (
                     GetCategoriesBaseQueryVariables
                 >(GET_CATEGORIES_BASE).response;
             } catch (e) {
-                makeToast(t('category.error.label.request_failure'), 'error', getErrorMessage(e));
+                makeToast(t`Could not load categories`, 'error', getErrorMessage(e));
                 return;
             }
+            if (!categories.data) {
+                return;
+            }
+
             const userCreatedCategories = Categories.getUserCreated(categories.data.categories.nodes);
 
             let duplicatedLibraryMangas:
@@ -113,49 +115,75 @@ export const useManageMangaLibraryState = (
             try {
                 duplicatedLibraryMangas = await Mangas.getDuplicateLibraryMangas(manga.title).response;
             } catch (e) {
-                await awaitConfirmation({
-                    title: t('global.error.label.failed_to_load_data'),
-                    message: t('manga.action.library.add.dialog.duplicate.label.failure', {
-                        error: getErrorMessage(e),
-                    }),
-                    actions: {
-                        extra: { show: true, title: t('global.button.retry'), contain: true },
-                        confirm: { title: t('global.button.add') },
+                const errorMessage = getErrorMessage(e);
+                await Confirmation.show(
+                    {
+                        title: t`Unable to load data`,
+                        message: t`Could not check for duplicated manga in your library.\n\nError: ${errorMessage}`,
+                        actions: {
+                            extra: {
+                                show: true,
+                                title: t`Retry`,
+                                contain: true,
+                            },
+                            confirm: {
+                                title: t`Add`,
+                            },
+                        },
+                        onExtra: () =>
+                            update().catch(
+                                defaultPromiseErrorHandler('useManageMangaLibraryState::update: retry duplicate check'),
+                            ),
                     },
-                    onExtra: () =>
-                        update().catch(
-                            defaultPromiseErrorHandler('useManageMangaLibraryState::update: retry duplicate check'),
-                        ),
-                });
+                    { id: `manga-library-state-add-${manga.id}` },
+                );
             }
 
-            const doDuplicatesExist = duplicatedLibraryMangas?.data.mangas.totalCount;
-            if (doDuplicatesExist) {
-                await awaitConfirmation({
-                    title: t('global.label.are_you_sure'),
-                    message: t('manga.action.library.add.dialog.duplicate.label.info'),
-                    actions: {
-                        extra: { show: true, title: t('migrate.dialog.action.button.show_entry'), contain: true },
-                        confirm: { title: t('global.button.add') },
+            const duplicateMangas = duplicatedLibraryMangas?.data?.mangas;
+            if (duplicateMangas?.totalCount) {
+                await Confirmation.show(
+                    {
+                        title: t`Are you sure?`,
+                        message: t`You have an entry in your library with the same name.`,
+                        actions: {
+                            extra: {
+                                show: true,
+                                title: t`Show entry`,
+                                contain: true,
+                                link: AppRoutes.manga.path(duplicateMangas.nodes[0].id),
+                            },
+                            confirm: {
+                                title: t`Add`,
+                            },
+                        },
+                        onExtra: () => {},
                     },
-                    onExtra: () => navigate(AppRoutes.manga.path(duplicatedLibraryMangas!.data.mangas.nodes[0].id)),
-                });
+                    { id: `manga-library-state-add-duplicated-${manga.id}` },
+                );
             }
 
             const showCategorySelectDialog = showAddToLibraryCategorySelectDialog && !!userCreatedCategories.length;
             if (!showCategorySelectDialog) {
-                addToLibrary(true, Categories.getIds(Categories.getDefaults(userCreatedCategories!)));
+                addToLibrary(Categories.getIds(Categories.getDefaults(userCreatedCategories!)));
                 return;
             }
 
-            openCategorySelect(true);
+            const { addToCategories, removeFromCategories } = await AwaitableComponent.show(
+                CategorySelect,
+                {
+                    mangaId: manga.id,
+                    addToLibrary: true,
+                },
+                { id: `manga-library-state-add-categories-${manga.id}` },
+            );
+
+            addToLibrary(addToCategories, removeFromCategories);
         };
 
         update().catch(defaultPromiseErrorHandler('useManageMangaLibraryState::updateLibraryState'));
     }, [isInLibrary, removeFromLibrary, addToLibrary]);
 
     return {
-        CategorySelectComponent,
         updateLibraryState,
         /**
          * In case of browsing the source, the data has to be fetched via a mutation.

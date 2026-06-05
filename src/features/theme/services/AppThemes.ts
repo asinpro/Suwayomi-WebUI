@@ -6,11 +6,8 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { CssVarsThemeOptions } from '@mui/material/styles';
-import WebFont from 'webfontloader';
-import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
-import { ControlledPromise } from '@/lib/ControlledPromise.ts';
-import { TBaseTheme, themes } from '@/features/theme/Themes.ts';
+import type { TBaseTheme } from '@/features/theme/Themes.ts';
+import { themes } from '@/features/theme/Themes.ts';
 
 export type AppThemes = keyof typeof themes | string;
 
@@ -41,64 +38,3 @@ export const getTheme = (id: AppThemes | undefined, customThemes: Record<string,
 
 export const isThemeNameUnique = (id: string, customThemes: Record<string, AppTheme>): boolean =>
     Object.keys({ ...themes, ...customThemes }).every((themeId) => themeId.toLowerCase() !== id.toLowerCase());
-
-const getFontsFromTheme = (obj: Record<string, any>, fonts: string[] = []): string[] => {
-    const tmpFonts = [...fonts];
-
-    const propertyNames = Object.keys(obj);
-    for (const propertyName of propertyNames) {
-        const propertyValue = obj[propertyName];
-        const propertyType = typeof obj[propertyName];
-
-        const isValidFontProperty = propertyName === 'fontFamily' && propertyType === 'string';
-        if (isValidFontProperty) {
-            tmpFonts.push(propertyValue as string);
-            // eslint-disable-next-line no-continue
-            continue;
-        }
-
-        const isObject = propertyType === 'object';
-        if (isObject) {
-            tmpFonts.push(...getFontsFromTheme(propertyValue as Record<string, any>, tmpFonts));
-        }
-    }
-
-    return [...new Set(tmpFonts)];
-};
-
-const loadedFonts: string[] = [];
-
-export const hasMissingFonts = (theme: CssVarsThemeOptions): boolean => {
-    const themeFonts = getFontsFromTheme(theme.typography ?? {});
-    return !!themeFonts.length && themeFonts.some((font) => !loadedFonts.includes(font));
-};
-
-export const loadThemeFonts = async (theme: CssVarsThemeOptions): Promise<void> => {
-    const themeFonts = getFontsFromTheme(theme.typography ?? {});
-    const missingThemeFonts = themeFonts.filter((font) => !loadedFonts.includes(font));
-
-    if (!missingThemeFonts.length) {
-        return;
-    }
-
-    const loadFontsPromise = new ControlledPromise();
-    try {
-        WebFont.load({
-            google: {
-                families: missingThemeFonts,
-            },
-            active: () => {
-                loadedFonts.push(...missingThemeFonts);
-                loadFontsPromise.resolve();
-            },
-            inactive: () => {
-                loadFontsPromise.reject();
-            },
-        });
-    } catch (e) {
-        defaultPromiseErrorHandler('AppThemes::loadFonts')(e);
-        loadFontsPromise.reject(e);
-    }
-
-    await loadFontsPromise.promise;
-};

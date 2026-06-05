@@ -7,19 +7,16 @@
  */
 
 import Stack from '@mui/material/Stack';
-import { useTranslation } from 'react-i18next';
+import { useLingui } from '@lingui/react/macro';
 import { ReaderSettingProgressBarType } from '@/features/reader/overlay/progress-bar/settings/components/ReaderSettingProgressBarType.tsx';
 import { ReaderSettingProgressBarSize } from '@/features/reader/overlay/progress-bar/settings/components/ReaderSettingProgressBarSize.tsx';
 import { ReaderSettingProgressBarPosition } from '@/features/reader/overlay/progress-bar/settings/components/ReaderSettingProgressBarPosition.tsx';
-import {
-    IReaderSettings,
-    ProgressBarType,
-    ReaderOverlayMode,
-    ReaderSettingsTypeProps,
-} from '@/features/reader/Reader.types.ts';
+import type { IReaderSettings, ReaderSettingsTypeProps } from '@/features/reader/Reader.types.ts';
+import { ProgressBarType, ReaderOverlayMode } from '@/features/reader/Reader.types.ts';
 import { ReaderSettingOverlayMode } from '@/features/reader/overlay/settings/ReaderSettingOverlayMode.tsx';
 import { CheckboxInput } from '@/base/components/inputs/CheckboxInput.tsx';
 import { ReaderSettingBackgroundColor } from '@/features/reader/settings/general/components/ReaderSettingBackgroundColor.tsx';
+import { ReaderSettingSafeAreaInset } from '@/features/reader/settings/general/components/ReaderSettingSafeAreaInset.tsx';
 
 export const ReaderGeneralSettings = ({
     overlayMode,
@@ -27,7 +24,7 @@ export const ReaderGeneralSettings = ({
     updateSetting,
     onDefault,
 }: Pick<IReaderSettings, 'overlayMode'> & ReaderSettingsTypeProps) => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
     return (
         <Stack sx={{ gap: 2 }}>
@@ -58,11 +55,15 @@ export const ReaderGeneralSettings = ({
             />
             {(settings.progressBarType === ProgressBarType.HIDDEN || overlayMode === ReaderOverlayMode.MOBILE) && (
                 <CheckboxInput
-                    label={t('reader.settings.label.show_page_number')}
+                    label={t`Show page number`}
                     checked={settings.shouldShowPageNumber}
                     onChange={(_, checked) => updateSetting('shouldShowPageNumber', checked)}
                 />
             )}
+            <ReaderSettingSafeAreaInset
+                safeAreaInset={settings.safeAreaInset}
+                updateSetting={(value) => updateSetting('safeAreaInset', value)}
+            />
         </Stack>
     );
 };

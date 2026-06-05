@@ -10,20 +10,21 @@ import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import DialogContent from '@mui/material/DialogContent';
-import { useTranslation } from 'react-i18next';
+import { useLingui } from '@lingui/react/macro';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { LoadingPlaceholder } from '@/base/components/feedback/LoadingPlaceholder.tsx';
 import { Trackers } from '@/features/tracker/services/Trackers.ts';
 import { TrackerCard, TrackerMode } from '@/features/tracker/components/cards/TrackerCard.tsx';
 import { makeToast } from '@/base/utils/Toast.ts';
 import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
-import { GetMangaTrackRecordsQuery, GetTrackersBindQuery, MangaType } from '@/lib/graphql/generated/graphql.ts';
-import { GET_TRACKERS_BIND } from '@/lib/graphql/queries/TrackerQuery.ts';
-import { GET_MANGA_TRACK_RECORDS } from '@/lib/graphql/queries/MangaQuery.ts';
-import { MangaIdInfo } from '@/features/manga/Manga.types.ts';
+import type { GetMangaTrackRecordsQuery, GetTrackersBindQuery } from '@/lib/graphql/generated/graphql.ts';
+import { GET_TRACKERS_BIND } from '@/lib/graphql/tracker/TrackerQuery.ts';
+import { GET_MANGA_TRACK_RECORDS } from '@/lib/graphql/manga/MangaQuery.ts';
+import type { MangaIdInfo, MangaTitleInfo } from '@/features/manga/Manga.types.ts';
 import { AppRoutes } from '@/base/AppRoute.constants.ts';
 import { getErrorMessage } from '@/lib/HelperFunctions.ts';
 import { EmptyView } from '@/base/components/feedback/EmptyView.tsx';
+import { STABLE_EMPTY_ARRAY } from '@/base/Base.constants.ts';
 
 const getTrackerMode = (id: number, trackersInUse: number[], searchModeForTracker?: number): TrackerMode => {
     if (id === searchModeForTracker) {
@@ -37,22 +38,20 @@ const getTrackerMode = (id: number, trackersInUse: number[], searchModeForTracke
     return TrackerMode.UNTRACKED;
 };
 
-export const TrackManga = ({ manga }: { manga: MangaIdInfo & Pick<MangaType, 'title'> }) => {
-    const { t } = useTranslation();
+export const TrackManga = ({ manga }: { manga: MangaIdInfo & MangaTitleInfo }) => {
+    const { t } = useLingui();
     const navigate = useNavigate();
 
     const [searchModeForTracker, setSearchModeForTracker] = useState<number>();
 
-    const trackerList = requestManager.useGetTrackerList<GetTrackersBindQuery>(GET_TRACKERS_BIND, {
-        notifyOnNetworkStatusChange: true,
-    });
-    const trackers = trackerList.data?.trackers.nodes ?? [];
+    const trackerList = requestManager.useGetTrackerList<GetTrackersBindQuery>(GET_TRACKERS_BIND);
+    const trackers = trackerList.data?.trackers.nodes ?? STABLE_EMPTY_ARRAY;
 
     const mangaTrackRecordsList = requestManager.useGetManga<GetMangaTrackRecordsQuery>(
         GET_MANGA_TRACK_RECORDS,
         manga.id,
     );
-    const mangaTrackRecords = mangaTrackRecordsList.data?.manga.trackRecords.nodes ?? [];
+    const mangaTrackRecords = mangaTrackRecordsList.data?.manga.trackRecords.nodes ?? STABLE_EMPTY_ARRAY;
 
     const loggedInTrackers = Trackers.getLoggedIn(trackers);
     const trackersInUse = Trackers.getLoggedIn(Trackers.getTrackers(mangaTrackRecords, trackers));
@@ -66,7 +65,7 @@ export const TrackManga = ({ manga }: { manga: MangaIdInfo & Pick<MangaType, 'ti
 
     useEffect(() => {
         if (!loading && !error && !trackersInUse.length && !loggedInTrackers.length) {
-            navigate(AppRoutes.settings.childRoutes.tracking.path);
+            navigate(AppRoutes.settings.children.tracking.path);
         }
     }, [loading]);
 
@@ -81,7 +80,7 @@ export const TrackManga = ({ manga }: { manga: MangaIdInfo & Pick<MangaType, 'ti
             mangaTrackRecords
                 .filter((trackRecord) => trackersInUseIds.includes(trackRecord.trackerId))
                 .map((trackRecord) => requestManager.fetchTrackBind(trackRecord.id).response),
-        ).catch((e) => makeToast(t('tracking.error.label.could_not_fetch_track_info'), 'error', getErrorMessage(e)));
+        ).catch((e) => makeToast(t`Could not load latest track info from tracker`, 'error', getErrorMessage(e)));
     }, [mangaTrackRecords]);
 
     const trackerComponents = useMemo(
@@ -112,7 +111,7 @@ export const TrackManga = ({ manga }: { manga: MangaIdInfo & Pick<MangaType, 'ti
     if (error) {
         return (
             <EmptyView
-                message={t('global.error.label.failed_to_load_data')}
+                message={t`Unable to load data`}
                 messageExtra={getErrorMessage(error)}
                 retry={() => {
                     if (trackerList.error) {

@@ -6,31 +6,33 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { useTranslation } from 'react-i18next';
+import { useLingui } from '@lingui/react/macro';
+import { msg } from '@lingui/core/macro';
 import { TapZoneLayouts } from '@/features/reader/tap-zones/TapZoneLayout.types.ts';
-import { MultiValueButtonDefaultableProps, ValueToDisplayData } from '@/base/Base.types.ts';
-import { IReaderSettingsWithDefaultFlag, ReadingDirection } from '@/features/reader/Reader.types.ts';
+import type { ValueToDisplayData } from '@/base/Base.types.ts';
+import type { IReaderSettingsWithDefaultFlag, ReadingDirection } from '@/features/reader/Reader.types.ts';
 import { ButtonSelectInput } from '@/base/components/inputs/ButtonSelectInput.tsx';
+import type { SelectButtonDefaultableProps } from '@/base/components/buttons/SelectButton.tsx';
 
 const VALUE_TO_DISPLAY_DATA: ValueToDisplayData<TapZoneLayouts> = {
     [TapZoneLayouts.EDGE]: {
-        title: 'reader.settings.tap_zones.edge',
+        title: msg`Edge`,
         icon: null,
     },
     [TapZoneLayouts.KINDLE]: {
-        title: 'reader.settings.tap_zones.kindle',
+        title: msg`Kindle`,
         icon: null,
     },
     [TapZoneLayouts.L_SHAPE]: {
-        title: 'reader.settings.tap_zones.l_shape',
+        title: msg`L-Shape`,
         icon: null,
     },
     [TapZoneLayouts.RIGHT_LEFT]: {
-        title: 'reader.settings.tap_zones.right_left',
+        title: msg`Right and left`,
         icon: null,
     },
     [TapZoneLayouts.DISABLED]: {
-        title: 'global.label.disabled',
+        title: msg`Disabled`,
         icon: null,
     },
 };
@@ -42,15 +44,15 @@ export const ReaderSettingTapZoneLayout = ({
     setTapZoneLayout,
     ...buttonSelectInputProps
 }: Pick<IReaderSettingsWithDefaultFlag, 'tapZoneLayout'> &
-    Pick<MultiValueButtonDefaultableProps<ReadingDirection>, 'isDefaultable' | 'onDefault'> & {
+    Pick<SelectButtonDefaultableProps<ReadingDirection>, 'isDefaultable' | 'onDefault'> & {
         setTapZoneLayout: (layout: TapZoneLayouts) => void;
     }) => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
 
     return (
         <ButtonSelectInput
             {...buttonSelectInputProps}
-            label={t('reader.settings.tap_zones.title')}
+            label={t`Tap zones`}
             value={tapZoneLayout.isDefault ? undefined : tapZoneLayout.value}
             defaultValue={tapZoneLayout.isDefault ? tapZoneLayout.value : undefined}
             values={READER_TAP_ZONE_LAYOUT_VALUES}

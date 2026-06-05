@@ -6,35 +6,32 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { memo, MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { MutableRefObject } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Stack from '@mui/material/Stack';
 import { useTheme } from '@mui/material/styles';
-import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
-import {
+import { useLingui } from '@lingui/react/macro';
+import type {
     IReaderSettings,
     ReaderPagerProps,
     ReaderPageSpreadState,
     ReaderResumeMode,
-    ReaderStateChapters,
-    ReaderTransitionPageMode,
-    ReadingDirection,
-    ReadingMode,
+    ReaderStatePages,
 } from '@/features/reader/Reader.types.ts';
+import { ReaderTransitionPageMode, ReadingDirection, ReadingMode } from '@/features/reader/Reader.types.ts';
 import { getDoublePageModePages } from '@/features/reader/viewer/pager/ReaderPager.utils.tsx';
-import { ReaderControls } from '@/features/reader/services/ReaderControls.ts';
+import type { ReaderControls } from '@/features/reader/services/ReaderControls.ts';
 import {
     getPagerForReadingMode,
     isContinuousReadingMode,
     isContinuousVerticalReadingMode,
     shouldApplyReaderWidth,
 } from '@/features/reader/settings/ReaderSettings.utils.tsx';
-import { ReaderStatePages } from '@/features/reader/overlay/progress-bar/ReaderProgressBar.types.ts';
 import { createHandleReaderPageLoadError, createUpdateReaderPageLoadState } from '@/features/reader/Reader.utils.ts';
 import { useReaderConvertPagesForReadingMode } from '@/features/reader/viewer/hooks/useReaderConvertPagesForReadingMode.ts';
 import { ReaderTransitionPage } from '@/features/reader/viewer/components/ReaderTransitionPage.tsx';
 import { applyStyles } from '@/base/utils/ApplyStyles.ts';
-import { READER_STATE_PAGES_DEFAULTS } from '@/features/reader/ReaderContext.constants.ts';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
 import { useReaderSetPagesState } from '@/features/reader/viewer/hooks/useReaderSetPagesState.ts';
@@ -43,25 +40,22 @@ import { getErrorMessage, noOp } from '@/lib/HelperFunctions.ts';
 import { LoadingPlaceholder } from '@/base/components/feedback/LoadingPlaceholder.tsx';
 import { ReaderInfiniteScrollUpdateChapter } from '@/features/reader/infinite-scroll/ReaderInfiniteScrollUpdateChapter.tsx';
 import { useResizeObserver } from '@/base/hooks/useResizeObserver.tsx';
-import { ChapterIdInfo } from '@/features/chapter/Chapter.types.ts';
+import type { ChapterIdInfo } from '@/features/chapter/Chapter.types.ts';
+import { READER_DEFAULT_PAGES_STATE } from '@/features/reader/stores/ReaderPagesStore.ts';
+
+import { getReaderChaptersStore, getReaderPagesStore } from '@/features/reader/stores/ReaderStore.ts';
 
 const BaseReaderChapterViewer = ({
     currentPageIndex,
-    setPages: setContextPages,
-    setPageLoadStates: setContextPageLoadStates,
-    setTotalPages: setContextTotalPages,
-    setCurrentPageIndex: setContextCurrentPageIndex,
     updateCurrentPageIndex,
-    setPageToScrollToIndex,
     transitionPageMode,
     retryFailedPagesKeyPrefix,
-    setTransitionPageMode,
     readingMode,
     readerWidth,
+    safeAreaInset,
     pageScaleMode,
     shouldOffsetDoubleSpreads,
     readingDirection,
-    shouldUseInfiniteScroll,
     imagePreLoadAmount,
     pageGap,
     chapterId,
@@ -79,40 +73,21 @@ const BaseReaderChapterViewer = ({
     isPreloadMode,
     imageRefs: globalImageRefs,
     scrollIntoView,
-    setReaderStateChapters,
     resumeMode,
     customFilter,
     shouldStretchPage,
-    scrollbarXSize,
-    scrollbarYSize,
     readerNavBarWidth,
     onSizeChange,
     minWidth,
     minHeight,
     scrollElement,
-}: Pick<
-    ReaderStatePages,
-    | 'currentPageIndex'
-    | 'setPages'
-    | 'setPageLoadStates'
-    | 'setTotalPages'
-    | 'setCurrentPageIndex'
-    | 'setPageToScrollToIndex'
-    | 'transitionPageMode'
-    | 'retryFailedPagesKeyPrefix'
-    | 'setTransitionPageMode'
-> &
+    currentChapterRemainingPages,
+}: Pick<ReaderStatePages, 'currentPageIndex' | 'transitionPageMode' | 'retryFailedPagesKeyPrefix'> &
     Omit<ReaderPagerProps, 'pages' | 'totalPages' | 'pageLoadStates' | 'handleAsInitialRender' | 'resumeMode'> &
     Pick<
         IReaderSettings,
-        | 'readingMode'
-        | 'shouldOffsetDoubleSpreads'
-        | 'readingDirection'
-        | 'readerWidth'
-        | 'pageScaleMode'
-        | 'shouldUseInfiniteScroll'
-    > &
-    Pick<ReaderStateChapters, 'setReaderStateChapters'> & {
+        'readingMode' | 'shouldOffsetDoubleSpreads' | 'readingDirection' | 'readerWidth' | 'pageScaleMode'
+    > & {
         updateCurrentPageIndex: ReturnType<typeof ReaderControls.useUpdateCurrentPageIndex>;
         chapterId: ChapterIdInfo['id'];
         previousChapterId?: ChapterIdInfo['id'];
@@ -134,22 +109,20 @@ const BaseReaderChapterViewer = ({
         minHeight: number;
         scrollElement: HTMLElement | null;
     }) => {
-    const { t } = useTranslation();
+    const { t } = useLingui();
     const { direction: themeDirection } = useTheme();
 
     const [fetchPages, pagesResponse] = requestManager.useGetChapterPagesFetch(chapterId ?? -1);
 
     const [arePagesFetched, setArePagesFetched] = useState(false);
-    const [totalPages, setTotalPages] = useState<ReaderStatePages['totalPages']>(
-        READER_STATE_PAGES_DEFAULTS.totalPages,
-    );
-    const [pageUrls, setPageUrls] = useState<ReaderStatePages['pageUrls']>(READER_STATE_PAGES_DEFAULTS.pageUrls);
-    const [pages, setPages] = useState<ReaderStatePages['pages']>(READER_STATE_PAGES_DEFAULTS.pages);
+    const [totalPages, setTotalPages] = useState<ReaderStatePages['totalPages']>(READER_DEFAULT_PAGES_STATE.totalPages);
+    const [pageUrls, setPageUrls] = useState<ReaderStatePages['pageUrls']>(READER_DEFAULT_PAGES_STATE.pageUrls);
+    const [pages, setPages] = useState<ReaderStatePages['pages']>(READER_DEFAULT_PAGES_STATE.pages);
     const [pageLoadStates, setPageLoadStates] = useState<ReaderStatePages['pageLoadStates']>(
-        READER_STATE_PAGES_DEFAULTS.pageLoadStates,
+        READER_DEFAULT_PAGES_STATE.pageLoadStates,
     );
     const [pagesToSpreadState, setPagesToSpreadState] = useState<ReaderPageSpreadState[]>(
-        pageLoadStates.map(({ url }) => ({ url, isSpread: false })),
+        READER_DEFAULT_PAGES_STATE.pageSpreadStates,
     );
 
     const ref = useRef<HTMLDivElement>(null);
@@ -190,7 +163,7 @@ const BaseReaderChapterViewer = ({
 
     isCurrentChapterRef.current = isCurrentChapter;
     if (isCurrentChapter) {
-        // eslint-disable-next-line no-param-reassign
+        // oxlint-disable-next-line no-param-reassign
         globalImageRefs.current = imageRefs.current;
     }
 
@@ -210,10 +183,16 @@ const BaseReaderChapterViewer = ({
         () =>
             createUpdateReaderPageLoadState(
                 actualPages,
-                setPagesToSpreadState,
                 (value) => {
                     if (isCurrentChapterRef.current) {
-                        setContextPageLoadStates(value);
+                        getReaderPagesStore().setPageSpreadStates(value);
+                    }
+
+                    setPagesToSpreadState(value);
+                },
+                (value) => {
+                    if (isCurrentChapterRef.current) {
+                        getReaderPagesStore().setPageLoadStates(value);
                     }
 
                     setPageLoadStates(value);
@@ -227,7 +206,7 @@ const BaseReaderChapterViewer = ({
         () =>
             createHandleReaderPageLoadError((value) => {
                 if (isCurrentChapterRef.current) {
-                    setContextPageLoadStates(value);
+                    getReaderPagesStore().setPageLoadStates(value);
                 }
 
                 setPageLoadStates(value);
@@ -274,30 +253,36 @@ const BaseReaderChapterViewer = ({
         pagesToSpreadState,
         arePagesFetched,
         setArePagesFetched,
-        (value) => updateState(value, noOp, setReaderStateChapters),
-        (value) => updateState(value, setTotalPages, setContextTotalPages),
-        (value) => updateState(value, setPages, setContextPages),
-        (value) => updateState(value, setPageUrls, noOp),
-        (value) => updateState(value, setPageLoadStates, setContextPageLoadStates),
-        (value) => updateState(value, setPagesToSpreadState, noOp),
-        (value) => updateState(value, noOp, setContextCurrentPageIndex),
+        (value) => updateState(value, noOp, getReaderChaptersStore().setReaderStateChapters),
+        (value) => updateState(value, setTotalPages, getReaderPagesStore().setTotalPages.bind(getReaderPagesStore())),
+        (value) => updateState(value, setPages, getReaderPagesStore().setPages.bind(getReaderPagesStore())),
+        (value) => updateState(value, setPageUrls, getReaderPagesStore().setPageUrls.bind(getReaderPagesStore())),
+        (value) =>
+            updateState(value, setPageLoadStates, getReaderPagesStore().setPageLoadStates.bind(getReaderPagesStore())),
+        (value) =>
+            updateState(
+                value,
+                setPagesToSpreadState,
+                getReaderPagesStore().setPageSpreadStates.bind(getReaderPagesStore()),
+            ),
+        (value) => updateState(value, noOp, getReaderPagesStore().setCurrentPageIndex.bind(getReaderPagesStore())),
         (value) => {
             if ((isInitialChapter && !arePagesFetched) || scrollIntoView) {
-                setPageToScrollToIndex(value);
-                setReaderStateChapters((prevState) => ({
+                getReaderPagesStore().setPageToScrollToIndex(value);
+                getReaderChaptersStore().setReaderStateChapters((prevState) => ({
                     ...prevState,
                     visibleChapters: { ...prevState.visibleChapters, scrollIntoView: false, resumeMode: undefined },
                 }));
             }
         },
-        (value) => updateState(value, noOp, setTransitionPageMode),
+        (value) => updateState(value, noOp, getReaderPagesStore().setTransitionPageMode.bind(getReaderPagesStore())),
     );
 
     useReaderConvertPagesForReadingMode(
         currentPageIndex,
         actualPages,
         pageUrls,
-        (value) => updateState(value, setPages, setContextPages, true),
+        (value) => updateState(value, setPages, getReaderPagesStore().setPages.bind(getReaderPagesStore()), true),
         (value) => updateState(value, setPagesToSpreadState, noOp, true),
         (value) => updateState(value, noOp, updateCurrentPageIndex),
         readingMode,
@@ -330,7 +315,7 @@ const BaseReaderChapterViewer = ({
                 }}
             >
                 <EmptyViewAbsoluteCentered
-                    message={t('global.error.label.failed_to_load_data')}
+                    message={t`Unable to load data`}
                     messageExtra={getErrorMessage(pagesResponse.error)}
                     retry={() => {
                         doFetchPages();
@@ -366,7 +351,7 @@ const BaseReaderChapterViewer = ({
 
         return (
             <Box sx={{ minWidth: '100%', minHeight: '100%', position: 'relative' }}>
-                <EmptyViewAbsoluteCentered message={t('reader.error.label.no_pages_found')} retry={doFetchPages} />
+                <EmptyViewAbsoluteCentered message={t`No pages found`} retry={doFetchPages} />
             </Box>
         );
     }
@@ -409,9 +394,6 @@ const BaseReaderChapterViewer = ({
         >
             {!isPreloadMode && (
                 <ReaderInfiniteScrollUpdateChapter
-                    readingMode={readingMode}
-                    readingDirection={readingDirection}
-                    shouldUseInfiniteScroll={shouldUseInfiniteScroll}
                     chapterId={chapterId}
                     previousChapterId={previousChapterId}
                     nextChapterId={nextChapterId}
@@ -419,8 +401,6 @@ const BaseReaderChapterViewer = ({
                     isPreviousChapterVisible={isPreviousChapterVisible}
                     isNextChapterVisible={isNextChapterVisible}
                     imageWrapper={pagerRef.current}
-                    scrollbarXSize={scrollbarXSize}
-                    scrollbarYSize={scrollbarYSize}
                     scrollElement={scrollElement}
                 />
             )}
@@ -449,12 +429,12 @@ const BaseReaderChapterViewer = ({
                 customFilter={customFilter}
                 shouldStretchPage={shouldStretchPage}
                 readerWidth={readerWidth}
-                scrollbarXSize={scrollbarXSize}
-                scrollbarYSize={scrollbarYSize}
+                safeAreaInset={safeAreaInset}
                 readerNavBarWidth={readerNavBarWidth}
                 isPreloadMode={isPreloadMode}
                 resumeMode={resumeMode}
                 handleAsInitialRender={scrollIntoView}
+                currentChapterRemainingPages={currentChapterRemainingPages}
             />
             {showNextTransitionPage && (
                 <ReaderTransitionPage chapterId={chapterId} type={ReaderTransitionPageMode.NEXT} />

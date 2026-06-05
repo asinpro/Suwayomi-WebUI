@@ -6,17 +6,15 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { Direction, Theme } from '@mui/material/styles';
-import { ComponentProps, ReactNode } from 'react';
+import type { Direction, Theme } from '@mui/material/styles';
+import type { ComponentProps, ReactNode } from 'react';
+import type { IReaderSettings, ReaderPageSpreadState, ReaderStatePages } from '@/features/reader/Reader.types.ts';
 import {
-    IReaderSettings,
     PageInViewportType,
     ReaderPageScaleMode,
-    ReaderPageSpreadState,
     ReaderTransitionPageMode,
     ReadingDirection,
     ReadingMode,
-    TReaderScrollbarContext,
 } from '@/features/reader/Reader.types.ts';
 import { applyStyles } from '@/base/utils/ApplyStyles.ts';
 import {
@@ -25,7 +23,6 @@ import {
     isContinuousVerticalReadingMode,
     shouldApplyReaderWidth,
 } from '@/features/reader/settings/ReaderSettings.utils.tsx';
-import { ReaderStatePages } from '@/features/reader/overlay/progress-bar/ReaderProgressBar.types.ts';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { ReaderPage } from '@/features/reader/viewer/components/ReaderPage.tsx';
 import { reverseString } from '@/base/utils/Strings.ts';
@@ -33,8 +30,7 @@ import { getPage } from '@/features/reader/overlay/progress-bar/ReaderProgressBa
 import { getOptionForDirection } from '@/features/theme/services/ThemeCreator.ts';
 import { READING_DIRECTION_TO_THEME_DIRECTION } from '@/features/reader/settings/ReaderSettings.constants.tsx';
 import { coerceIn } from '@/lib/HelperFunctions.ts';
-import { NavbarContextType } from '@/features/navigation-bar/NavigationBar.types.ts';
-import { DirectionOffset } from '@/base/Base.types.ts';
+import type { NavbarContextType } from '@/features/navigation-bar/NavigationBar.types.ts';
 
 type CSSObject = ReturnType<Theme['applyStyles']>;
 
@@ -60,25 +56,28 @@ const getPageWidthPercentage = (
     return 1;
 };
 
+const joinOffsetsForCssCalc = (offsets: (number | string)[], operator: '-' | '+' = '-'): string =>
+    offsets.map((offset) => (typeof offset === 'number' ? `${offset}px` : offset)).join(` ${operator} `);
+
 export const getImagePlaceholderStyling = (
     readingMode: IReaderSettings['readingMode'],
     shouldStretchPage: IReaderSettings['shouldStretchPage'],
     pageScaleMode: IReaderSettings['pageScaleMode'],
     readerWidth: IReaderSettings['readerWidth'],
-    widthOffset: number,
-    heightOffset: number,
+    widthOffset: (number | string)[],
+    heightOffset: (number | string)[],
     isDoublePage?: boolean,
     isTabletWidth?: boolean,
 ): CSSObject => {
     const OVER_9000 = 9000;
 
-    const getMaxWidth = (width: string) => `calc(${width} - ${widthOffset}px)`;
+    const getMaxWidth = (width: string) => `calc(${width} - ${joinOffsetsForCssCalc(widthOffset)})`;
     const getDesktopWidth = (width: number, readerWidthValue?: number) =>
         getMaxWidth(`${coerceIn(readerWidthValue ?? width, Math.min(width, readerWidthValue ?? OVER_9000), width)}vw`);
 
     const setReaderWidth = getSetReaderWidth(readerWidth, pageScaleMode);
     const fullWidth = getMaxWidth(`${Math.min(100, setReaderWidth ?? OVER_9000)}vw`);
-    const fullHeight = `calc(100vh - ${heightOffset}px)`;
+    const fullHeight = `calc(100vh - ${joinOffsetsForCssCalc(heightOffset)})`;
 
     const DEFAULT_SINGLE_PAGE_WIDTH = isTabletWidth ? fullWidth : getDesktopWidth(40, setReaderWidth);
     const DEFAULT_SINGLE_PAGE_HEIGHT = isTabletWidth ? fullHeight : '85vh';
@@ -155,11 +154,11 @@ const getReaderDimensionStyling = (
     readingMode: IReaderSettings['readingMode'],
     shouldStretchPage: IReaderSettings['shouldStretchPage'],
     pageScaleMode: IReaderSettings['pageScaleMode'],
-    widthOffset: number,
-    heightOffset: number,
+    widthOffset: (number | string)[],
+    heightOffset: (number | string)[],
 ): CSSObject => {
-    const fullWidth = `calc((100vw - ${widthOffset}px) * ${widthPercentage})`;
-    const fullHeight = `calc(100vh - ${heightOffset}px)`;
+    const fullWidth = `calc((100vw - ${joinOffsetsForCssCalc(widthOffset)}) * ${widthPercentage})`;
+    const fullHeight = `calc(100vh - ${joinOffsetsForCssCalc(heightOffset)})`;
 
     switch (pageScaleMode) {
         case ReaderPageScaleMode.WIDTH:
@@ -220,8 +219,8 @@ export const getReaderImageStyling = (
     pageScaleMode: IReaderSettings['pageScaleMode'],
     isDoublePage: boolean,
     readerWidth: IReaderSettings['readerWidth'],
-    widthOffset: number,
-    heightOffset: number,
+    widthOffset: (number | string)[],
+    heightOffset: (number | string)[],
 ): CSSObject => {
     const widthPercentage = getPageWidthPercentage(pageScaleMode, isDoublePage, readerWidth, true);
     return getReaderDimensionStyling(
@@ -260,10 +259,11 @@ const getPageDownloadPriority = (
     currentPageIndex: number,
     pageIndex: number,
     totalPages: number,
+    isLoaded: boolean,
     shouldLoad: boolean,
     isPreloadMode: boolean,
 ): number => {
-    if (!shouldLoad || isPreloadMode) {
+    if (isLoaded || !shouldLoad || isPreloadMode) {
         return Number.MAX_SAFE_INTEGER;
     }
 
@@ -295,8 +295,7 @@ export const createReaderPage = (
     pageScaleMode: IReaderSettings['pageScaleMode'],
     shouldStretchPage: IReaderSettings['shouldStretchPage'],
     readerWidth: IReaderSettings['readerWidth'],
-    scrollbarXSize: TReaderScrollbarContext['scrollbarXSize'],
-    scrollbarYSize: TReaderScrollbarContext['scrollbarYSize'],
+    safeAreaInset: IReaderSettings['safeAreaInset'],
     readerNavBarWidth: NavbarContextType['readerNavBarWidth'],
     retryKeyPrefix?: string,
     position?: 'left' | 'right',
@@ -313,7 +312,7 @@ export const createReaderPage = (
         src={url}
         alt={alt}
         display={display}
-        priority={getPageDownloadPriority(currentPageIndex, index, totalPages, shouldLoad, isPreloadMode)}
+        priority={getPageDownloadPriority(currentPageIndex, index, totalPages, isLoaded, shouldLoad, isPreloadMode)}
         position={position}
         onLoad={onLoad}
         onError={onError}
@@ -327,8 +326,7 @@ export const createReaderPage = (
         pageScaleMode={pageScaleMode}
         shouldStretchPage={shouldStretchPage}
         readerWidth={readerWidth}
-        scrollbarXSize={scrollbarXSize}
-        scrollbarYSize={scrollbarYSize}
+        safeAreaInset={safeAreaInset}
         readerNavBarWidth={readerNavBarWidth}
     />
 );
@@ -339,13 +337,21 @@ type InViewportThresholds = {
     left?: number;
     right?: number;
 };
-const getIsPageInViewportInfo = (
-    element: HTMLElement,
+type InViewportOptions = {
+    /**
+     * The pages aren't always properly scrolled to the start/end (e.g., via scrollIntoView) which results in a side to be slightly
+     * visible (e.g. 0.0123px) breaking the visibility detection
+     */
+    truncateValues?: boolean;
     /**
      * Thresholds are not considered for the detection of an image filling the whole viewport.
      * They are only used for detecting if a specific side of an image is inside the viewport
      */
-    argThresholds?: InViewportThresholds,
+    thresholds?: InViewportThresholds;
+};
+const getIsPageInViewportInfo = (
+    element: HTMLElement,
+    { truncateValues, thresholds: argThresholds }: InViewportOptions = { truncateValues: true, thresholds: {} },
 ): {
     isLeftInViewport: boolean;
     isRightInViewport: boolean;
@@ -354,7 +360,13 @@ const getIsPageInViewportInfo = (
     isBottomInViewport: boolean;
     isFillingHeightViewportCompletely: boolean;
 } => {
-    const { top, bottom, left, right } = element.getBoundingClientRect();
+    const { top: topRaw, bottom: bottomRaw, left: leftRaw, right: rightRaw } = element.getBoundingClientRect();
+
+    const maybeTruncateValue = (value: number): number => (truncateValues ? Math.trunc(value) : value);
+    const top = maybeTruncateValue(topRaw);
+    const bottom = maybeTruncateValue(bottomRaw);
+    const left = maybeTruncateValue(leftRaw);
+    const right = maybeTruncateValue(rightRaw);
 
     const thresholds = {
         top: 0,
@@ -385,7 +397,7 @@ const getIsPageInViewportInfo = (
 export const isPageInViewport = (
     element: HTMLElement,
     type: PageInViewportType,
-    thresholds?: InViewportThresholds,
+    options?: InViewportOptions,
 ): boolean => {
     const {
         isLeftInViewport,
@@ -394,7 +406,7 @@ export const isPageInViewport = (
         isTopInViewport,
         isBottomInViewport,
         isFillingHeightViewportCompletely,
-    } = getIsPageInViewportInfo(element, thresholds);
+    } = getIsPageInViewportInfo(element, options);
 
     const isInViewportX = isLeftInViewport || isRightInViewport || isFillingWidthViewportCompletely;
     const isInViewportY = isTopInViewport || isBottomInViewport || isFillingHeightViewportCompletely;
@@ -413,8 +425,9 @@ export const isEndOfPageInViewport = (
     element: HTMLElement,
     type: PageInViewportType,
     direction: ReadingDirection,
+    options?: InViewportOptions,
 ): boolean => {
-    const { isLeftInViewport, isRightInViewport, isBottomInViewport } = getIsPageInViewportInfo(element);
+    const { isLeftInViewport, isRightInViewport, isBottomInViewport } = getIsPageInViewportInfo(element, options);
 
     switch (type) {
         case PageInViewportType.X:
@@ -520,12 +533,12 @@ export const isSpreadPage = (image: HTMLImageElement): boolean => {
 };
 
 const MIN_PREVIOUS_NEXT_CHAPTER_IMAGE_LOAD_AMOUNT = 0;
-const MAX_PREVIOUS_NEXT_CHAPTER_IMAGE_LOAD_AMOUNT = 1;
 const getImagePreLoadAmount = (
     isCurrentChapter: boolean,
     isPreviousChapter: boolean,
     isNextChapter: boolean,
     imagePreLoadAmount: number,
+    currentChapterRemainingPages: number,
 ): number => {
     if (isCurrentChapter) {
         return imagePreLoadAmount;
@@ -533,7 +546,7 @@ const getImagePreLoadAmount = (
 
     if (isPreviousChapter || isNextChapter) {
         return coerceIn(
-            MAX_PREVIOUS_NEXT_CHAPTER_IMAGE_LOAD_AMOUNT,
+            imagePreLoadAmount - currentChapterRemainingPages,
             MIN_PREVIOUS_NEXT_CHAPTER_IMAGE_LOAD_AMOUNT,
             imagePreLoadAmount,
         );
@@ -544,6 +557,7 @@ const getImagePreLoadAmount = (
 
 const PREVIOUS_IMAGE_LOAD_AMOUNT = 2;
 export const getPageIndexesToLoad = (
+    currentChapterRemainingPages: number,
     currentPageIndex: number,
     pages: ReaderStatePages['pages'],
     previousCurrentPageIndex: number,
@@ -563,6 +577,7 @@ export const getPageIndexesToLoad = (
         isPreviousChapter,
         isNextChapter,
         imagePreLoadAmount,
+        currentChapterRemainingPages,
     );
 
     const directionInvert = previousCurrentPageIndex <= currentPageIndex && !isPreviousChapter ? 1 : -1;
@@ -593,22 +608,13 @@ export const isATransitionPageVisible = (activeMode: ReaderTransitionPageMode, r
     activeMode !== ReaderTransitionPageMode.NONE || isContinuousReadingMode(readingMode);
 
 export const getScrollIntoViewInlineOption = (
-    offset: DirectionOffset,
     themeDirection: Direction,
     readingDirection: ReadingDirection,
 ): ScrollIntoViewOptions['inline'] => {
     const themeDirectionForReadingDirection = READING_DIRECTION_TO_THEME_DIRECTION[readingDirection];
 
     if (themeDirection === 'ltr') {
-        if (offset === DirectionOffset.PREVIOUS) {
-            return getOptionForDirection('start', 'end', themeDirectionForReadingDirection);
-        }
-
         return getOptionForDirection('start', 'end', themeDirectionForReadingDirection);
-    }
-
-    if (offset === DirectionOffset.PREVIOUS) {
-        return getOptionForDirection('end', 'start', themeDirectionForReadingDirection);
     }
 
     return getOptionForDirection('end', 'start', themeDirectionForReadingDirection);

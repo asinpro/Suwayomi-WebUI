@@ -6,15 +6,11 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { MutableRefObject } from 'react';
-import { TapZoneInvertMode, TapZoneLayouts } from '@/features/reader/tap-zones/TapZoneLayout.types.ts';
-import { TChapterReader } from '@/features/chapter/Chapter.types.ts';
-import { ReaderService } from '@/features/reader/services/ReaderService.ts';
-import { ReaderStatePages } from '@/features/reader/overlay/progress-bar/ReaderProgressBar.types.ts';
-import { TMangaReader } from '@/features/manga/Manga.types.ts';
-import { useAutomaticScrolling } from '@/base/hooks/useAutomaticScrolling.ts';
-import { NavbarContextType } from '@/features/navigation-bar/NavigationBar.types.ts';
-import { ScrollOffset } from '@/base/Base.types.ts';
+import type { MutableRefObject, Ref } from 'react';
+import type { TapZoneInvertMode, TapZoneLayouts } from '@/features/reader/tap-zones/TapZoneLayout.types.ts';
+import type { TChapterReader } from '@/features/chapter/Chapter.types.ts';
+import type { ReaderService } from '@/features/reader/services/ReaderService.ts';
+import type { NavbarContextType } from '@/features/navigation-bar/NavigationBar.types.ts';
 
 export enum ProgressBarType {
     HIDDEN,
@@ -140,6 +136,13 @@ export enum ReaderScrollAmount {
     LARGE = 95,
 }
 
+export interface SafeAreaInset {
+    top: boolean;
+    right: boolean;
+    bottom: boolean;
+    left: boolean;
+}
+
 export interface IReaderSettingsGlobal {
     overlayMode: ReaderOverlayMode;
     exitMode: ReaderExitMode;
@@ -173,6 +176,7 @@ export interface IReaderSettingsGlobal {
     scrollAmount: ReaderScrollAmount;
     shouldUseInfiniteScroll: boolean;
     shouldShowTransitionPage: boolean;
+    safeAreaInset: SafeAreaInset;
 }
 
 export interface IReaderSettingsManga {
@@ -196,11 +200,10 @@ export interface IReaderSettingsManga {
     };
 }
 
-export interface IReaderSettings extends IReaderSettingsGlobal, IReaderSettingsManga {}
+export type IReaderSettings = IReaderSettingsGlobal & IReaderSettingsManga;
 
 export interface IReaderSettingsWithDefaultFlag
-    extends IReaderSettingsGlobal,
-        TransformRecordToWithDefaultFlag<IReaderSettingsManga> {}
+    extends IReaderSettingsGlobal, TransformRecordToWithDefaultFlag<IReaderSettingsManga> {}
 
 export interface ReaderStateChapters {
     /**
@@ -210,7 +213,7 @@ export interface ReaderStateChapters {
      * E.g., in case read chapters are filtered out. This would then lead to the removal of the current chapter
      * after the end of the chapter is reached.
      */
-    mangaChapters?: TChapterReader[];
+    mangaChapters: TChapterReader[] | undefined;
     /**
      * Actual chapters that have been filtered
      *
@@ -219,11 +222,11 @@ export interface ReaderStateChapters {
      *  - Manga chapter list filters
      */
     chapters: TChapterReader[];
-    chapterForDuplicatesHandling?: TChapterReader | null;
-    initialChapter?: TChapterReader | null;
-    currentChapter?: TChapterReader | null;
-    nextChapter?: TChapterReader;
-    previousChapter?: TChapterReader;
+    chapterForDuplicatesHandling: TChapterReader | null | undefined;
+    initialChapter: TChapterReader | null | undefined;
+    currentChapter: TChapterReader | null | undefined;
+    nextChapter: TChapterReader | undefined;
+    previousChapter: TChapterReader | undefined;
     isCurrentChapterReady: boolean;
     /**
      * Based from the initial chapter index
@@ -236,15 +239,14 @@ export interface ReaderStateChapters {
         isLeadingChapterPreloadMode: boolean;
         isTrailingChapterPreloadMode: boolean;
         scrollIntoView: boolean;
-        resumeMode?: ReaderResumeMode;
+        resumeMode: ReaderResumeMode | undefined;
     };
-    setReaderStateChapters: React.Dispatch<React.SetStateAction<Omit<ReaderStateChapters, 'setReaderStateChapters'>>>;
 }
 
 interface ReaderSettingsTypeBaseProps {
     settings: IReaderSettingsWithDefaultFlag;
     updateSetting: (
-        ...args: OmitFirst<Parameters<typeof ReaderService.updateSetting>>
+        ...args: Parameters<typeof ReaderService.updateSetting>
     ) => ReturnType<typeof ReaderService.updateSetting>;
 }
 
@@ -258,7 +260,7 @@ interface ReaderSettingsTypeDefaultableProps extends ReaderSettingsTypeBaseProps
     isDefaultable: true;
 }
 
-interface ReaderSettingsTypeNonDefaultableProps extends ReaderSettingsTypeBaseProps {}
+type ReaderSettingsTypeNonDefaultableProps = ReaderSettingsTypeBaseProps;
 
 export type ReaderSettingsTypeProps =
     | ReaderSettingsTypeDefaultableProps
@@ -284,8 +286,52 @@ export enum ReaderHotkey {
     EXIT_READER,
 }
 
+interface SinglePageData {
+    index: number;
+    alt: string;
+    url: string;
+}
+
+export interface PageData {
+    name: string;
+    primary: SinglePageData;
+    secondary?: SinglePageData;
+}
+
+interface ReaderPageLoadState {
+    url: string;
+    loaded: boolean;
+    error?: boolean;
+}
+
+export interface ReaderStatePages {
+    totalPages: number;
+    setTotalPages: (index: number) => void;
+    currentPageIndex: number;
+    setCurrentPageIndex: (index: number) => void;
+    pageToScrollToIndex: number | null;
+    setPageToScrollToIndex: (total: number | null) => void;
+    pageUrls: string[];
+    setPageUrls: (urls: string[]) => void;
+    pageSpreadStates: ReaderPageSpreadState[];
+    setPageSpreadStates: (
+        set: ((prevStates: ReaderPageSpreadState[]) => ReaderPageSpreadState[]) | ReaderPageSpreadState[],
+    ) => void;
+    pageLoadStates: ReaderPageLoadState[];
+    setPageLoadStates: (
+        set: ((prevStates: ReaderPageLoadState[]) => ReaderPageLoadState[]) | ReaderPageLoadState[],
+    ) => void;
+    pages: PageData[];
+    setPages: (pages: PageData[]) => void;
+    transitionPageMode: ReaderTransitionPageMode;
+    setTransitionPageMode: (mode: ReaderTransitionPageMode) => void;
+    retryFailedPagesKeyPrefix: string;
+    setRetryFailedPagesKeyPrefix: (prefix: string) => void;
+}
+
 export interface ReaderPagerProps
-    extends Pick<
+    extends
+        Pick<
             ReaderStatePages,
             | 'currentPageIndex'
             | 'pages'
@@ -304,8 +350,8 @@ export interface ReaderPagerProps
             | 'customFilter'
             | 'shouldStretchPage'
             | 'readerWidth'
+            | 'safeAreaInset'
         >,
-        Pick<TReaderScrollbarContext, 'scrollbarXSize' | 'scrollbarYSize'>,
         Pick<NavbarContextType, 'readerNavBarWidth'> {
     onLoad?: (pagesIndex: number, url: string, isPrimary?: boolean) => void;
     onError?: (pageIndex: number, url: string) => void;
@@ -316,6 +362,8 @@ export interface ReaderPagerProps
     isPreloadMode: boolean;
     resumeMode: ReaderResumeMode;
     handleAsInitialRender: boolean;
+    ref?: Ref<HTMLDivElement>;
+    currentChapterRemainingPages: number;
 }
 
 export enum PageInViewportType {
@@ -336,33 +384,14 @@ export enum ReaderResumeMode {
     LAST_READ,
 }
 
-export interface ReaderOpenChapterLocationState {
+export interface RouteStateReader {
     resumeMode?: ReaderResumeMode;
     updateInitialChapter?: boolean;
 }
 
-export type TReaderScrollbarContext = {
-    scrollbarXSize: number;
-    setScrollbarXSize: (size: number) => void;
-    scrollbarYSize: number;
-    setScrollbarYSize: (size: number) => void;
-};
-
-export type TReaderStateMangaContext = {
-    manga: TMangaReader | undefined;
-    setManga: (manga: TMangaReader | undefined) => void;
-};
-
 export type TReaderStateSettingsContext = {
     settings: IReaderSettingsWithDefaultFlag;
     setSettings: (settings: IReaderSettingsWithDefaultFlag) => void;
-};
-
-export type TReaderAutoScrollContext = ReturnType<typeof useAutomaticScrolling> & {
-    isActive: boolean;
-    scrollRef?: MutableRefObject<HTMLElement | null> | (() => void);
-    setScrollRef: (scrollRef?: MutableRefObject<HTMLElement | null>) => void;
-    setDirection: (direction: ScrollOffset) => void;
 };
 
 export type ReaderPageSpreadState = { url: string; isSpread: boolean };

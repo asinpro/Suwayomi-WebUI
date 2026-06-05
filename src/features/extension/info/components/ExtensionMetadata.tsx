@@ -6,7 +6,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { ComponentProps } from 'react';
+import type { ComponentProps } from 'react';
 import Divider from '@mui/material/Divider';
 import { Metadata } from '@/base/components/texts/Metadata.tsx';
 
@@ -18,18 +18,16 @@ export const ExtensionMetadata = ({
         <Metadata
             {...props}
             stackProps={{
-                // eslint-disable-next-line react/destructuring-assignment
                 ...props.stackProps,
                 sx: {
-                    // eslint-disable-next-line react/destructuring-assignment
                     ...props.stackProps?.sx,
                     flexDirection: 'column-reverse',
                     alignItems: 'center',
                     flexGrow: 1,
+                    flexBasis: 0,
                 },
             }}
             titleProps={{
-                // eslint-disable-next-line react/destructuring-assignment
                 ...props.titleProps,
                 variant: 'body2',
             }}

@@ -6,7 +6,6 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
 import TextField from '@mui/material/TextField';
 import Stack from '@mui/material/Stack';
@@ -14,24 +13,24 @@ import Button from '@mui/material/Button';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
 import { StringParam, useQueryParam } from 'use-query-params';
+import { useLingui } from '@lingui/react/macro';
 import { PasswordTextField } from '@/base/components/inputs/PasswordTextField.tsx';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { makeToast } from '@/base/utils/Toast.ts';
 import { getErrorMessage } from '@/lib/HelperFunctions.ts';
 import { AuthManager } from '@/features/authentication/AuthManager.ts';
-import { SuwayomiLogo } from '@/assets/SuwayomiLogo.tsx';
-import { useSessionContext } from '@/features/authentication/SessionContext.tsx';
 import { AppRoutes } from '@/base/AppRoute.constants.ts';
 import { useNavBarContext } from '@/features/navigation-bar/NavbarContext.tsx';
 import { SearchParam } from '@/base/Base.types.ts';
+import { SplashScreen } from '@/features/authentication/components/SplashScreen.tsx';
 import { ServerAddressSetting } from '@/features/settings/components/ServerAddressSetting.tsx';
 
 export const LoginPage = () => {
     const theme = useTheme();
-    const { t } = useTranslation();
+    const { t } = useLingui();
     const { setOverride } = useNavBarContext();
     const navigate = useNavigate();
-    const { isAuthRequired, accessToken, refreshToken } = useSessionContext();
+    const isAuthenticated = AuthManager.useIsAuthenticated();
 
     const [redirect] = useQueryParam(SearchParam.REDIRECT, StringParam);
     const [loginUser, { loading: isLoading }] = requestManager.useLoginUser();
@@ -39,18 +38,17 @@ export const LoginPage = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
 
-    const isAuthenticated = !isAuthRequired || (!!isAuthRequired && !!accessToken && !!refreshToken);
-
     const doLogin = async () => {
         try {
             const { data } = await loginUser({ variables: { username, password } });
 
             if (data) {
                 AuthManager.setTokens(data.login.accessToken, data.login.refreshToken);
+                requestManager.processQueues();
                 navigate(redirect ?? AppRoutes.root.path);
             }
         } catch (e) {
-            makeToast(t('tracking.action.login.label.failure', { name: 'Suwayomi' }), 'error', getErrorMessage(e));
+            makeToast(t`Could not log in to Suwayomi`, 'error', getErrorMessage(e));
         }
     };
 
@@ -72,35 +70,31 @@ export const LoginPage = () => {
                 },
             }}
         >
-            <Stack
-                sx={{
-                    minHeight: '50vh',
-                    flexBasis: '60%',
-                    p: 4,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    backgroundColor: 'primary.light',
-                    ...theme.applyStyles('dark', {
-                        backgroundColor: 'primary.dark',
-                    }),
-                    [theme.breakpoints.up('lg')]: {
-                        minHeight: '0vh',
-                        height: '100vh',
+            <SplashScreen
+                slots={{
+                    stackProps: {
+                        sx: {
+                            position: 'unset',
+                            minWidth: 'auto',
+                            minHeight: '50vh',
+                            flexBasis: '60%',
+                            p: 4,
+                            [theme.breakpoints.up('lg')]: {
+                                minHeight: '0vh',
+                                height: '100vh',
+                            },
+                        },
+                    },
+                    serverAddressProps: {
+                        sx: {
+                            display: 'none',
+                        },
                     },
                 }}
-            >
-                <SuwayomiLogo
-                    sx={{
-                        fontSize: 250,
-                        [theme.breakpoints.up('lg')]: {
-                            fontSize: 350,
-                        },
-                    }}
-                    circleRingColor={theme.palette.primary.light}
-                />
-            </Stack>
+            />
             <Stack
                 sx={{
+                    position: 'relative',
                     minHeight: '50vh',
                     flexBasis: '40%',
                     p: 4,
@@ -119,7 +113,7 @@ export const LoginPage = () => {
                             margin="dense"
                             id="username"
                             name="username"
-                            label={t('global.label.username')}
+                            label={t`Username`}
                             type="text"
                             fullWidth
                             variant="standard"
@@ -131,11 +125,13 @@ export const LoginPage = () => {
                             variant="standard"
                             onChange={(e) => setPassword(e.target.value)}
                         />
-                        {import.meta.env.DEV && <ServerAddressSetting />}
                     </Stack>
                     <Button disabled={isLoading || (!username && !password)} variant="contained" onClick={doLogin}>
-                        {t('global.button.log_in')}
+                        {t`Log in`}
                     </Button>
+                    <Stack sx={{ position: 'absolute', left: 0, bottom: 0 }}>
+                        <ServerAddressSetting />
+                    </Stack>
                 </Stack>
             </Stack>
         </Stack>

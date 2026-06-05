@@ -6,30 +6,33 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { MutableRefObject, useEffect } from 'react';
-import { TReaderOverlayContext } from '@/features/reader/overlay/ReaderOverlay.types.ts';
-import { TReaderTapZoneContext } from '@/features/reader/tap-zones/TapZoneLayout.types.ts';
+import type { MutableRefObject } from 'react';
+import { useEffect } from 'react';
+import {
+    getReaderOverlayStore,
+    getReaderTapZoneStore,
+    useReaderTapZoneStore,
+} from '@/features/reader/stores/ReaderStore.ts';
 
 export const useReaderHideOverlayOnUserScroll = (
     isOverlayVisible: boolean,
-    setIsOverlayVisible: TReaderOverlayContext['setIsVisible'],
-    showPreview: TReaderTapZoneContext['showPreview'],
-    setShowPreview: TReaderTapZoneContext['setShowPreview'],
     scrollElementRef: MutableRefObject<HTMLDivElement | null>,
 ) => {
+    const showPreview = useReaderTapZoneStore('showPreview');
+
     useEffect(() => {
         const handleScroll = () => {
             if (isOverlayVisible) {
-                setIsOverlayVisible(false);
+                getReaderOverlayStore().setIsVisible(false);
             }
 
             if (showPreview) {
-                setShowPreview(false);
+                getReaderTapZoneStore().setShowPreview(false);
             }
         };
 
-        scrollElementRef.current?.addEventListener('wheel', handleScroll);
-        scrollElementRef.current?.addEventListener('touchmove', handleScroll);
+        scrollElementRef.current?.addEventListener('wheel', handleScroll, { passive: true });
+        scrollElementRef.current?.addEventListener('touchmove', handleScroll, { passive: true });
         return () => {
             scrollElementRef.current?.removeEventListener('wheel', handleScroll);
             scrollElementRef.current?.removeEventListener('touchmove', handleScroll);

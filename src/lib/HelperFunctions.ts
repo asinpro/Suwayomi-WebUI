@@ -6,7 +6,8 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { ReactNode } from 'react';
+import { CombinedGraphQLErrors } from '@apollo/client';
+import type { ReactNode } from 'react';
 
 export const jsonSaveParse = <T = any>(...args: Parameters<typeof JSON.parse>): T | null => {
     try {
@@ -17,7 +18,7 @@ export const jsonSaveParse = <T = any>(...args: Parameters<typeof JSON.parse>): 
 };
 
 export const getErrorMessage = (error: unknown): string => {
-    if (error instanceof Error) {
+    if (error instanceof Error || CombinedGraphQLErrors.is(error)) {
         return error.message;
     }
 
@@ -34,7 +35,8 @@ export const getValueFromObject = <T>(obj: Record<string, any>, key: string): T 
     return keys.reduce((acc, curr) => acc?.[curr], obj) as T;
 };
 
-export const coerceIn = (value: number, min: number, max: number): number => Math.max(Math.min(value, max), min);
+export const coerceIn = (value: number, min: number, max: number = value): number =>
+    Math.max(Math.min(value, max), min);
 
 export const noOp = () => {};
 
@@ -63,4 +65,20 @@ export const extractGraphqlExceptionInfo = (
         graphqlError: message,
         graphqlStackTrace: stackTrace,
     };
+};
+
+export const getNextRotationValue = <Value>(
+    indexOfValue: number,
+    values: Value[],
+    isDefaultable?: boolean,
+): Value | undefined => {
+    const nextValueIndex = (indexOfValue + 1) % values.length;
+    const wasLastValue = nextValueIndex === 0;
+
+    const isDefaultNextValue = !!isDefaultable && wasLastValue;
+    if (isDefaultNextValue) {
+        return undefined;
+    }
+
+    return values[(indexOfValue + 1) % values.length];
 };

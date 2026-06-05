@@ -6,29 +6,43 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import {
-    createTheme as createMuiTheme,
-    darken,
-    Direction,
-    lighten,
-    responsiveFontSizes,
-    Theme,
-    TypeBackground,
-    useTheme,
-} from '@mui/material/styles';
+import type { Direction, PaletteBackgroundChannel, Theme, TypeBackground } from '@mui/material/styles';
+import { createTheme as createMuiTheme, responsiveFontSizes, useTheme } from '@mui/material/styles';
 import { useCallback } from 'react';
-// eslint-disable-next-line import/no-extraneous-dependencies,no-restricted-imports
+// oxlint-disable-next-line no-restricted-imports
 import { deepmerge } from '@mui/utils';
-// eslint-disable-next-line no-restricted-imports
-import { PaletteBackgroundChannel } from '@mui/material/styles/createThemeWithVars';
-import { Palette } from '@vibrant/color';
-import { TAppThemeContext, ThemeMode } from '@/features/theme/AppThemeContext.tsx';
-import { MediaQuery } from '@/base/utils/MediaQuery.tsx';
-import { AppTheme, loadThemeFonts } from '@/features/theme/services/AppThemes.ts';
+import { complement, hsl, parseToHsl } from 'polished';
+import type { HslaColor, HslColor } from 'polished/lib/types/color';
+import type { AppTheme } from '@/features/theme/services/AppThemes.ts';
 import { defaultPromiseErrorHandler } from '@/lib/DefaultPromiseErrorHandler.ts';
 import { applyStyles } from '@/base/utils/ApplyStyles.ts';
+import type { TAppThemeContext } from '@/features/theme/AppTheme.types.ts';
+import { ThemeMode } from '@/features/theme/AppTheme.types.ts';
+import { ThemeFontLoader } from '@/features/theme/services/ThemeFontLoader.ts';
+import { coerceIn } from '@/lib/HelperFunctions.ts';
+import { MediaQuery } from '@/base/utils/MediaQuery.tsx';
 
 const SCROLLBAR_SIZE = 14;
+
+const isNeutralColor = (color: HslColor | HslaColor): boolean => {
+    const isDesaturated = color.saturation < 0.08;
+    const isNearBlack = color.lightness < 0.03;
+    const isNearWhite = color.lightness > 0.97;
+
+    return isDesaturated || isNearBlack || isNearWhite;
+};
+
+const createBackgroundColors = (color: string, lightnessPaper: number, lightnessDefault: number): TypeBackground => {
+    const colorHsl = parseToHsl(color);
+
+    const saturationBoost = isNeutralColor(colorHsl) ? 0 : 0.15;
+    const saturation = coerceIn(colorHsl.saturation + saturationBoost, 0, 1);
+
+    return {
+        paper: hsl(colorHsl.hue, saturation, lightnessPaper),
+        default: hsl(colorHsl.hue, saturation, lightnessDefault),
+    };
+};
 
 const getBackgroundColor = (
     type: 'light' | 'dark',
@@ -38,7 +52,7 @@ const getBackgroundColor = (
 ): (Partial<TypeBackground> & Partial<PaletteBackgroundChannel>) | undefined => {
     if (setPureBlackMode) {
         return {
-            paper: '#111',
+            paper: '#000',
             default: '#000',
         };
     }
@@ -48,10 +62,7 @@ const getBackgroundColor = (
             return appTheme.colorSchemes.light.palette.background;
         }
 
-        return {
-            paper: lighten(theme.colorSchemes.light.palette.primary.dark, 0.7),
-            default: lighten(theme.colorSchemes.light.palette.primary.dark, 0.8),
-        };
+        return createBackgroundColors(theme.colorSchemes.light.palette.primary.dark, 0.87, 0.93);
     }
 
     if (type === 'dark' && !!theme.colorSchemes.dark) {
@@ -59,85 +70,62 @@ const getBackgroundColor = (
             return appTheme.colorSchemes.dark.palette.background;
         }
 
-        return {
-            paper: darken(theme.colorSchemes.dark.palette.primary.dark, 0.8),
-            default: darken(theme.colorSchemes.dark.palette.primary.dark, 0.9),
-        };
+        return createBackgroundColors(theme.colorSchemes.dark.palette.primary.dark, 0.06, 0.03);
     }
 
     return undefined;
 };
 
-const createAppThemeWithDynamicPrimaryColor = (
-    primaryColor: string | null | undefined,
+const createAppThemeWithDynamicColors = (
+    primaryColorDark: string | null | undefined,
+    primaryColorLight: string | null | undefined,
     appTheme: AppTheme['muiTheme'],
 ): AppTheme['muiTheme'] => {
-    if (!primaryColor) {
+    if (!primaryColorDark || !primaryColorLight) {
         return appTheme;
     }
 
     return {
         ...appTheme,
         colorSchemes: {
-            light: { palette: { primary: { main: primaryColor } } },
-            dark: { palette: { primary: { main: primaryColor } } },
+            light: {
+                palette: {
+                    primary: { main: primaryColorLight },
+                    secondary: { main: complement(primaryColorLight) },
+                },
+            },
+            dark: {
+                palette: {
+                    primary: { main: primaryColorDark },
+                    secondary: { main: complement(primaryColorDark) },
+                },
+            },
         },
     } satisfies AppTheme['muiTheme'];
 };
 
-const getHighestPopulationColor = (
-    palette: NonNullableProperties<Palette> | null,
+const getVibrantColorForTheme = (
+    palette: TAppThemeContext['dynamicColor'] | null,
     mode: Exclude<ThemeMode, ThemeMode.SYSTEM>,
-): string | null => {
+): string | undefined => {
     if (!palette) {
-        return null;
+        return undefined;
     }
 
-    let highestPopulation = 0;
-    let highestPopulationKey: string = '';
-    let highestPopulationColor: string = '';
-
-    // eslint-disable-next-line guard-for-in
-    for (const key in palette) {
-        const swatch = palette[key];
-
-        if (swatch.population > highestPopulation) {
-            highestPopulationKey = key;
-            highestPopulation = swatch.population;
-            highestPopulationColor = swatch.hex;
-        }
-    }
-
-    if (mode === ThemeMode.LIGHT) {
-        if (highestPopulationKey.startsWith('Light')) {
-            return palette[highestPopulationKey.replace('Light', 'Dark')].hex;
-        }
-
-        if (!highestPopulationKey.startsWith('Dark')) {
-            return palette[`Dark${highestPopulationKey}`].hex;
-        }
-    }
-
-    if (mode === ThemeMode.DARK) {
-        if (highestPopulationKey.startsWith('Dark')) {
-            return palette[highestPopulationKey.replace('Dark', 'Light')].hex;
-        }
-
-        if (!highestPopulationKey.startsWith('Light')) {
-            return palette[`Light${highestPopulationKey}`].hex;
-        }
-    }
-
-    return highestPopulationColor;
+    return mode === ThemeMode.LIGHT ? palette.DarkVibrant.hex : palette.LightVibrant.hex;
 };
 
-const createAppColorTheme = (
+export const createAppColorTheme = (
     appTheme: AppTheme['muiTheme'],
     dynamicColor: TAppThemeContext['dynamicColor'],
     setPureBlackMode: boolean,
     mode: Exclude<ThemeMode, ThemeMode.SYSTEM>,
 ): AppTheme['muiTheme'] => {
-    const appThemeWithDominantPrimaryColor = createAppThemeWithDynamicPrimaryColor(dynamicColor?.average.hex, appTheme);
+    const appThemeWithDominantPrimaryColor = createAppThemeWithDynamicColors(
+        dynamicColor?.average.hex,
+        dynamicColor?.average.hex,
+        appTheme,
+    );
     const themePrimaryColorForBackground = createMuiTheme({
         ...appThemeWithDominantPrimaryColor,
         defaultColorScheme: mode,
@@ -172,8 +160,9 @@ const createAppColorTheme = (
         },
     });
 
-    const appThemeWithVibrantPrimaryColor = createAppThemeWithDynamicPrimaryColor(
-        getHighestPopulationColor(dynamicColor, mode),
+    const appThemeWithVibrantPrimaryColor = createAppThemeWithDynamicColors(
+        getVibrantColorForTheme(dynamicColor, ThemeMode.DARK),
+        getVibrantColorForTheme(dynamicColor, ThemeMode.LIGHT),
         themeBackgroundColor,
     );
     return deepmerge(themeBackgroundColor, appThemeWithVibrantPrimaryColor);
@@ -186,9 +175,7 @@ export const createTheme = (
     direction: Direction = 'ltr',
     dynamicColor: TAppThemeContext['dynamicColor'] = null,
 ) => {
-    const systemMode = MediaQuery.getSystemThemeMode();
-
-    const mode = themeMode === ThemeMode.SYSTEM ? systemMode : themeMode;
+    const mode = MediaQuery.getThemeMode(themeMode);
     const isDarkMode = mode === ThemeMode.DARK;
     const setPureBlackMode = isDarkMode && pureBlackMode;
 
@@ -206,6 +193,10 @@ export const createTheme = (
         deepmerge(appColorTheme, {
             defaultColorScheme: mode,
             direction,
+            typography: {
+                fontSize: 13,
+                ...appTheme.muiTheme.typography,
+            },
             components: {
                 ...appTheme.muiTheme.components,
                 MuiUseMediaQuery: {
@@ -276,7 +267,7 @@ let theme: Theme;
 export const getCurrentTheme = () => theme;
 export const createAndSetTheme = (...args: Parameters<typeof createTheme>) => {
     theme = createTheme(...args);
-    loadThemeFonts(theme).catch(defaultPromiseErrorHandler('theme::createAndSetTheme'));
+    ThemeFontLoader.load(theme).catch(defaultPromiseErrorHandler('theme::createAndSetTheme'));
 
     return theme;
 };
